@@ -2,7 +2,7 @@
 REM TODO - can we just build both with one exe?
 
 set CommonCompilerFlags=-MTd -nologo -Gm- -GR- -EHa- -Od -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -wd4456 -wd4505 -DHANDMADE_INTERNAL=1 -FAsc -Z7
-set CommonLinkerFlags=-incremental:no -opt:ref user32.lib
+set CommonLinkerFlags=-incremental:no -opt:ref user32.lib d3d11.lib
 REM user32.lib gdi32.lib winmm.lib
 
 IF NOT EXIST ..\build mkdir ..\build
