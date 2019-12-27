@@ -10,6 +10,6 @@
 
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
-    real32 ClearColor[] = {1.f, 0.f, 1.f, 1.f};
+    real32 ClearColor[] = {1.f, 0.f, 0.f, 1.f};
     Context->ClearRenderTargetView(View, ClearColor);
 }

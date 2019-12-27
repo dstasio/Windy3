@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <d3d11.h>
 #include "windy_platform.h"
+#include "win32_layer.h"
 #include <stdio.h>
 //#include <d3d10.h>
 
@@ -32,10 +33,19 @@
 
 global bool32 GlobalRunning;
 
-internal void
-CopyWindyDLL()
+inline FILETIME
+GetLastWriteTime(char *Path)
 {
-    char OriginalPath[MAX_PATH];
+    WIN32_FILE_ATTRIBUTE_DATA FileAttribs = {};
+    GetFileAttributesExA(Path, GetFileExInfoStandard, (void *)&FileAttribs);
+
+    return(FileAttribs.ftLastWriteTime);
+}
+
+// NOTE(dave): This requires char arrays of length 'MAX_PATH'
+internal void
+GetWindyPaths(char *OriginalPath, char *TempPath)
+{
     uint32 PathLength = GetModuleFileNameA(0, OriginalPath, MAX_PATH);
 
     char *c = OriginalPath + PathLength;
@@ -50,7 +60,6 @@ CopyWindyDLL()
     }
     OriginalPath[++PathLength] = '\0';
 
-    char TempPath[MAX_PATH];
     for(uint32 i = 0;
         i <= PathLength;
         ++i)
@@ -59,39 +68,50 @@ CopyWindyDLL()
     }
     TempPath[PathLength] = '0';
     TempPath[PathLength+1] = '\0';
-
-    while(!CopyFile(OriginalPath, TempPath, false)) {}
 }
 
-internal HMODULE
+
+internal win32_game_code
 LoadWindy(game_memory *Memory)
 {
-    CopyWindyDLL();
-    HMODULE WindyDLL = LoadLibraryA("windy.dll0");
-    if(WindyDLL)
+    win32_game_code GameCode = {};
+    GameCode.DLL = LoadLibraryA("windy.dll0");
+    if(GameCode.DLL)
     {
-        Memory->GameUpdateAndRender = (game_update_and_render *)GetProcAddress(WindyDLL, "WindyUpdateAndRender");
+        Memory->GameUpdateAndRender = (game_update_and_render *)GetProcAddress(GameCode.DLL, "WindyUpdateAndRender");
     }
     else
     {
         ThrowErrorAndExit("Could not load windy.dll0");
     }
 
-    return(WindyDLL);
+    return(GameCode);
 }
 
 internal void
-UnloadWindy(game_memory *Memory, HMODULE WindyDLL)
+UnloadWindy(game_memory *Memory, win32_game_code *GameCode)
 {
     Memory->GameUpdateAndRender = 0;
-    FreeLibrary(WindyDLL);
+    FreeLibrary(GameCode->DLL);
 }
 
 internal void
-ReloadWindy(game_memory *Memory, HMODULE *WindyDLL)
+CheckAndReloadWindy(game_memory *Memory, win32_game_code *GameCode)
 {
-    UnloadWindy(Memory, *WindyDLL);
-    *WindyDLL = LoadWindy(Memory);
+    char OriginalPath[MAX_PATH];
+    char TempPath[MAX_PATH];
+    GetWindyPaths(OriginalPath, TempPath);
+
+    FILETIME CurrentWriteTime = GetLastWriteTime(OriginalPath);
+
+    if(CompareFileTime(&CurrentWriteTime, &GameCode->WriteTime))
+    {
+        UnloadWindy(Memory, GameCode);
+
+        while(!CopyFile(OriginalPath, TempPath, false)) {}
+        *GameCode = LoadWindy(Memory);
+        GameCode->WriteTime = CurrentWriteTime;
+    }
 }
 
 LRESULT CALLBACK WindyProc(
@@ -157,7 +177,7 @@ WinMain(
         GlobalRunning = true;
         game_memory GameMemory = {};
 
-        HMODULE WindyDLL = LoadWindy(&GameMemory);
+        win32_game_code Windy = LoadWindy(&GameMemory);
 
         ID3D11Device *RenderingDevice = 0;
         ID3D11DeviceContext *RenderingContext = 0;
@@ -224,7 +244,7 @@ WinMain(
                 return 1;
             }
 
-            ReloadWindy(&GameMemory, &WindyDLL);
+            CheckAndReloadWindy(&GameMemory, &Windy);
 
             if(GameMemory.GameUpdateAndRender)
             {
