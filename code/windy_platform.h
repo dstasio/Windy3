@@ -28,5 +28,24 @@ typedef size_t memory_index;
 typedef float real32;
 typedef double real64;
 
+#if WINDY_INTERNAL
+#define Assert(x) (if(!(x)) *((int *)0) = 0;)
+#else
+#define Assert(x)
+#endif
+
+#define GAME_UPDATE_AND_RENDER(name) void name(ID3D11DeviceContext *Context, ID3D11RenderTargetView *View)
+typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
+
+typedef struct game_memory
+{
+    bool32 IsInitialized;
+
+    uint64 StorageSize;
+    void *Storage;
+
+    game_update_and_render *GameUpdateAndRender;
+} game_memory;
+
 #define WINDY_PLATFORM_H
 #endif

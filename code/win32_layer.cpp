@@ -7,14 +7,92 @@
    ======================================================================== */
 
 #include <windows.h>
-#include "windy_platform.h"
 #include <d3d11.h>
+#include "windy_platform.h"
+#include <stdio.h>
 //#include <d3d10.h>
+
+#if WINDY_INTERNAL
+#define ThrowErrorAndExit(e, ...) {printf("[ERROR] " ## e, __VA_ARGS__); getchar(); GlobalRunning = false;}
+#define ThrowError(e, ...) {printf("[ERROR] " ## e, __VA_ARGS__);}
+#define Warn(w, ...) {printf("[WARNING] " ## w, __VA_ARGS__);}
+#else
+#define ThrowErrorAndExit(e, ...)
+#define ThrowError(e, ...)
+#define Warn(w, ...)
+#endif
+
+#ifndef MAX_PATH
+#define MAX_PATH 100
+#endif
+
 
 #define WIDTH 1024
 #define HEIGHT 720
 
 global bool32 GlobalRunning;
+
+internal void
+CopyWindyDLL()
+{
+    char OriginalPath[MAX_PATH];
+    uint32 PathLength = GetModuleFileNameA(0, OriginalPath, MAX_PATH);
+
+    char *c = OriginalPath + PathLength;
+    while(*c != '\\') {c--; PathLength--;}
+
+    char *DLLName = "windy.dll";
+
+    while(*DLLName != '\0')
+    {
+        *(++c) = *(DLLName++);
+        PathLength++;
+    }
+    OriginalPath[++PathLength] = '\0';
+
+    char TempPath[MAX_PATH];
+    for(uint32 i = 0;
+        i <= PathLength;
+        ++i)
+    {
+        TempPath[i] = OriginalPath[i];
+    }
+    TempPath[PathLength] = '0';
+    TempPath[PathLength+1] = '\0';
+
+    while(!CopyFile(OriginalPath, TempPath, false)) {}
+}
+
+internal HMODULE
+LoadWindy(game_memory *Memory)
+{
+    CopyWindyDLL();
+    HMODULE WindyDLL = LoadLibraryA("windy.dll0");
+    if(WindyDLL)
+    {
+        Memory->GameUpdateAndRender = (game_update_and_render *)GetProcAddress(WindyDLL, "WindyUpdateAndRender");
+    }
+    else
+    {
+        ThrowErrorAndExit("Could not load windy.dll0");
+    }
+
+    return(WindyDLL);
+}
+
+internal void
+UnloadWindy(game_memory *Memory, HMODULE WindyDLL)
+{
+    Memory->GameUpdateAndRender = 0;
+    FreeLibrary(WindyDLL);
+}
+
+internal void
+ReloadWindy(game_memory *Memory, HMODULE *WindyDLL)
+{
+    UnloadWindy(Memory, *WindyDLL);
+    *WindyDLL = LoadWindy(Memory);
+}
 
 LRESULT CALLBACK WindyProc(
     HWND   WindowHandle,
@@ -77,6 +155,9 @@ WinMain(
     if(MainWindow)
     {
         GlobalRunning = true;
+        game_memory GameMemory = {};
+
+        HMODULE WindyDLL = LoadWindy(&GameMemory);
 
         ID3D11Device *RenderingDevice = 0;
         ID3D11DeviceContext *RenderingContext = 0;
@@ -143,9 +224,12 @@ WinMain(
                 return 1;
             }
 
+            ReloadWindy(&GameMemory, &WindyDLL);
 
-            real32 ClearColor[] = {1.f, 0.f, 1.f, 1.f};
-            RenderingContext->ClearRenderTargetView(TargetView, ClearColor);
+            if(GameMemory.GameUpdateAndRender)
+            {
+                GameMemory.GameUpdateAndRender(RenderingContext, TargetView);
+            }
 
             SwapChain->Present(0, 0);
         }

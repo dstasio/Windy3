@@ -1,7 +1,7 @@
 @echo off
 REM TODO - can we just build both with one exe?
 
-set CommonCompilerFlags=-MTd -nologo -Gm- -GR- -EHa- -Od -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -wd4456 -wd4505 -DHANDMADE_INTERNAL=1 -FAsc -Z7
+set CommonCompilerFlags=-MTd -nologo -Gm- -GR- -EHa- -Od -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -wd4456 -wd4505 -DWINDY_INTERNAL=1 -FAsc -Z7
 set CommonLinkerFlags=-incremental:no -opt:ref user32.lib d3d11.lib
 REM user32.lib gdi32.lib winmm.lib
 
@@ -13,7 +13,7 @@ REM cl %CommonCompilerFlags% ..\code\win32_handmade.cpp /link -subsystem:windows
 
 REM 64-bit build
 del *.pdb > NUL 2> NUL
-REM cl %CommonCompilerFlags% ..\code\windy.cpp -Fmwindy.map -LD /link -incremental:no /PDB:windy_%random%.pdb -EXPORT:GameGetSoundSamples -EXPORT:GameUpdateAndRender
+cl %CommonCompilerFlags% ..\code\windy.cpp -Fmwindy.map -LD /link -incremental:no /PDB:windy_%random%.pdb -EXPORT:WindyUpdateAndRender
 cl %CommonCompilerFlags% ..\code\win32_layer.cpp -Fmwin32_windy.map /link %CommonLinkerFlags%
 popd
 
