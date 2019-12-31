@@ -18,7 +18,7 @@ main(VS_INPUT Input) : SV_POSITION
 float4
 main() : SV_TARGET
 {
-    float4 Color = float4(0.8f, 0.3f, 0.5f, 1.f);
+    float4 Color = float4(0.8f, 0.9f, 0.5f, 1.f);
 
     return(Color);
 }

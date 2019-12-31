@@ -16,5 +16,11 @@ struct win32_game_code
     game_update_and_render *GameUpdateAndRender;
 };
 
+struct shader
+{
+    file Bytes;
+    FILETIME WriteTime;
+};
+
 #define WIN32_LAYER_H
 #endif

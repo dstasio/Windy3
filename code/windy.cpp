@@ -18,18 +18,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     if(!Memory->IsInitialized)
     {
         //
-        // shader initialization
-        //
-        ID3D11VertexShader *VertexShader;
-        ID3D11PixelShader *PixelShader;
-        file VertexBytes = Memory->ReadFile("assets\\vs.sh");
-        file PixelBytes = Memory->ReadFile("assets\\ps.sh");
-        Device->CreateVertexShader(VertexBytes.Data, VertexBytes.Size,
-                                   0, &VertexShader);
-        Device->CreatePixelShader(PixelBytes.Data, PixelBytes.Size,
-                                  0, &PixelShader);
-
-        //
         // sending data to gpu
         //
         ID3D11Buffer *Buffer;
@@ -60,8 +48,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                                   VertexBytes.Data, VertexBytes.Size,
                                   &InputLayout);
 
-        Context->VSSetShader(VertexShader, 0, 0);
-        Context->PSSetShader(PixelShader, 0, 0);
         // TODO(dave): can strides and offsets be 0???
         u32 Stride = sizeof(vertex_shader_input);
         u32 Offset = 0;

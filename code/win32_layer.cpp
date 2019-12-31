@@ -58,6 +58,7 @@ PLATFORM_READ_FILE(Win32ReadFile)
             ThrowErrorAndExit("Unable to read file: %s", Path);
         }
 
+        CloseHandle(FileHandle);
     }
     else
     {
@@ -104,7 +105,6 @@ GetWindyPaths(char *OriginalPath, char *TempPath)
     TempPath[PathLength+1] = '\0';
 }
 
-
 internal win32_game_code
 LoadWindy()
 {
@@ -146,6 +146,22 @@ CheckAndReloadWindy(win32_game_code *GameCode)
         *GameCode = LoadWindy();
         GameCode->WriteTime = CurrentWriteTime;
     }
+}
+
+internal b32
+CheckAndReloadShader(char *Path, shader *Shader)
+{
+    b32 HasChanged = false;
+    FILETIME CurrentWriteTime = GetLastWriteTime(Path);
+
+    if(CompareFileTime(&CurrentWriteTime, &Shader->WriteTime))
+    {
+        Shader->Bytes = Win32ReadFile(Path);
+        Shader->WriteTime = CurrentWriteTime;
+        HasChanged = true;
+    }
+
+    return(HasChanged);
 }
 
 LRESULT CALLBACK WindyProc(
@@ -263,6 +279,23 @@ WinMain(
         Viewport.Height = HEIGHT;
         RenderingContext->RSSetViewports(1, &Viewport);
 
+        //
+        // shader initialization
+        //
+        // TODO(dave): Include all this in GameState struct
+        shader VSRaw = {};
+        shader PSRaw = {};
+        ID3D11VertexShader *VSLinked;
+        ID3D11PixelShader *PSLinked;
+        CheckAndReloadShader("assets\\vs.sh", &VSRaw);
+        RenderingDevice->CreateVertexShader(VSRaw.Bytes.Data, VSRaw.Bytes.Size,
+                                            0, &VSLinked);
+        CheckAndReloadShader("assets\\ps.sh", &PSRaw);
+        RenderingDevice->CreatePixelShader(PSRaw.Bytes.Data, PSRaw.Bytes.Size,
+                                           0, &PSLinked);
+        RenderingContext->VSSetShader(VSLinked, 0, 0);
+        RenderingContext->PSSetShader(PSLinked, 0, 0);
+
         MSG Message = {};
         while(GlobalRunning)
         {
@@ -279,11 +312,26 @@ WinMain(
 
 #if WINDY_INTERNAL
             CheckAndReloadWindy(&Windy);
+
+            //if(CheckAndReloadShader("assets\\vs.sh", &VSRaw))
+            //{
+            //    VSLinked->Release();
+            //    RenderingDevice->CreateVertexShader(VSRaw.Bytes.Data, VSRaw.Bytes.Size,
+            //                                        0, &VSLinked);
+            //    RenderingContext->VSSetShader(VSLinked, 0, 0);
+            //}
+            if(CheckAndReloadShader("assets\\ps.sh", &PSRaw))
+            {
+                PSLinked->Release();
+                RenderingDevice->CreatePixelShader(PSRaw.Bytes.Data, PSRaw.Bytes.Size,
+                                                   0, &PSLinked);
+                RenderingContext->PSSetShader(PSLinked, 0, 0);
+            }
 #endif
 
             if(Windy.GameUpdateAndRender)
             {
-                Windy.GameUpdateAndRender(RenderingDevice, RenderingContext, TargetView, &GameMemory);
+                Windy.GameUpdateAndRender(RenderingDevice, RenderingContext, TargetView, VSRaw.Bytes, &GameMemory);
             }
 
             SwapChain->Present(0, 0);

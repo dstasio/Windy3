@@ -20,7 +20,9 @@ cl %CommonCompilerFlags% ..\code\win32_layer.cpp -Fmwin32_windy.map /link %Commo
 popd
 
 pushd ..\rundata\assets
-fxc -nologo -Tvs_5_0 -DVERTEX_HLSL=1 -DPIXEL_HLSL=0 ..\..\code\monotriangle.hlsl -Fovs.sh
-fxc -nologo -Tps_5_0 -DVERTEX_HLSL=0 -DPIXEL_HLSL=2 ..\..\code\monotriangle.hlsl -Fops.sh
+fxc -nologo -Tvs_5_0 -DVERTEX_HLSL=1 -DPIXEL_HLSL=0 ..\..\code\monotriangle.hlsl -Fovs.tmp
+fxc -nologo -Tps_5_0 -DVERTEX_HLSL=0 -DPIXEL_HLSL=2 ..\..\code\monotriangle.hlsl -Fops.tmp
+move /Y vs.tmp vs.sh
+move /Y ps.tmp ps.sh
 popd
 

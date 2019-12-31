@@ -53,7 +53,7 @@ typedef struct game_memory
     platform_read_file *ReadFile;
 } game_memory;
 
-#define GAME_UPDATE_AND_RENDER(name) void name(ID3D11Device *Device, ID3D11DeviceContext *Context, ID3D11RenderTargetView *View, game_memory *Memory)
+#define GAME_UPDATE_AND_RENDER(name) void name(ID3D11Device *Device, ID3D11DeviceContext *Context, ID3D11RenderTargetView *View, file VertexBytes, game_memory *Memory)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 
 #define WINDY_PLATFORM_H
