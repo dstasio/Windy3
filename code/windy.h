@@ -1,4 +1,4 @@
-#if !defined(WIN32_LAYER_H)
+#if !defined(WINDY_H)
 /* ========================================================================
    $File: $
    $Date: $
@@ -7,14 +7,9 @@
    $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
    ======================================================================== */
 
-struct win32_game_code
+struct input
 {
-    HMODULE DLL;
-    //char *DLLPath;
-    FILETIME WriteTime;
-
-    game_update_and_render *GameUpdateAndRender;
 };
 
-#define WIN32_LAYER_H
+#define WINDY_H
 #endif

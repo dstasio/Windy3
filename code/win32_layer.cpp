@@ -31,7 +31,41 @@
 #define WIDTH 1024
 #define HEIGHT 720
 
-global bool32 GlobalRunning;
+global b32 GlobalRunning;
+
+internal
+PLATFORM_READ_FILE(Win32ReadFile)
+{
+    file Result = {};
+    HANDLE FileHandle = CreateFileA(Path, GENERIC_READ, FILE_SHARE_READ, 0,
+                                    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+
+    if (FileHandle != INVALID_HANDLE_VALUE)
+    {
+        // TODO(dave): Currently only supports up to 4GB files
+        u32 FileSize = GetFileSize(FileHandle, 0);
+        DWORD BytesRead;
+
+        // TODO(dave): Remove this allocation
+        u8 *Buffer = (u8 *)VirtualAlloc(0, FileSize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+        if(ReadFile(FileHandle, Buffer, FileSize, &BytesRead, 0))
+        {
+            Result.Data = Buffer;
+            Result.Size = (u32)BytesRead;
+        }
+        else
+        {
+            ThrowErrorAndExit("Unable to read file: %s", Path);
+        }
+
+    }
+    else
+    {
+        ThrowErrorAndExit("Unable to open file: %s", Path);
+    }
+
+    return(Result);
+}
 
 inline FILETIME
 GetLastWriteTime(char *Path)
@@ -46,7 +80,7 @@ GetLastWriteTime(char *Path)
 internal void
 GetWindyPaths(char *OriginalPath, char *TempPath)
 {
-    uint32 PathLength = GetModuleFileNameA(0, OriginalPath, MAX_PATH);
+    u32 PathLength = GetModuleFileNameA(0, OriginalPath, MAX_PATH);
 
     char *c = OriginalPath + PathLength;
     while(*c != '\\') {c--; PathLength--;}
@@ -60,7 +94,7 @@ GetWindyPaths(char *OriginalPath, char *TempPath)
     }
     OriginalPath[++PathLength] = '\0';
 
-    for(uint32 i = 0;
+    for(u32 i = 0;
         i <= PathLength;
         ++i)
     {
@@ -72,13 +106,13 @@ GetWindyPaths(char *OriginalPath, char *TempPath)
 
 
 internal win32_game_code
-LoadWindy(game_memory *Memory)
+LoadWindy()
 {
     win32_game_code GameCode = {};
     GameCode.DLL = LoadLibraryA("windy.dll0");
     if(GameCode.DLL)
     {
-        Memory->GameUpdateAndRender = (game_update_and_render *)GetProcAddress(GameCode.DLL, "WindyUpdateAndRender");
+        GameCode.GameUpdateAndRender = (game_update_and_render *)GetProcAddress(GameCode.DLL, "WindyUpdateAndRender");
     }
     else
     {
@@ -89,14 +123,14 @@ LoadWindy(game_memory *Memory)
 }
 
 internal void
-UnloadWindy(game_memory *Memory, win32_game_code *GameCode)
+UnloadWindy(win32_game_code *GameCode)
 {
-    Memory->GameUpdateAndRender = 0;
+    GameCode->GameUpdateAndRender = 0;
     FreeLibrary(GameCode->DLL);
 }
 
 internal void
-CheckAndReloadWindy(game_memory *Memory, win32_game_code *GameCode)
+CheckAndReloadWindy(win32_game_code *GameCode)
 {
     char OriginalPath[MAX_PATH];
     char TempPath[MAX_PATH];
@@ -106,10 +140,10 @@ CheckAndReloadWindy(game_memory *Memory, win32_game_code *GameCode)
 
     if(CompareFileTime(&CurrentWriteTime, &GameCode->WriteTime))
     {
-        UnloadWindy(Memory, GameCode);
+        UnloadWindy(GameCode);
 
         while(!CopyFile(OriginalPath, TempPath, false)) {}
-        *GameCode = LoadWindy(Memory);
+        *GameCode = LoadWindy();
         GameCode->WriteTime = CurrentWriteTime;
     }
 }
@@ -176,8 +210,9 @@ WinMain(
     {
         GlobalRunning = true;
         game_memory GameMemory = {};
+        GameMemory.ReadFile = Win32ReadFile;
 
-        win32_game_code Windy = LoadWindy(&GameMemory);
+        win32_game_code Windy = LoadWindy();
 
         ID3D11Device *RenderingDevice = 0;
         ID3D11DeviceContext *RenderingContext = 0;
@@ -205,7 +240,7 @@ WinMain(
             0,
             D3D_DRIVER_TYPE_HARDWARE,
             0,
-            D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+            D3D11_CREATE_DEVICE_BGRA_SUPPORT|D3D11_CREATE_DEVICE_DEBUG,
             0,
             0,
             D3D11_SDK_VERSION,
@@ -216,12 +251,10 @@ WinMain(
             &RenderingContext
         );
 
-
         ID3D11Texture2D *BackBuffer = 0;
         ID3D11RenderTargetView *TargetView = 0;
         SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&BackBuffer);
         RenderingDevice->CreateRenderTargetView(BackBuffer, 0, &TargetView);
-        RenderingContext->OMSetRenderTargets(0, &TargetView, 0);
 
         D3D11_VIEWPORT Viewport = {};
         Viewport.TopLeftX = 0;
@@ -244,11 +277,13 @@ WinMain(
                 return 1;
             }
 
-            CheckAndReloadWindy(&GameMemory, &Windy);
+#if WINDY_INTERNAL
+            CheckAndReloadWindy(&Windy);
+#endif
 
-            if(GameMemory.GameUpdateAndRender)
+            if(Windy.GameUpdateAndRender)
             {
-                GameMemory.GameUpdateAndRender(RenderingContext, TargetView);
+                Windy.GameUpdateAndRender(RenderingDevice, RenderingContext, TargetView, &GameMemory);
             }
 
             SwapChain->Present(0, 0);

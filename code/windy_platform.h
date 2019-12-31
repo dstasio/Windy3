@@ -12,21 +12,21 @@
 #define internal static
 #define local_persist static
 
-typedef uint8_t uint8;
-typedef uint16_t uint16;
-typedef uint32_t uint32;
-typedef uint64_t uint64;
+typedef uint8_t  u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
 
-typedef int8_t int8;
-typedef int16_t int16;
-typedef int32_t int32;
-typedef int64_t int64;
-typedef int32 bool32;
+typedef int8_t  i8;
+typedef int16_t i16;
+typedef int32_t i32;
+typedef int64_t i64;
+typedef i32 b32;
 
 typedef size_t memory_index;
 
-typedef float real32;
-typedef double real64;
+typedef float  r32;
+typedef double r64;
 
 #if WINDY_INTERNAL
 #define Assert(x) (if(!(x)) *((int *)0) = 0;)
@@ -34,18 +34,27 @@ typedef double real64;
 #define Assert(x)
 #endif
 
-#define GAME_UPDATE_AND_RENDER(name) void name(ID3D11DeviceContext *Context, ID3D11RenderTargetView *View)
-typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
+struct file
+{
+    u8 *Data;
+    u64 Size;
+};
 
+#define PLATFORM_READ_FILE(name) file name(char *Path)
+typedef PLATFORM_READ_FILE(platform_read_file);
+ 
 typedef struct game_memory
 {
-    bool32 IsInitialized;
+    b32 IsInitialized;
 
-    uint64 StorageSize;
+    u64 StorageSize;
     void *Storage;
 
-    game_update_and_render *GameUpdateAndRender;
+    platform_read_file *ReadFile;
 } game_memory;
+
+#define GAME_UPDATE_AND_RENDER(name) void name(ID3D11Device *Device, ID3D11DeviceContext *Context, ID3D11RenderTargetView *View, game_memory *Memory)
+typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 
 #define WINDY_PLATFORM_H
 #endif
