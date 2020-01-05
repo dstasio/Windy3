@@ -8,19 +8,26 @@
 
 #include <windows.h>
 #include <d3d11.h>
+
+#include "windy.h"
 #include "windy_platform.h"
+
 #include "win32_layer.h"
 #include <stdio.h>
 //#include <d3d10.h>
 
 #if WINDY_INTERNAL
-#define ThrowErrorAndExit(e, ...) {printf("[ERROR] " ## e, __VA_ARGS__); getchar(); GlobalRunning = false;}
-#define ThrowError(e, ...) {printf("[ERROR] " ## e, __VA_ARGS__);}
-#define Warn(w, ...) {printf("[WARNING] " ## w, __VA_ARGS__);}
+#define OutputString(s, ...) {char Buffer[100];sprintf_s(Buffer, s, __VA_ARGS__);OutputDebugStringA(Buffer);}
+#define ThrowErrorAndExit(e, ...) {OutputString("[ERROR] " ## e, __VA_ARGS__); getchar(); GlobalRunning = false;}
+#define ThrowError(e, ...) OutputString("[ERROR] " ## e, __VA_ARGS__)
+#define Warn(w, ...) OutputString("[WARNING] " ## w, __VA_ARGS__)
+#define Info(i, ...) OutputString("[INFO] " ## i, __VA_ARGS__)
 #else
+#define OutputString(s, ...)
 #define ThrowErrorAndExit(e, ...)
 #define ThrowError(e, ...)
 #define Warn(w, ...)
+#define Info(i, ...)
 #endif
 
 #ifndef MAX_PATH
@@ -224,8 +231,16 @@ WinMain(
 
     if(MainWindow)
     {
+#if WINDY_INTERNAL
+        LPVOID BaseAddress = (LPVOID)Terabytes(2);
+#else
+        LPVOID BaseAddress = 0;
+#endif
         GlobalRunning = true;
         game_memory GameMemory = {};
+        GameMemory.StorageSize = Megabytes(500);
+        GameMemory.Storage = VirtualAlloc(BaseAddress, GameMemory.StorageSize,
+                                           MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
         GameMemory.ReadFile = Win32ReadFile;
 
         win32_game_code Windy = LoadWindy();
@@ -296,32 +311,72 @@ WinMain(
         RenderingContext->VSSetShader(VSLinked, 0, 0);
         RenderingContext->PSSetShader(PSLinked, 0, 0);
 
+        input Inputs[1] = {};
+
+        input *NewInput = &Inputs[0];
+        //input *OldInput = &Inputs[1];
         MSG Message = {};
-        while(GlobalRunning)
+        u32 Count = 0;
+#define KeyDown(Code, Key) {if(Message.wParam == (Code))  NewInput->Held.Key = 1;}
+#define KeyUp(Code, Key)   {if(Message.wParam == (Code)) {NewInput->Held.Key = 0;NewInput->Pressed.Key = 1;}}
+        while(GlobalRunning && !NewInput->Pressed.Esc)
         {
-            BOOL MessageStatus = PeekMessageA(&Message, MainWindow, 0, 0, PM_REMOVE);
-            if (MessageStatus > 0)
+            NewInput->Pressed = {};
+            while(PeekMessageA(&Message, MainWindow, 0, 0, PM_REMOVE))
             {
-                TranslateMessage(&Message);
-                DispatchMessage(&Message);
-            }
-            else if (MessageStatus == -1)
-            {
-                return 1;
+                switch(Message.message)
+                {
+                    case WM_KEYDOWN:
+                    {
+                        KeyDown(VK_UP, Up);
+                        KeyDown(VK_DOWN, Down);
+                        KeyDown(VK_LEFT, Left);
+                        KeyDown(VK_RIGHT, Right);
+
+                        KeyDown(VK_ESCAPE, Esc);
+                    } break;
+
+                    case WM_KEYUP:
+                    {
+                        KeyUp(VK_UP, Up);
+                        KeyUp(VK_DOWN, Down);
+                        KeyUp(VK_LEFT, Left);
+                        KeyUp(VK_RIGHT, Right);
+
+                        KeyUp(VK_ESCAPE, Esc);
+                    } break;
+
+                    default:
+                    {
+                        TranslateMessage(&Message);
+                        DispatchMessage(&Message);
+                    } break;
+                }
             }
 
 #if WINDY_INTERNAL
             CheckAndReloadWindy(&Windy);
 
-            //if(CheckAndReloadShader("assets\\vs.sh", &VSRaw))
-            //{
-            //    VSLinked->Release();
-            //    RenderingDevice->CreateVertexShader(VSRaw.Bytes.Data, VSRaw.Bytes.Size,
-            //                                        0, &VSLinked);
-            //    RenderingContext->VSSetShader(VSLinked, 0, 0);
-            //}
+            if(CheckAndReloadShader("assets\\vs.sh", &VSRaw))
+            {
+                // TODO(dave) maybe change if to while
+                if(VSRaw.Bytes.Size == 0)
+                {
+                    VSRaw.WriteTime = {};
+                    CheckAndReloadShader("assets\\vs.sh", &VSRaw);
+                }
+                VSLinked->Release();
+                RenderingDevice->CreateVertexShader(VSRaw.Bytes.Data, VSRaw.Bytes.Size,
+                                                    0, &VSLinked);
+                RenderingContext->VSSetShader(VSLinked, 0, 0);
+            }
             if(CheckAndReloadShader("assets\\ps.sh", &PSRaw))
             {
+                if(PSRaw.Bytes.Size == 0)
+                {
+                    PSRaw.WriteTime = {};
+                    CheckAndReloadShader("assets\\ps.sh", &PSRaw);
+                }
                 PSLinked->Release();
                 RenderingDevice->CreatePixelShader(PSRaw.Bytes.Data, PSRaw.Bytes.Size,
                                                    0, &PSLinked);
@@ -331,8 +386,13 @@ WinMain(
 
             if(Windy.GameUpdateAndRender)
             {
-                Windy.GameUpdateAndRender(RenderingDevice, RenderingContext, TargetView, VSRaw.Bytes, &GameMemory);
+                Windy.GameUpdateAndRender(NewInput, RenderingDevice, RenderingContext,
+                                          TargetView, VSRaw.Bytes, &GameMemory);
             }
+
+//            input *SwitchInput = NewInput;
+//            NewInput = OldInput;
+//            OldInput = SwitchInput;
 
             SwapChain->Present(0, 0);
         }

@@ -6,8 +6,8 @@
    $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
    ======================================================================== */
 #include <d3d11.h>
-#include "windy_platform.h"
-
+#include "windy.h"
+#include <string.h>
 struct vertex_shader_input
 {
     r32 x, y, z;
@@ -15,26 +15,36 @@ struct vertex_shader_input
 
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
+    game_state *State = (game_state *)Memory->Storage;
     if(!Memory->IsInitialized)
     {
+        *State = {};
         //
         // sending data to gpu
         //
-        ID3D11Buffer *Buffer;
-        vertex_shader_input TriangleData[] = {
+        vertex_shader_input Triangle[] = {
             -0.5f, -0.5f, 0.f,
              0.f,   0.5f, 0.f,
              0.5f, -0.5f, 0.f
         };
-        D3D11_SUBRESOURCE_DATA Data = {(void *)TriangleData};
-        D3D11_BUFFER_DESC BufferDescription = {};
-        BufferDescription.ByteWidth = sizeof(TriangleData);
-        BufferDescription.Usage = D3D11_USAGE_IMMUTABLE;
-        BufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-        BufferDescription.CPUAccessFlags = 0;
-        BufferDescription.MiscFlags = 0;
-        BufferDescription.StructureByteStride = sizeof(vertex_shader_input);
-        Device->CreateBuffer(&BufferDescription, &Data, &Buffer);
+        D3D11_SUBRESOURCE_DATA TriangleData = {(void *)Triangle};
+        D3D11_BUFFER_DESC VertexBufferDescription = {};
+        VertexBufferDescription.ByteWidth = sizeof(Triangle);
+        VertexBufferDescription.Usage = D3D11_USAGE_IMMUTABLE;
+        VertexBufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        VertexBufferDescription.CPUAccessFlags = 0;
+        VertexBufferDescription.MiscFlags = 0;
+        VertexBufferDescription.StructureByteStride = sizeof(vertex_shader_input);
+        Device->CreateBuffer(&VertexBufferDescription, &TriangleData, &State->VertexBuffer);
+
+        D3D11_BUFFER_DESC ConstantBufferDescription = {};
+        ConstantBufferDescription.ByteWidth = 16;
+        ConstantBufferDescription.Usage = D3D11_USAGE_DYNAMIC;
+        ConstantBufferDescription.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        ConstantBufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        ConstantBufferDescription.MiscFlags = 0;
+        ConstantBufferDescription.StructureByteStride = 0;
+        Device->CreateBuffer(&ConstantBufferDescription, 0, &State->ConstantBuffer);
 
         //
         // input layout description
@@ -51,13 +61,18 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         // TODO(dave): can strides and offsets be 0???
         u32 Stride = sizeof(vertex_shader_input);
         u32 Offset = 0;
-        Context->IASetVertexBuffers(0, 1, &Buffer, &Stride, &Offset);
+        Context->IASetVertexBuffers(0, 1, &State->VertexBuffer, &Stride, &Offset);
         Context->IASetInputLayout(InputLayout);
         Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        //Context->OMSetRenderTargets(1, &View, 0);
+        Context->PSSetConstantBuffers(0, 1, &State->ConstantBuffer);
 
         Memory->IsInitialized = true;
     }
+
+    D3D11_MAPPED_SUBRESOURCE MappedBuffer = {};
+    Context->Map(State->ConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedBuffer);
+    *(u32 *)MappedBuffer.pData = Input->Held.Up;
+    Context->Unmap(State->ConstantBuffer, 0);
 
     r32 ClearColor[] = {0.06f, 0.05f, 0.08f, 1.f};
     Context->OMSetRenderTargets(1, &View, 0);
