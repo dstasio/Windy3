@@ -14,6 +14,14 @@
 #define Assert(expr)
 #endif
 
+struct image_texture
+{
+    u32   Size;
+    u32   Width;
+    u32   Height;
+    void *Bytes;
+};
+
 struct game_state
 {
     ID3D11Buffer *ConstantBuffer;
@@ -27,8 +35,8 @@ struct memory_pool
     u8 *Base;
 };
 
-#define PushStruct(Pool, Type) (Type)PushSize_((Pool), sizeof(Type))
-#define PushArray(Pool, Length, Type) (Type)PushSize_((Pool), (Length)*sizeof(Type))
+#define PushStruct(Pool, Type) (Type *)PushSize_((Pool), sizeof(Type))
+#define PushArray(Pool, Length, Type) (Type *)PushSize_((Pool), (Length)*sizeof(Type))
 inline void *
 PushSize_(memory_pool *Pool, memory_index Size)
 {

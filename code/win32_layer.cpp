@@ -8,6 +8,8 @@
 
 #include <windows.h>
 #include <d3d11.h>
+#include <dxgidebug.h>
+#include <dxgidebug.h>
 
 #include "windy.h"
 #include "windy_platform.h"
@@ -18,7 +20,7 @@
 
 #if WINDY_INTERNAL
 #define OutputString(s, ...) {char Buffer[100];sprintf_s(Buffer, s, __VA_ARGS__);OutputDebugStringA(Buffer);}
-#define ThrowErrorAndExit(e, ...) {OutputString("[ERROR] " ## e, __VA_ARGS__); getchar(); GlobalRunning = false;}
+#define ThrowErrorAndExit(e, ...) {OutputString("[ERROR] " ## e, __VA_ARGS__); getchar(); GlobalError = true;}
 #define ThrowError(e, ...) OutputString("[ERROR] " ## e, __VA_ARGS__)
 #define Warn(w, ...) OutputString("[WARNING] " ## w, __VA_ARGS__)
 #define Info(i, ...) OutputString("[INFO] " ## i, __VA_ARGS__)
@@ -39,6 +41,7 @@
 #define HEIGHT 720
 
 global b32 GlobalRunning;
+global b32 GlobalError;
 
 internal
 PLATFORM_READ_FILE(Win32ReadFile)
@@ -62,14 +65,14 @@ PLATFORM_READ_FILE(Win32ReadFile)
         }
         else
         {
-            ThrowErrorAndExit("Unable to read file: %s", Path);
+            ThrowError("Unable to read file: %s\n", Path);
         }
 
         CloseHandle(FileHandle);
     }
     else
     {
-        ThrowErrorAndExit("Unable to open file: %s", Path);
+        ThrowError("Unable to open file: %s\n", Path);
     }
 
     return(Result);
@@ -163,6 +166,7 @@ CheckAndReloadShader(char *Path, shader *Shader)
 
     if(CompareFileTime(&CurrentWriteTime, &Shader->WriteTime))
     {
+        VirtualFree(Shader->Bytes.Data, 0, MEM_RELEASE);
         Shader->Bytes = Win32ReadFile(Path);
         Shader->WriteTime = CurrentWriteTime;
         HasChanged = true;
@@ -237,6 +241,7 @@ WinMain(
         LPVOID BaseAddress = 0;
 #endif
         GlobalRunning = true;
+        GlobalError = false;
         game_memory GameMemory = {};
         GameMemory.StorageSize = Megabytes(500);
         GameMemory.Storage = VirtualAlloc(BaseAddress, GameMemory.StorageSize,
@@ -319,7 +324,7 @@ WinMain(
         u32 Count = 0;
 #define KeyDown(Code, Key) {if(Message.wParam == (Code))  NewInput->Held.Key = 1;}
 #define KeyUp(Code, Key)   {if(Message.wParam == (Code)) {NewInput->Held.Key = 0;NewInput->Pressed.Key = 1;}}
-        while(GlobalRunning && !NewInput->Pressed.Esc)
+        while(GlobalRunning && !GlobalError && !NewInput->Pressed.Esc)
         {
             NewInput->Pressed = {};
             while(PeekMessageA(&Message, MainWindow, 0, 0, PM_REMOVE))
@@ -360,7 +365,7 @@ WinMain(
             if(CheckAndReloadShader("assets\\vs.sh", &VSRaw))
             {
                 // TODO(dave) maybe change if to while
-                if(VSRaw.Bytes.Size == 0)
+                while(VSRaw.Bytes.Size == 0)
                 {
                     VSRaw.WriteTime = {};
                     CheckAndReloadShader("assets\\vs.sh", &VSRaw);
@@ -369,10 +374,12 @@ WinMain(
                 RenderingDevice->CreateVertexShader(VSRaw.Bytes.Data, VSRaw.Bytes.Size,
                                                     0, &VSLinked);
                 RenderingContext->VSSetShader(VSLinked, 0, 0);
+
+                //Assert(ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_SUMMARY) == S_OK);
             }
             if(CheckAndReloadShader("assets\\ps.sh", &PSRaw))
             {
-                if(PSRaw.Bytes.Size == 0)
+                while(PSRaw.Bytes.Size == 0)
                 {
                     PSRaw.WriteTime = {};
                     CheckAndReloadShader("assets\\ps.sh", &PSRaw);
@@ -381,6 +388,8 @@ WinMain(
                 RenderingDevice->CreatePixelShader(PSRaw.Bytes.Data, PSRaw.Bytes.Size,
                                                    0, &PSLinked);
                 RenderingContext->PSSetShader(PSLinked, 0, 0);
+
+                //Assert(ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_SUMMARY) == S_OK);
             }
 #endif
 
@@ -403,5 +412,12 @@ WinMain(
         return 1;
     }
 
-    return 0;
+    if (GlobalError)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
 }
