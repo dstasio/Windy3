@@ -2,8 +2,8 @@
    $File: $
    $Date: $
    $Revision: $
-   $Creator: Casey Muratori $
-   $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
+   $Creator: Davide Stasio $
+   $Notice: (C) Copyright 2014 by Davide Stasio. All Rights Reserved. $
    ======================================================================== */
 
 #include <windows.h>
@@ -31,11 +31,12 @@
 #define Warn(w, ...)
 #define Info(i, ...)
 #endif
+#define KeyDown(Code, Key) {if(Message.wParam == (Code))  NewInput->Held.Key = 1;}
+#define KeyUp(Code, Key)   {if(Message.wParam == (Code)) {NewInput->Held.Key = 0;NewInput->Pressed.Key = 1;}}
 
 #ifndef MAX_PATH
 #define MAX_PATH 100
 #endif
-
 
 #define WIDTH 1024
 #define HEIGHT 720
@@ -213,6 +214,12 @@ WinMain(
     int ShowFlag
 )
 {
+    // @todo add support for low-resolution performance counters
+    // @todo maybe add support for 32-bit
+    i64 performance_counter_frequency = 0;
+    Assert(QueryPerformanceFrequency((LARGE_INTEGER *)&performance_counter_frequency));
+
+
     WNDCLASSA WindyClass = {};
     WindyClass.style = CS_OWNDC|CS_VREDRAW|CS_HREDRAW;
     WindyClass.lpfnWndProc = WindyProc;
@@ -322,8 +329,10 @@ WinMain(
         //input *OldInput = &Inputs[1];
         MSG Message = {};
         u32 Count = 0;
-#define KeyDown(Code, Key) {if(Message.wParam == (Code))  NewInput->Held.Key = 1;}
-#define KeyUp(Code, Key)   {if(Message.wParam == (Code)) {NewInput->Held.Key = 0;NewInput->Pressed.Key = 1;}}
+
+        i64 last_performance_counter = 0;
+        i64 current_performance_counter = 0;
+        Assert(QueryPerformanceCounter((LARGE_INTEGER *)&last_performance_counter));
         while(GlobalRunning && !GlobalError && !NewInput->Pressed.Esc)
         {
             NewInput->Pressed = {};
@@ -393,11 +402,14 @@ WinMain(
             }
 #endif
 
+            Assert(QueryPerformanceCounter((LARGE_INTEGER *)&current_performance_counter));
+            r32 dtime = (r32)(current_performance_counter - last_performance_counter) / (r32)performance_counter_frequency;
             if(Windy.GameUpdateAndRender)
             {
-                Windy.GameUpdateAndRender(NewInput, RenderingDevice, RenderingContext,
+                Windy.GameUpdateAndRender(NewInput, dtime, RenderingDevice, RenderingContext,
                                           TargetView, VSRaw.Bytes, &GameMemory);
             }
+            last_performance_counter = current_performance_counter;
 
 //            input *SwitchInput = NewInput;
 //            NewInput = OldInput;

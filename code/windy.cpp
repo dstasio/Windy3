@@ -2,12 +2,13 @@
    $File: $
    $Date: $
    $Revision: $
-   $Creator: Casey Muratori $
-   $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
+   $Creator: Davide Stasio $
+   $Notice: (C) Copyright 2014 by Davide Stasio. All Rights Reserved. $
    ======================================================================== */
 #include <d3d11.h>
 #include "windy.h"
 #include <string.h>
+
 struct vertex_shader_input
 {
     r32 x, y, z;
@@ -57,15 +58,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
              1.f,  1.f, 0.f,  1.f, 0.f,  // top-right
              1.f, -1.f, 0.f,  1.f, 1.f   // bottom-right
         };
-        //vertex_shader_input Triangle[] = {
-        //     1.1f, 0.f, 0.f,  1.f, 1.f,
-        //    0.f, 0.f, 0.f,  0.f, 1.f,
-        //    0.f,  1.1f, 0.f,  0.f, 0.f,
 
-        //    0.f,  1.1f, 0.f,  0.f, 0.f,
-        //     1.1f,  1.1f, 0.f,  1.f, 0.f,
-        //     1.1f, 0.f, 0.f,  1.f, 1.f
-        //};
         D3D11_SUBRESOURCE_DATA TriangleData = {(void *)Triangle};
         D3D11_BUFFER_DESC VertexBufferDescription = {};
         VertexBufferDescription.ByteWidth = sizeof(Triangle);
@@ -75,15 +68,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         VertexBufferDescription.MiscFlags = 0;
         VertexBufferDescription.StructureByteStride = sizeof(vertex_shader_input);
         Device->CreateBuffer(&VertexBufferDescription, &TriangleData, &State->VertexBuffer);
-
-        D3D11_BUFFER_DESC ConstantBufferDescription = {};
-        ConstantBufferDescription.ByteWidth = 16;
-        ConstantBufferDescription.Usage = D3D11_USAGE_DYNAMIC;
-        ConstantBufferDescription.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-        ConstantBufferDescription.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-        ConstantBufferDescription.MiscFlags = 0;
-        ConstantBufferDescription.StructureByteStride = 0;
-        Device->CreateBuffer(&ConstantBufferDescription, 0, &State->ConstantBuffer);
 
         //
         // input layout description
@@ -103,11 +87,12 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         Context->IASetVertexBuffers(0, 1, &State->VertexBuffer, &Stride, &Offset);
         Context->IASetInputLayout(InputLayout);
         Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        Context->PSSetConstantBuffers(0, 1, &State->ConstantBuffer);
 
-#define ReadOffset(Pointer, Offset, Type) (*(Type*)(Pointer + Offset))
+        //
+        // bitmap texture loading
+        //
         bitmap_header *ImageBMP = (bitmap_header *)Memory->ReadFile("assets/sampletexture.bmp").Data;
-        image_texture Texture = {};
+        image_data Texture = {};
         Texture.Bytes = (u8 *)ImageBMP + ImageBMP->DataOffset;
         Texture.Width = ImageBMP->Width;
         Texture.Height = ImageBMP->Height;
@@ -144,6 +129,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         }
         Texture.Bytes = ImageOrderedBytes;
 
+        //
+        // texture to gpu
+        //
         D3D11_TEXTURE2D_DESC TextureDescription = {};
         TextureDescription.Width = Texture.Width;
         TextureDescription.Height = Texture.Height;
@@ -156,15 +144,15 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         TextureDescription.BindFlags = D3D11_BIND_SHADER_RESOURCE;
         TextureDescription.MiscFlags = 0;
 
+        texture Tex = {};
+
         D3D11_SUBRESOURCE_DATA TextureSubresource = {};
         TextureSubresource.pSysMem = Texture.Bytes;
         TextureSubresource.SysMemPitch = Texture.Width*4;
 
-        ID3D11Texture2D *TextureHandle;
-        Device->CreateTexture2D(&TextureDescription, &TextureSubresource, &TextureHandle);
-        ID3D11ShaderResourceView *TextureResource;
-        Device->CreateShaderResourceView(TextureHandle, 0, &TextureResource);
-        Context->PSSetShaderResources(0, 1, &TextureResource);
+        Device->CreateTexture2D(&TextureDescription, &TextureSubresource, &Tex.Handle);
+        Device->CreateShaderResourceView(Tex.Handle, 0, &Tex.Resource);
+        Context->PSSetShaderResources(0, 1, &Tex.Resource);
 
         ID3D11SamplerState *Sampler;
         D3D11_SAMPLER_DESC SamplerDescription = {};
@@ -178,13 +166,31 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         Device->CreateSamplerState(&SamplerDescription, &Sampler);
         Context->PSSetSamplers(0, 1, &Sampler);
 
+        //
+        // constant buffer setup
+        //
+        D3D11_BUFFER_DESC MatrixBufferDesc = {};
+        MatrixBufferDesc.ByteWidth = 2*sizeof(m4);
+        MatrixBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+        MatrixBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        MatrixBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        MatrixBufferDesc.MiscFlags = 0;
+        MatrixBufferDesc.StructureByteStride = sizeof(m4);
+        Device->CreateBuffer(&MatrixBufferDesc, 0, &State->MatrixBuffer);
+        Context->VSSetConstantBuffers(0, 1, &State->MatrixBuffer);
+
         Memory->IsInitialized = true;
+
+        Rotation_m4({5.f, 3.f, 1.f});
     }
 
-    D3D11_MAPPED_SUBRESOURCE MappedBuffer = {};
-    Context->Map(State->ConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedBuffer);
-    *(u32 *)MappedBuffer.pData = Input->Held.Up;
-    Context->Unmap(State->ConstantBuffer, 0);
+    if (Input->Held.Up)   State->theta += (PI/4.f)*dtime;
+    if (Input->Held.Down) State->theta -= (PI/4.f)*dtime;
+
+    D3D11_MAPPED_SUBRESOURCE MatrixMap = {};
+    Context->Map(State->MatrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MatrixMap);
+    *(m4 *)MatrixMap.pData = Pitch_m4(State->theta);
+    Context->Unmap(State->MatrixBuffer, 0);
 
     r32 ClearColor[] = {0.06f, 0.05f, 0.08f, 1.f};
     Context->OMSetRenderTargets(1, &View, 0);

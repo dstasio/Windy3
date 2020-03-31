@@ -3,10 +3,11 @@
    $File: $
    $Date: $
    $Revision: $
-   $Creator: Casey Muratori $
-   $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
+   $Creator: Davide Stasio $
+   $Notice: (C) Copyright 2014 by Davide Stasio. All Rights Reserved. $
    ======================================================================== */
 #include "windy_platform.h"
+#include "windy_math.h"
 
 #if WINDY_DEBUG
 #define Assert(expr) if(!(expr)) {*(int *)0 = 0;}
@@ -14,7 +15,7 @@
 #define Assert(expr)
 #endif
 
-struct image_texture
+struct image_data
 {
     u32   Size;
     u32   Width;
@@ -22,10 +23,20 @@ struct image_texture
     void *Bytes;
 };
 
+struct texture
+{
+    ID3D11Texture2D *Handle;
+    ID3D11ShaderResourceView *Resource;
+};
+
 struct game_state
 {
-    ID3D11Buffer *ConstantBuffer;
+    ID3D11Buffer *MatrixBuffer;
     ID3D11Buffer *VertexBuffer;
+
+    m4 CameraMatrix;
+    m4 ProjectionMatrix;
+    r32 theta;
 };
 
 struct memory_pool
