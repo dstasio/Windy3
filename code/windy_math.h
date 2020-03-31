@@ -21,10 +21,70 @@ struct v3
     };
 };
 
+v3 operator-(v3 a)
+{
+    v3 result = {-a.x, -a.y, -a.z};
+    return result;
+}
+
+v3 operator-(v3 a, v3 b)
+{
+    v3 result = {a.x-b.x, a.y-b.y, a.z-b.z};
+    return result;
+}
+
+v3 operator/(v3 a, r32 b)
+{
+    v3 result = {a.x/b, a.y/b, a.z/b};
+    return result;
+}
+
+v3 operator-(v3 a, r32 b)
+{
+    v3 result = {a.x-b, a.y-b, a.z-b};
+    return result;
+}
+
 inline r32
 Dot(v3 a, v3 b)
 {
     r32 result = a.x*b.x + a.y*b.y + a.z*b.z;
+    return result;
+}
+
+inline v3
+Cross(v3 a, v3 b)
+{
+    v3 result = {
+        a.y*b.z - a.z*b.y,
+        a.z*b.x - a.x*b.z,
+        a.x*b.y - a.y*b.x
+    };
+    return result;
+}
+
+inline r32
+Length_Sq(v3 a)
+{
+    r32 result = Dot(a, a);
+    return result;
+}
+
+inline r32
+Length(v3 a)
+{
+    r32 result = Length_Sq(a);
+    if(result != 1)
+    {
+        result = Sqrt(result);
+    }
+    return result;
+}
+
+inline v3
+Normalize(v3 a)
+{
+    v3 result = a / Length(a);
     return result;
 }
 
@@ -175,6 +235,36 @@ inline m4
 Rotation_m4(v3 r)
 {
     m4 matrix = Pitch_m4(r.x) * Roll_m4(r.y) * Yaw_m4(r.z);
+    return matrix;
+}
+
+inline m4
+Camera_m4(v3 pos, v3 target, v3 right)
+{
+    v3 n = Normalize(target - pos);
+    v3 u = Normalize(Cross(right, n));
+    v3 v = Normalize(Cross(n, u));
+
+    m4 matrix = {
+        v.x, v.y, v.z, 0.f,
+        u.x, u.y, u.z, 0.f,
+        n.x, n.y, n.z, 0.f,
+        0.f, 0.f, 0.f, 1.f
+    };
+    matrix = matrix * Translation_m4(-pos);
+    return matrix;
+}
+
+inline m4
+Perspective_m4(r32 fov, r32 ar, r32 n, r32 f)
+{
+    r32 cot = 1.f/Tan(fov);
+    m4 matrix = {
+        cot,    0.f,         0.f,         0.f,
+        0.f, cot/ar,         0.f,         0.f,
+        0.f,    0.f, (f+n)/(f-n), 2*f*n/(n-f),
+        0.f,    0.f,         1.f,         0.f
+    };
     return matrix;
 }
 

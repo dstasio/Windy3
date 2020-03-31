@@ -14,6 +14,7 @@ struct VS_INPUT
 
 cbuffer Matrices: register(b0)
 {
+    float4x4 Model;
     float4x4 Camera;
     float4x4 Projection;
 }
@@ -22,7 +23,8 @@ VS_OUTPUT
 main(VS_INPUT Input)
 {
     VS_OUTPUT Output;
-    Output.Pos = mul(Camera,float4(Input.Pos, 1.f));
+    float4x4 total_matrix = mul(Projection, mul(Camera, Model));
+    Output.Pos = mul(total_matrix,float4(Input.Pos, 1.f));
     Output.TXC = Input.TXC;
     return(Output);
 }

@@ -38,9 +38,6 @@
 #define MAX_PATH 100
 #endif
 
-#define WIDTH 1024
-#define HEIGHT 720
-
 global b32 GlobalRunning;
 global b32 GlobalError;
 
@@ -333,7 +330,7 @@ WinMain(
         i64 last_performance_counter = 0;
         i64 current_performance_counter = 0;
         Assert(QueryPerformanceCounter((LARGE_INTEGER *)&last_performance_counter));
-        while(GlobalRunning && !GlobalError && !NewInput->Pressed.Esc)
+        while(GlobalRunning && !GlobalError && !NewInput->Pressed.esc)
         {
             NewInput->Pressed = {};
             while(PeekMessageA(&Message, MainWindow, 0, 0, PM_REMOVE))
@@ -342,22 +339,28 @@ WinMain(
                 {
                     case WM_KEYDOWN:
                     {
-                        KeyDown(VK_UP, Up);
-                        KeyDown(VK_DOWN, Down);
-                        KeyDown(VK_LEFT, Left);
-                        KeyDown(VK_RIGHT, Right);
-
-                        KeyDown(VK_ESCAPE, Esc);
+                        KeyDown(VK_UP,     up);
+                        KeyDown(VK_DOWN,   down);
+                        KeyDown(VK_LEFT,   left);
+                        KeyDown(VK_RIGHT,  right);
+                        KeyDown(VK_W,      w);
+                        KeyDown(VK_A,      a);
+                        KeyDown(VK_S,      s);
+                        KeyDown(VK_D,      d);
+                        KeyDown(VK_ESCAPE, esc);
                     } break;
 
                     case WM_KEYUP:
                     {
-                        KeyUp(VK_UP, Up);
-                        KeyUp(VK_DOWN, Down);
-                        KeyUp(VK_LEFT, Left);
-                        KeyUp(VK_RIGHT, Right);
-
-                        KeyUp(VK_ESCAPE, Esc);
+                        KeyUp(VK_UP,     up);
+                        KeyUp(VK_DOWN,   down);
+                        KeyUp(VK_LEFT,   left);
+                        KeyUp(VK_RIGHT,  right);
+                        KeyUp(VK_W,      w);
+                        KeyUp(VK_A,      a);
+                        KeyUp(VK_S,      s);
+                        KeyUp(VK_D,      d);
+                        KeyUp(VK_ESCAPE, esc);
                     } break;
 
                     default:
@@ -410,6 +413,7 @@ WinMain(
                                           TargetView, VSRaw.Bytes, &GameMemory);
             }
             last_performance_counter = current_performance_counter;
+            Info("Frametime: %f     FPS:%d\n", dtime, (u32)(1/dtime));
 
 //            input *SwitchInput = NewInput;
 //            NewInput = OldInput;

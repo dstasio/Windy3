@@ -28,5 +28,19 @@ Cos(r32 rad)
     return result;
 }
 
+inline r32
+Tan(r32 rad)
+{
+    r32 result = (r32)tan(rad);
+    return result;
+}
+
+inline r32
+Sqrt(r32 a)
+{
+    r32 result = (r32)sqrt(a);
+    return result;
+}
+
 #define WINDY_INTRINSICS_H
 #endif

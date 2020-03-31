@@ -9,6 +9,9 @@
 #include "windy_platform.h"
 #include "windy_math.h"
 
+#define WIDTH 1024
+#define HEIGHT 720
+
 #if WINDY_DEBUG
 #define Assert(expr) if(!(expr)) {*(int *)0 = 0;}
 #else
@@ -29,6 +32,13 @@ struct texture
     ID3D11ShaderResourceView *Resource;
 };
 
+struct camera
+{
+    v3 pos;
+    v3 target;
+    v3 right;
+};
+
 struct game_state
 {
     ID3D11Buffer *MatrixBuffer;
@@ -37,6 +47,8 @@ struct game_state
     m4 CameraMatrix;
     m4 ProjectionMatrix;
     r32 theta;
+
+    camera main_cam;
 };
 
 struct memory_pool

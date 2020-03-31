@@ -25,11 +25,17 @@ struct input_key
 
 struct input_keyboard
 {
-    u32 Up;
-    u32 Down;
-    u32 Left;
-    u32 Right;
-    u32 Esc;
+    u32 up;
+    u32 down;
+    u32 left;
+    u32 right;
+
+    u32 w;
+    u32 a;
+    u32 s;
+    u32 d;
+
+    u32 esc;
 };
 
 struct input

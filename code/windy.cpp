@@ -49,19 +49,62 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         //
         // sending data to gpu
         //
-        vertex_shader_input Triangle[] = {
-             1.f, -1.f, 0.f,  1.f, 1.f,  // bottom-right
-            -1.f, -1.f, 0.f,  0.f, 1.f,  // bottom-left
-            -1.f,  1.f, 0.f,  0.f, 0.f,  // top-left
+        //vertex_shader_input Triangle[] = {
+        //     1.f, -1.f, 0.f,  1.f, 1.f,  // bottom-right
+        //    -1.f, -1.f, 0.f,  0.f, 1.f,  // bottom-left
+        //    -1.f,  1.f, 0.f,  0.f, 0.f,  // top-left
 
-            -1.f,  1.f, 0.f,  0.f, 0.f,  // top-left
-             1.f,  1.f, 0.f,  1.f, 0.f,  // top-right
-             1.f, -1.f, 0.f,  1.f, 1.f   // bottom-right
+        //    -1.f,  1.f, 0.f,  0.f, 0.f,  // top-left
+        //     1.f,  1.f, 0.f,  1.f, 0.f,  // top-right
+        //     1.f, -1.f, 0.f,  1.f, 1.f   // bottom-right
+        //};
+        vertex_shader_input cube[] = {
+            -1.f, -1.f,  1.f,  0.f, 0.f,      // positive z
+             1.f, -1.f,  1.f,  0.f, 1.f,
+             1.f,  1.f,  1.f,  1.f, 1.f,
+             1.f,  1.f,  1.f,  1.f, 1.f,
+            -1.f,  1.f,  1.f,  1.f, 0.f,
+            -1.f, -1.f,  1.f,  0.f, 0.f,
+
+            -1.f, -1.f,  1.f,  0.f, 0.f,      // negative x
+            -1.f,  1.f,  1.f,  0.f, 1.f,
+            -1.f,  1.f, -1.f,  1.f, 1.f,
+            -1.f,  1.f, -1.f,  1.f, 1.f,
+            -1.f, -1.f, -1.f,  1.f, 0.f,
+            -1.f, -1.f,  1.f,  0.f, 0.f,
+
+            -1.f, -1.f,  1.f,  0.f, 0.f,      // negative y
+            -1.f, -1.f, -1.f,  0.f, 1.f,
+             1.f, -1.f, -1.f,  1.f, 1.f,
+             1.f, -1.f, -1.f,  1.f, 1.f,
+             1.f, -1.f,  1.f,  1.f, 0.f,
+            -1.f, -1.f,  1.f,  0.f, 0.f,
+
+            -1.f, -1.f, -1.f,  0.f, 0.f,      // negative z
+            -1.f,  1.f, -1.f,  0.f, 1.f,
+             1.f,  1.f, -1.f,  1.f, 1.f,
+             1.f,  1.f, -1.f,  1.f, 1.f,
+             1.f, -1.f, -1.f,  1.f, 0.f,
+            -1.f, -1.f, -1.f,  0.f, 0.f,
+
+            -1.f,  1.f, -1.f,  0.f, 0.f,      // positive y
+            -1.f,  1.f,  1.f,  0.f, 1.f,
+             1.f,  1.f,  1.f,  1.f, 1.f,
+             1.f,  1.f,  1.f,  1.f, 1.f, 
+             1.f,  1.f, -1.f,  1.f, 0.f,
+            -1.f,  1.f, -1.f,  0.f, 0.f,
+
+             1.f, -1.f,  1.f,  0.f, 0.f,      //positive x
+             1.f,  1.f, -1.f,  0.f, 1.f,
+             1.f,  1.f,  1.f,  1.f, 1.f,
+             1.f,  1.f,  1.f,  1.f, 1.f,
+             1.f, -1.f,  1.f,  1.f, 0.f,
+             1.f, -1.f, -1.f,  0.f, 0.f
         };
 
-        D3D11_SUBRESOURCE_DATA TriangleData = {(void *)Triangle};
+        D3D11_SUBRESOURCE_DATA TriangleData = {(void *)cube};
         D3D11_BUFFER_DESC VertexBufferDescription = {};
-        VertexBufferDescription.ByteWidth = sizeof(Triangle);
+        VertexBufferDescription.ByteWidth = sizeof(cube);
         VertexBufferDescription.Usage = D3D11_USAGE_IMMUTABLE;
         VertexBufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         VertexBufferDescription.CPUAccessFlags = 0;
@@ -170,7 +213,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         // constant buffer setup
         //
         D3D11_BUFFER_DESC MatrixBufferDesc = {};
-        MatrixBufferDesc.ByteWidth = 2*sizeof(m4);
+        MatrixBufferDesc.ByteWidth = 3*sizeof(m4);
         MatrixBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
         MatrixBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
         MatrixBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -179,21 +222,49 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         Device->CreateBuffer(&MatrixBufferDesc, 0, &State->MatrixBuffer);
         Context->VSSetConstantBuffers(0, 1, &State->MatrixBuffer);
 
-        Memory->IsInitialized = true;
+        D3D11_RASTERIZER_DESC raster_settings = {};
+        raster_settings.FillMode = D3D11_FILL_SOLID;
+        raster_settings.CullMode = D3D11_CULL_NONE;
+        raster_settings.FrontCounterClockwise = 1;
+        raster_settings.DepthBias = 0;
+        raster_settings.DepthBiasClamp = 0;
+        raster_settings.SlopeScaledDepthBias = 0;
+        raster_settings.DepthClipEnable = 1;
+        raster_settings.ScissorEnable = 0;
+        raster_settings.MultisampleEnable = 0;
+        raster_settings.AntialiasedLineEnable = 0;
 
-        Rotation_m4({5.f, 3.f, 1.f});
+        ID3D11RasterizerState *raster_state = 0;
+        Device->CreateRasterizerState(&raster_settings, &raster_state);
+        Context->RSSetState(raster_state);
+
+        //
+        // camera set-up
+        //
+        State->main_cam.pos    = {0.f, 5.f, 0.f};
+        State->main_cam.target = {0.f, 0.f, 0.f};
+        State->main_cam.right  = {1.f, 0.f, 0.f};
+
+        Memory->IsInitialized = true;
     }
 
-    if (Input->Held.Up)   State->theta += (PI/4.f)*dtime;
-    if (Input->Held.Down) State->theta -= (PI/4.f)*dtime;
+    if (Input->Held.up)   State->theta += (PI/4.f)*dtime;
+    if (Input->Held.down) State->theta -= (PI/4.f)*dtime;
+    if (Input->Held.w)    State->main_cam.pos.z += 1*dtime;
+    if (Input->Held.s)    State->main_cam.pos.z -= 1*dtime;
+    if (Input->Held.a)    { State->main_cam.pos.y += 1*dtime; State->main_cam.target.y += 1*dtime; }
+    if (Input->Held.d)    { State->main_cam.pos.y -= 1*dtime; State->main_cam.target.y -= 1*dtime; }
 
     D3D11_MAPPED_SUBRESOURCE MatrixMap = {};
     Context->Map(State->MatrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MatrixMap);
-    *(m4 *)MatrixMap.pData = Pitch_m4(State->theta);
+    m4 *matrix_buffer = (m4 *)MatrixMap.pData;
+    matrix_buffer[0] = Pitch_m4(State->theta);
+    matrix_buffer[1] = Camera_m4(State->main_cam.pos, State->main_cam.target, State->main_cam.right);
+    matrix_buffer[2] = Perspective_m4(PI/2.f, WIDTH/HEIGHT, 0.01f, 100.f);
     Context->Unmap(State->MatrixBuffer, 0);
 
     r32 ClearColor[] = {0.06f, 0.05f, 0.08f, 1.f};
     Context->OMSetRenderTargets(1, &View, 0);
     Context->ClearRenderTargetView(View, ClearColor);
-    Context->Draw(6, 0);
+    Context->Draw(36, 0);
 }
