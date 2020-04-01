@@ -36,11 +36,13 @@ struct camera
 {
     v3 pos;
     v3 target;
-    v3 right;
+    v3 up;
 };
 
 struct game_state
 {
+    ID3D11RenderTargetView *render_target_rgb;
+    ID3D11RenderTargetView *render_target_depth;
     ID3D11Buffer *MatrixBuffer;
     ID3D11Buffer *VertexBuffer;
 

@@ -41,11 +41,37 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     game_state *State = (game_state *)Memory->Storage;
     if(!Memory->IsInitialized)
     {
-        *State = {};
         memory_pool Pool = {};
         Pool.Base = (u8 *)Memory->Storage;
         Pool.Size = Memory->StorageSize;
         Pool.Used = sizeof(game_state);
+
+        //
+        // allocating depth buffer
+        //
+        D3D11_TEXTURE2D_DESC depth_buffer_desc = {};
+        depth_buffer_desc.Width = WIDTH;
+        depth_buffer_desc.Height = HEIGHT;
+        depth_buffer_desc.MipLevels = 1;
+        depth_buffer_desc.ArraySize = 1;
+        depth_buffer_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        depth_buffer_desc.SampleDesc.Count = 1;
+        depth_buffer_desc.SampleDesc.Quality = 0;
+        depth_buffer_desc.Usage = D3D11_USAGE_IMMUTABLE;
+        depth_buffer_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        depth_buffer_desc.MiscFlags = 0;
+
+        //Device->CreateTexture2D(&TextureDescription, &TextureSubresource, &Tex.Handle);
+
+        Device->CreateRenderTargetView(rendering_backbuffer, 0, &State->render_target_rgb);
+
+        D3D11_VIEWPORT Viewport = {};
+        Viewport.TopLeftX = 0;
+        Viewport.TopLeftY = 0;
+        Viewport.Width = WIDTH;
+        Viewport.Height = HEIGHT;
+        Context->RSSetViewports(1, &Viewport);
+
         //
         // sending data to gpu
         //
@@ -241,30 +267,32 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         //
         // camera set-up
         //
-        State->main_cam.pos    = {0.f, 5.f, 0.f};
-        State->main_cam.target = {0.f, 0.f, 0.f};
-        State->main_cam.right  = {1.f, 0.f, 0.f};
+        State->main_cam.pos    = {0.f, -3.f, 2.f};
+        State->main_cam.target = {0.f,  0.f, 0.f};
+        State->main_cam.up     = {0.f,  0.f, 1.f};
 
         Memory->IsInitialized = true;
     }
 
-    if (Input->Held.up)   State->theta += (PI/4.f)*dtime;
-    if (Input->Held.down) State->theta -= (PI/4.f)*dtime;
-    if (Input->Held.w)    State->main_cam.pos.z += 1*dtime;
-    if (Input->Held.s)    State->main_cam.pos.z -= 1*dtime;
-    if (Input->Held.a)    { State->main_cam.pos.y += 1*dtime; State->main_cam.target.y += 1*dtime; }
-    if (Input->Held.d)    { State->main_cam.pos.y -= 1*dtime; State->main_cam.target.y -= 1*dtime; }
+    if (Input->Held.up)    State->theta += (PI/4.f)*dtime;
+    if (Input->Held.down)  State->theta -= (PI/4.f)*dtime;
+    if (Input->Held.w)     State->main_cam.pos.y += 1*dtime;
+    if (Input->Held.s)     State->main_cam.pos.y -= 1*dtime;
+    if (Input->Held.a)     State->main_cam.pos.x -= 1*dtime;
+    if (Input->Held.d)     State->main_cam.pos.x += 1*dtime;
+    if (Input->Held.shift) State->main_cam.pos.z += 1*dtime;
+    if (Input->Held.ctrl)  State->main_cam.pos.z -= 1*dtime;
 
     D3D11_MAPPED_SUBRESOURCE MatrixMap = {};
     Context->Map(State->MatrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MatrixMap);
     m4 *matrix_buffer = (m4 *)MatrixMap.pData;
     matrix_buffer[0] = Pitch_m4(State->theta);
-    matrix_buffer[1] = Camera_m4(State->main_cam.pos, State->main_cam.target, State->main_cam.right);
-    matrix_buffer[2] = Perspective_m4(PI/2.f, WIDTH/HEIGHT, 0.01f, 100.f);
+    matrix_buffer[1] = Camera_m4(State->main_cam.pos, State->main_cam.target, State->main_cam.up);
+    matrix_buffer[2] = Perspective_m4(DegToRad*90.f, WIDTH/HEIGHT, 0.01f, 100.f);
     Context->Unmap(State->MatrixBuffer, 0);
 
     r32 ClearColor[] = {0.06f, 0.05f, 0.08f, 1.f};
-    Context->OMSetRenderTargets(1, &View, 0);
-    Context->ClearRenderTargetView(View, ClearColor);
+    Context->OMSetRenderTargets(1, &State->render_target_rgb, 0);
+    Context->ClearRenderTargetView(State->render_target_rgb, ClearColor);
     Context->Draw(36, 0);
 }

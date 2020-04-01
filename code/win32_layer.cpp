@@ -215,7 +215,8 @@ WinMain(
     // @todo maybe add support for 32-bit
     i64 performance_counter_frequency = 0;
     Assert(QueryPerformanceFrequency((LARGE_INTEGER *)&performance_counter_frequency));
-
+    // @todo make this hardware-dependant
+    r32 target_ms_per_frame = 1.f/60.f;
 
     WNDCLASSA WindyClass = {};
     WindyClass.style = CS_OWNDC|CS_VREDRAW|CS_HREDRAW;
@@ -291,17 +292,8 @@ WinMain(
             &RenderingContext
         );
 
-        ID3D11Texture2D *BackBuffer = 0;
-        ID3D11RenderTargetView *TargetView = 0;
-        SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&BackBuffer);
-        RenderingDevice->CreateRenderTargetView(BackBuffer, 0, &TargetView);
-
-        D3D11_VIEWPORT Viewport = {};
-        Viewport.TopLeftX = 0;
-        Viewport.TopLeftY = 0;
-        Viewport.Width = WIDTH;
-        Viewport.Height = HEIGHT;
-        RenderingContext->RSSetViewports(1, &Viewport);
+        ID3D11Texture2D *rendering_backbuffer = 0;
+        SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&rendering_backbuffer);
 
         //
         // shader initialization
@@ -333,42 +325,53 @@ WinMain(
         while(GlobalRunning && !GlobalError && !NewInput->Pressed.esc)
         {
             NewInput->Pressed = {};
-            while(PeekMessageA(&Message, MainWindow, 0, 0, PM_REMOVE))
+            Assert(QueryPerformanceCounter((LARGE_INTEGER *)&current_performance_counter));
+            r32 dtime = (r32)(current_performance_counter - last_performance_counter) / (r32)performance_counter_frequency;
+            while(dtime <= target_ms_per_frame)
             {
-                switch(Message.message)
+                while(PeekMessageA(&Message, MainWindow, 0, 0, PM_REMOVE))
                 {
-                    case WM_KEYDOWN:
+                    switch(Message.message)
                     {
-                        KeyDown(VK_UP,     up);
-                        KeyDown(VK_DOWN,   down);
-                        KeyDown(VK_LEFT,   left);
-                        KeyDown(VK_RIGHT,  right);
-                        KeyDown(VK_W,      w);
-                        KeyDown(VK_A,      a);
-                        KeyDown(VK_S,      s);
-                        KeyDown(VK_D,      d);
-                        KeyDown(VK_ESCAPE, esc);
-                    } break;
+                        case WM_KEYDOWN:
+                        {
+                            KeyDown(VK_UP,      up);
+                            KeyDown(VK_DOWN,    down);
+                            KeyDown(VK_LEFT,    left);
+                            KeyDown(VK_RIGHT,   right);
+                            KeyDown(VK_W,       w);
+                            KeyDown(VK_A,       a);
+                            KeyDown(VK_S,       s);
+                            KeyDown(VK_D,       d);
+                            KeyDown(VK_SHIFT,   shift);
+                            KeyDown(VK_CONTROL, ctrl);
+                            KeyDown(VK_ESCAPE,  esc);
+                        } break;
 
-                    case WM_KEYUP:
-                    {
-                        KeyUp(VK_UP,     up);
-                        KeyUp(VK_DOWN,   down);
-                        KeyUp(VK_LEFT,   left);
-                        KeyUp(VK_RIGHT,  right);
-                        KeyUp(VK_W,      w);
-                        KeyUp(VK_A,      a);
-                        KeyUp(VK_S,      s);
-                        KeyUp(VK_D,      d);
-                        KeyUp(VK_ESCAPE, esc);
-                    } break;
+                        case WM_KEYUP:
+                        {
+                            KeyUp(VK_UP,      up);
+                            KeyUp(VK_DOWN,    down);
+                            KeyUp(VK_LEFT,    left);
+                            KeyUp(VK_RIGHT,   right);
+                            KeyUp(VK_W,       w);
+                            KeyUp(VK_A,       a);
+                            KeyUp(VK_S,       s);
+                            KeyUp(VK_D,       d);
+                            KeyUp(VK_SHIFT,   shift);
+                            KeyUp(VK_CONTROL, ctrl);
+                            KeyUp(VK_ESCAPE,  esc);
+                        } break;
 
-                    default:
-                    {
-                        TranslateMessage(&Message);
-                        DispatchMessage(&Message);
-                    } break;
+                        default:
+                        {
+                            TranslateMessage(&Message);
+                            DispatchMessage(&Message);
+                        } break;
+                    }
                 }
+                Assert(QueryPerformanceCounter((LARGE_INTEGER *)&current_performance_counter));
+                dtime = (r32)(current_performance_counter - last_performance_counter) / (r32)performance_counter_frequency;
             }
 
 #if WINDY_INTERNAL
@@ -405,19 +408,17 @@ WinMain(
             }
 #endif
 
-            Assert(QueryPerformanceCounter((LARGE_INTEGER *)&current_performance_counter));
-            r32 dtime = (r32)(current_performance_counter - last_performance_counter) / (r32)performance_counter_frequency;
             if(Windy.GameUpdateAndRender)
             {
                 Windy.GameUpdateAndRender(NewInput, dtime, RenderingDevice, RenderingContext,
-                                          TargetView, VSRaw.Bytes, &GameMemory);
+                                          rendering_backbuffer, VSRaw.Bytes, &GameMemory);
             }
             last_performance_counter = current_performance_counter;
             Info("Frametime: %f     FPS:%d\n", dtime, (u32)(1/dtime));
 
-//            input *SwitchInput = NewInput;
-//            NewInput = OldInput;
-//            OldInput = SwitchInput;
+            //            input *SwitchInput = NewInput;
+            //            NewInput = OldInput;
+            //            OldInput = SwitchInput;
 
             SwapChain->Present(0, 0);
         }

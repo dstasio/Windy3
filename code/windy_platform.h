@@ -35,6 +35,8 @@ struct input_keyboard
     u32 s;
     u32 d;
 
+    u32 shift;
+    u32 ctrl;
     u32 esc;
 };
 
@@ -56,7 +58,7 @@ typedef struct game_memory
     platform_read_file *ReadFile;
 } game_memory;
 
-#define GAME_UPDATE_AND_RENDER(name) void name(input *Input, r32 dtime, ID3D11Device *Device, ID3D11DeviceContext *Context, ID3D11RenderTargetView *View, file VertexBytes, game_memory *Memory)
+#define GAME_UPDATE_AND_RENDER(name) void name(input *Input, r32 dtime, ID3D11Device *Device, ID3D11DeviceContext *Context, ID3D11Texture2D *rendering_backbuffer, file VertexBytes, game_memory *Memory)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 
 #define WINDY_PLATFORM_H
