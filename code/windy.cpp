@@ -46,31 +46,51 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         Pool.Size = Memory->StorageSize;
         Pool.Used = sizeof(game_state);
 
+        D3D11_VIEWPORT Viewport = {};
+        Viewport.TopLeftX = 0;
+        Viewport.TopLeftY = 0;
+        Viewport.Width = WIDTH;
+        Viewport.Height = HEIGHT;
+        Viewport.MinDepth = 0.f;
+        Viewport.MaxDepth = 1.f;
+        Context->RSSetViewports(1, &Viewport);
+
         //
-        // allocating depth buffer
+        // allocating rgb and depth buffers
         //
         D3D11_TEXTURE2D_DESC depth_buffer_desc = {};
         depth_buffer_desc.Width = WIDTH;
         depth_buffer_desc.Height = HEIGHT;
         depth_buffer_desc.MipLevels = 1;
         depth_buffer_desc.ArraySize = 1;
-        depth_buffer_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        depth_buffer_desc.Format = DXGI_FORMAT_D16_UNORM;
         depth_buffer_desc.SampleDesc.Count = 1;
         depth_buffer_desc.SampleDesc.Quality = 0;
-        depth_buffer_desc.Usage = D3D11_USAGE_IMMUTABLE;
-        depth_buffer_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        depth_buffer_desc.Usage = D3D11_USAGE_DEFAULT;
+        depth_buffer_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
         depth_buffer_desc.MiscFlags = 0;
 
-        //Device->CreateTexture2D(&TextureDescription, &TextureSubresource, &Tex.Handle);
+        ID3D11Texture2D *depth_texture;
+        Device->CreateTexture2D(&depth_buffer_desc, 0, &depth_texture);
 
+        D3D11_DEPTH_STENCIL_VIEW_DESC depth_view_desc = {DXGI_FORMAT_D16_UNORM, D3D11_DSV_DIMENSION_TEXTURE2D};
         Device->CreateRenderTargetView(rendering_backbuffer, 0, &State->render_target_rgb);
+        Device->CreateDepthStencilView(depth_texture, &depth_view_desc, &State->render_target_depth);
 
-        D3D11_VIEWPORT Viewport = {};
-        Viewport.TopLeftX = 0;
-        Viewport.TopLeftY = 0;
-        Viewport.Width = WIDTH;
-        Viewport.Height = HEIGHT;
-        Context->RSSetViewports(1, &Viewport);
+        D3D11_DEPTH_STENCIL_DESC depth_stencil_settings;
+        depth_stencil_settings.DepthEnable = 1;
+        depth_stencil_settings.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+        depth_stencil_settings.DepthFunc = D3D11_COMPARISON_LESS;
+        //depth_stencil_settings.StencilEnable = 0;
+        //depth_stencil_settings.StencilReadMask;
+        //depth_stencil_settings.StencilWriteMask;
+        //depth_stencil_settings.FrontFace;
+        //depth_stencil_settings.BackFace;
+
+        ID3D11DepthStencilState *depth_state;
+        Device->CreateDepthStencilState(&depth_stencil_settings, &depth_state);
+        Context->OMSetDepthStencilState(depth_state, 1);
+
 
         //
         // sending data to gpu
@@ -86,9 +106,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         //};
         vertex_shader_input cube[] = {
             -1.f, -1.f,  1.f,  0.f, 0.f,      // positive z
-             1.f, -1.f,  1.f,  0.f, 1.f,
-             1.f,  1.f,  1.f,  1.f, 1.f,
-             1.f,  1.f,  1.f,  1.f, 1.f,
+            1.f, -1.f,  1.f,  0.f, 1.f,
+            1.f,  1.f,  1.f,  1.f, 1.f,
+            1.f,  1.f,  1.f,  1.f, 1.f,
             -1.f,  1.f,  1.f,  1.f, 0.f,
             -1.f, -1.f,  1.f,  0.f, 0.f,
 
@@ -101,31 +121,31 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
             -1.f, -1.f,  1.f,  0.f, 0.f,      // negative y
             -1.f, -1.f, -1.f,  0.f, 1.f,
-             1.f, -1.f, -1.f,  1.f, 1.f,
-             1.f, -1.f, -1.f,  1.f, 1.f,
-             1.f, -1.f,  1.f,  1.f, 0.f,
+            1.f, -1.f, -1.f,  1.f, 1.f,
+            1.f, -1.f, -1.f,  1.f, 1.f,
+            1.f, -1.f,  1.f,  1.f, 0.f,
             -1.f, -1.f,  1.f,  0.f, 0.f,
 
             -1.f, -1.f, -1.f,  0.f, 0.f,      // negative z
             -1.f,  1.f, -1.f,  0.f, 1.f,
-             1.f,  1.f, -1.f,  1.f, 1.f,
-             1.f,  1.f, -1.f,  1.f, 1.f,
-             1.f, -1.f, -1.f,  1.f, 0.f,
+            1.f,  1.f, -1.f,  1.f, 1.f,
+            1.f,  1.f, -1.f,  1.f, 1.f,
+            1.f, -1.f, -1.f,  1.f, 0.f,
             -1.f, -1.f, -1.f,  0.f, 0.f,
 
             -1.f,  1.f, -1.f,  0.f, 0.f,      // positive y
             -1.f,  1.f,  1.f,  0.f, 1.f,
-             1.f,  1.f,  1.f,  1.f, 1.f,
-             1.f,  1.f,  1.f,  1.f, 1.f, 
-             1.f,  1.f, -1.f,  1.f, 0.f,
+            1.f,  1.f,  1.f,  1.f, 1.f,
+            1.f,  1.f,  1.f,  1.f, 1.f, 
+            1.f,  1.f, -1.f,  1.f, 0.f,
             -1.f,  1.f, -1.f,  0.f, 0.f,
 
-             1.f, -1.f,  1.f,  0.f, 0.f,      //positive x
-             1.f,  1.f, -1.f,  0.f, 1.f,
-             1.f,  1.f,  1.f,  1.f, 1.f,
-             1.f,  1.f,  1.f,  1.f, 1.f,
-             1.f, -1.f,  1.f,  1.f, 0.f,
-             1.f, -1.f, -1.f,  0.f, 0.f
+            1.f, -1.f,  1.f,  0.f, 0.f,      //positive x
+            1.f,  1.f, -1.f,  0.f, 1.f,
+            1.f,  1.f,  1.f,  1.f, 1.f,
+            1.f,  1.f,  1.f,  1.f, 1.f,
+            1.f, -1.f,  1.f,  1.f, 0.f,
+            1.f, -1.f, -1.f,  0.f, 0.f
         };
 
         D3D11_SUBRESOURCE_DATA TriangleData = {(void *)cube};
@@ -270,18 +290,25 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         State->main_cam.pos    = {0.f, -3.f, 2.f};
         State->main_cam.target = {0.f,  0.f, 0.f};
         State->main_cam.up     = {0.f,  0.f, 1.f};
+        State->cam_radius = 5.f;
 
         Memory->IsInitialized = true;
     }
 
+    r32 speed = Input->Held.space ? 10.f : 3.f;
     if (Input->Held.up)    State->theta += (PI/4.f)*dtime;
     if (Input->Held.down)  State->theta -= (PI/4.f)*dtime;
-    if (Input->Held.w)     State->main_cam.pos.y += 1*dtime;
-    if (Input->Held.s)     State->main_cam.pos.y -= 1*dtime;
-    if (Input->Held.a)     State->main_cam.pos.x -= 1*dtime;
-    if (Input->Held.d)     State->main_cam.pos.x += 1*dtime;
-    if (Input->Held.shift) State->main_cam.pos.z += 1*dtime;
-    if (Input->Held.ctrl)  State->main_cam.pos.z -= 1*dtime;
+    if (Input->Held.w)     State->cam_radius -= speed*dtime;
+    if (Input->Held.s)     State->cam_radius += speed*dtime;
+    if (Input->Held.a)     State->cam_htheta -= speed*(PI/12.f)*dtime;
+    if (Input->Held.d)     State->cam_htheta += speed*(PI/12.f)*dtime;
+    if (Input->Held.shift) State->cam_vtheta += speed*(PI/12.f)*dtime;
+    if (Input->Held.ctrl)  State->cam_vtheta -= speed*(PI/12.f)*dtime;
+
+    State->main_cam.pos.z = Sin(State->cam_vtheta);
+    State->main_cam.pos.x = Cos(State->cam_htheta) * Cos(State->cam_vtheta);
+    State->main_cam.pos.y = Sin(State->cam_htheta) * Cos(State->cam_vtheta);
+    State->main_cam.pos = Normalize(State->main_cam.pos)*State->cam_radius;
 
     D3D11_MAPPED_SUBRESOURCE MatrixMap = {};
     Context->Map(State->MatrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MatrixMap);
@@ -291,8 +318,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
     Context->Unmap(State->MatrixBuffer, 0);
 
+    Context->OMSetRenderTargets(1, &State->render_target_rgb, State->render_target_depth);
     r32 ClearColor[] = {0.06f, 0.05f, 0.08f, 1.f};
-    Context->OMSetRenderTargets(1, &State->render_target_rgb, 0);
     Context->ClearRenderTargetView(State->render_target_rgb, ClearColor);
+    Context->ClearDepthStencilView(State->render_target_depth, D3D11_CLEAR_DEPTH, 1.f, 1);
     Context->Draw(36, 0);
 }

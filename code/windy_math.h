@@ -31,15 +31,21 @@ v3 operator-(v3 a)
     return result;
 }
 
-v3 operator-(v3 a, v3 b)
+v3 operator*(v3 a, r32 b)
 {
-    v3 result = {a.x-b.x, a.y-b.y, a.z-b.z};
+    v3 result = {a.x*b, a.y*b, a.z*b};
     return result;
 }
 
 v3 operator/(v3 a, r32 b)
 {
     v3 result = {a.x/b, a.y/b, a.z/b};
+    return result;
+}
+
+v3 operator-(v3 a, v3 b)
+{
+    v3 result = {a.x-b.x, a.y-b.y, a.z-b.z};
     return result;
 }
 
@@ -280,11 +286,17 @@ inline m4
 Perspective_m4(r32 fov, r32 ar, r32 n, r32 f)
 {
     r32 cot = 1.f/Tan(fov/2.f);
+    //m4 matrix = {
+    //    cot/ar, 0.f,         0.f, 0.f,
+    //    0.f,    cot,         0.f, 0.f,
+    //    0.f,    0.f, (f+n)/(f-n), 1.f,
+    //    0.f,    0.f, 2*f*n/(n-f), 0.f
+    //};
     m4 matrix = {
         cot/ar, 0.f,         0.f, 0.f,
         0.f,    cot,         0.f, 0.f,
-        0.f,    0.f, (f+n)/(f-n), 1.f,
-        0.f,    0.f, 2*f*n/(n-f), 0.f
+        0.f,    0.f, -f/(n-f), 1.f,
+        0.f,    0.f, n*f/(n-f), 0.f
     };
 
     return matrix;

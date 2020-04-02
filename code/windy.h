@@ -42,7 +42,7 @@ struct camera
 struct game_state
 {
     ID3D11RenderTargetView *render_target_rgb;
-    ID3D11RenderTargetView *render_target_depth;
+    ID3D11DepthStencilView *render_target_depth;
     ID3D11Buffer *MatrixBuffer;
     ID3D11Buffer *VertexBuffer;
 
@@ -51,6 +51,9 @@ struct game_state
     r32 theta;
 
     camera main_cam;
+    r32 cam_radius;
+    r32 cam_vtheta;
+    r32 cam_htheta;
 };
 
 struct memory_pool

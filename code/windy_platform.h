@@ -35,6 +35,7 @@ struct input_keyboard
     u32 s;
     u32 d;
 
+    u32 space;
     u32 shift;
     u32 ctrl;
     u32 esc;

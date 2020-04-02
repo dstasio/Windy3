@@ -1,7 +1,7 @@
 struct VS_OUTPUT
 {
-    float4 Pos : SV_POSITION;
-    float2 TXC : TEXCOORD;
+    float4 pos   : SV_POSITION;
+    float2 txc   : TEXCOORD;
 };
 
 #if VERTEX_HLSL // ---------------------------------------------------
@@ -9,25 +9,25 @@ struct VS_OUTPUT
 
 struct VS_INPUT
 {
-    float3 Pos : POSITION;
-    float2 TXC : TEXCOORD;
+    float3 pos : POSITION;
+    float2 txc : TEXCOORD;
 };
 
 cbuffer Matrices: register(b0)
 {
-    float4x4 Model;
-    float4x4 Camera;
-    float4x4 Projection;
+    float4x4 model;
+    float4x4 camera;
+    float4x4 projection;
 }
 
 VS_OUTPUT
-main(VS_INPUT Input)
+main(VS_INPUT input)
 {
-    VS_OUTPUT Output;
-    float4x4 total_matrix = mul(Projection, mul(Camera, Model));
-    Output.Pos = mul(total_matrix,float4(Input.Pos, 1.f));
-    Output.TXC = Input.TXC;
-    return(Output);
+    VS_OUTPUT output;
+    float4x4 total_matrix = mul(projection, mul(camera, model));
+    output.pos = mul(total_matrix,float4(input.pos, 1.f));
+    output.txc = input.txc;
+    return(output);
 }
 
 #elif PIXEL_HLSL // --------------------------------------------------
@@ -37,14 +37,20 @@ SamplerState TextureSamplerState
     Filter = MIN_MAG_MIP_LINEAR;
 };
 
+struct PS_OUTPUT
+{
+    float4 color : SV_TARGET;
+};
+
 Texture2D SampleTexture;
 
-float4
-main(VS_OUTPUT Input) : SV_TARGET
+PS_OUTPUT
+main(VS_OUTPUT input)
 {
-    float4 Color = SampleTexture.Sample(TextureSamplerState, Input.TXC);
+    PS_OUTPUT output; 
+    output.color = SampleTexture.Sample(TextureSamplerState, input.txc);
 
-    return(Color);
+    return(output);
 }
 
 #endif
