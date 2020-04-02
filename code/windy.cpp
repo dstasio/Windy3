@@ -141,11 +141,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             -1.f,  1.f, -1.f,  0.f, 0.f,
 
             1.f, -1.f,  1.f,  0.f, 0.f,      //positive x
-            1.f,  1.f, -1.f,  0.f, 1.f,
-            1.f,  1.f,  1.f,  1.f, 1.f,
-            1.f,  1.f,  1.f,  1.f, 1.f,
-            1.f, -1.f,  1.f,  1.f, 0.f,
-            1.f, -1.f, -1.f,  0.f, 0.f
+            1.f, -1.f, -1.f,  0.f, 1.f,
+            1.f,  1.f, -1.f,  1.f, 1.f,
+            1.f,  1.f, -1.f,  1.f, 1.f,
+            1.f,  1.f,  1.f,  1.f, 0.f,
+            1.f, -1.f,  1.f,  0.f, 0.f
         };
 
         D3D11_SUBRESOURCE_DATA TriangleData = {(void *)cube};
