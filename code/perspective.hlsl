@@ -25,7 +25,7 @@ main(VS_INPUT Input)
 {
     VS_OUTPUT Output;
     float4x4 total_matrix = mul(Projection, mul(Camera, Model));
-    Output.Pos = mul(total_matrix,float4(1.0f*Input.Pos, 1.f));
+    Output.Pos = mul(total_matrix,float4(Input.Pos, 1.f));
     Output.TXC = Input.TXC;
     return(Output);
 }

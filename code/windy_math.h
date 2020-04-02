@@ -11,13 +11,17 @@
 #define PI 3.141592653589793238462643383279f
 #define DegToRad (PI/180.f)
 #define RadToDeg (180.f/PI)
+#define COL_X 0
+#define COL_Y 1
+#define COL_Z 2
+#define COL_W 3
 
 struct v3
 {
     union
     {
         struct { r32 x, y, z; };
-        r32    col[3];
+        r32    row[3];
     };
 };
 
@@ -93,7 +97,7 @@ struct v4
     union
     {
         struct { r32 x, y, z, w; };
-        r32    col[4];
+        r32    row[4];
     };
 };
 
@@ -109,7 +113,7 @@ struct m4
     union
     {
         r32 m[4][4];
-        v4  row [4];
+        v4  col [4];
     };
 };
 
@@ -138,7 +142,7 @@ m4 operator*(m4 a, m4 b)
             col_index < 4;
             ++col_index)
         {
-            matrix.m[col_index][row_index] = Dot(a.row[row_index], b.row[col_index]);
+            matrix.m[col_index][row_index] = Dot(a.col[row_index], b.col[col_index]);
         }
     }
     return matrix;
@@ -153,6 +157,22 @@ Identity_m4()
         0.f, 0.f, 1.f, 0.f,
         0.f, 0.f, 0.f, 1.f
     };
+    return matrix;
+}
+
+inline m4
+Flip_m4(i32 first_comp, i32 second_comp, i32 third_comp, i32 fourth_comp)
+{
+    Assert((first_comp >= 0) && (first_comp < 4));
+    Assert((second_comp >= 0) && (second_comp < 4));
+    Assert((third_comp >= 0) && (third_comp < 4));
+    Assert((fourth_comp >= 0) && (fourth_comp < 4));
+    m4 matrix = {};
+    matrix.m[0][first_comp] = 1.f;
+    matrix.m[1][second_comp] = 1.f;
+    matrix.m[2][third_comp] = 1.f;
+    matrix.m[3][fourth_comp] = 1.f;
+
     return matrix;
 }
 
@@ -242,18 +262,17 @@ Camera_m4(v3 pos, v3 target, v3 up)
     v3 n = Normalize(target - pos);
     v3 v = Normalize(Cross(n, up));
     v3 u = Normalize(Cross(v, n));
-    pos = {pos.x, pos.z, pos.y};
     r32 p_v = -Dot(pos, v);
     r32 p_u = -Dot(pos, u);
-    r32 p_n = Dot(pos, n);
+    r32 p_n = -Dot(pos, n);
 
     m4 matrix = {
         v.x, u.x, n.x, 0.f,
-        v.z, u.z, n.z, 0.f,
         v.y, u.y, n.y, 0.f,
+        v.z, u.z, n.z, 0.f,
         p_v, p_u, p_n, 1.f
     };
-    //matrix = matrix * Translation_m4(-pos);
+
     return matrix;
 }
 
@@ -267,6 +286,7 @@ Perspective_m4(r32 fov, r32 ar, r32 n, r32 f)
         0.f,    0.f, (f+n)/(f-n), 1.f,
         0.f,    0.f, 2*f*n/(n-f), 0.f
     };
+
     return matrix;
 }
 

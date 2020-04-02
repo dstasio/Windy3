@@ -7,7 +7,6 @@
    $Notice: (C) Copyright 2014 by Davide Stasio. All Rights Reserved. $
    ======================================================================== */
 #include "windy_platform.h"
-#include "windy_math.h"
 
 #define WIDTH 1024
 #define HEIGHT 720
@@ -17,6 +16,7 @@
 #else
 #define Assert(expr)
 #endif
+#include "windy_math.h"
 
 struct image_data
 {

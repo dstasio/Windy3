@@ -42,5 +42,12 @@ Sqrt(r32 a)
     return result;
 }
 
+inline i32
+Abs(i32 a)
+{
+    i32 result = (a < 0) ? -1*a : a;
+    return result;
+}
+
 #define WINDY_INTRINSICS_H
 #endif

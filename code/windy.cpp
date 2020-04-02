@@ -288,7 +288,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     m4 *matrix_buffer = (m4 *)MatrixMap.pData;
     matrix_buffer[0] = Pitch_m4(State->theta);
     matrix_buffer[1] = Camera_m4(State->main_cam.pos, State->main_cam.target, State->main_cam.up);
-    matrix_buffer[2] = Perspective_m4(DegToRad*90.f, WIDTH/HEIGHT, 0.01f, 100.f);
+    matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
     Context->Unmap(State->MatrixBuffer, 0);
 
     r32 ClearColor[] = {0.06f, 0.05f, 0.08f, 1.f};
