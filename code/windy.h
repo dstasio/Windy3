@@ -43,8 +43,9 @@ struct game_state
 {
     ID3D11RenderTargetView *render_target_rgb;
     ID3D11DepthStencilView *render_target_depth;
-    ID3D11Buffer *MatrixBuffer;
-    ID3D11Buffer *VertexBuffer;
+    ID3D11Buffer *matrix_buff;
+    ID3D11Buffer *vertex_buff;
+    ID3D11Buffer * index_buff;
 
     m4 CameraMatrix;
     m4 ProjectionMatrix;

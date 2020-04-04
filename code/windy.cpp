@@ -3,7 +3,7 @@
    $Date: $
    $Revision: $
    $Creator: Davide Stasio $
-   $Notice: (C) Copyright 2014 by Davide Stasio. All Rights Reserved. $
+   $Notice: (C) Copyright 2020 by Davide Stasio. All Rights Reserved. $
    ======================================================================== */
 #include <d3d11.h>
 #include "windy.h"
@@ -92,71 +92,68 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         Context->OMSetDepthStencilState(depth_state, 1);
 
 
-        //
-        // sending data to gpu
-        //
-        //vertex_shader_input Triangle[] = {
-        //     1.f, -1.f, 0.f,  1.f, 1.f,  // bottom-right
-        //    -1.f, -1.f, 0.f,  0.f, 1.f,  // bottom-left
-        //    -1.f,  1.f, 0.f,  0.f, 0.f,  // top-left
-
-        //    -1.f,  1.f, 0.f,  0.f, 0.f,  // top-left
-        //     1.f,  1.f, 0.f,  1.f, 0.f,  // top-right
-        //     1.f, -1.f, 0.f,  1.f, 1.f   // bottom-right
-        //};
         vertex_shader_input cube[] = {
-            -1.f, -1.f,  1.f,  0.f, 0.f,      // positive z
-            1.f, -1.f,  1.f,  0.f, 1.f,
-            1.f,  1.f,  1.f,  1.f, 1.f,
-            1.f,  1.f,  1.f,  1.f, 1.f,
-            -1.f,  1.f,  1.f,  1.f, 0.f,
-            -1.f, -1.f,  1.f,  0.f, 0.f,
+            -1, -1,  1,  0.f, 0.f,     // positive z
+             1, -1,  1,  0.f, 1.f,
+             1,  1,  1,  1.f, 1.f,
+            // 1,  1,  1,  1.f, 1.f,
+            -1,  1,  1,  1.f, 0.f,
+            //-1, -1,  1,  0.f, 0.f,
 
-            -1.f, -1.f,  1.f,  0.f, 0.f,      // negative x
-            -1.f,  1.f,  1.f,  0.f, 1.f,
-            -1.f,  1.f, -1.f,  1.f, 1.f,
-            -1.f,  1.f, -1.f,  1.f, 1.f,
-            -1.f, -1.f, -1.f,  1.f, 0.f,
-            -1.f, -1.f,  1.f,  0.f, 0.f,
+            //-1, -1,  1,  0.f, 0.f,      // negative x
+            //-1,  1,  1,  0.f, 1.f,
+            -1,  1, -1,  1.f, 1.f,
+            //-1,  1, -1,  1.f, 1.f,
+            -1, -1, -1,  1.f, 0.f,
+            //-1, -1,  1,  0.f, 0.f,
 
-            -1.f, -1.f,  1.f,  0.f, 0.f,      // negative y
-            -1.f, -1.f, -1.f,  0.f, 1.f,
-            1.f, -1.f, -1.f,  1.f, 1.f,
-            1.f, -1.f, -1.f,  1.f, 1.f,
-            1.f, -1.f,  1.f,  1.f, 0.f,
-            -1.f, -1.f,  1.f,  0.f, 0.f,
+            //-1, -1,  1,  0.f, 0.f,      // negative y
+            //-1, -1, -1,  0.f, 1.f,
+             1, -1, -1,  1.f, 1.f,
+            // 1, -1, -1,  1.f, 1.f,
+            // 1, -1,  1,  1.f, 0.f,
+            //-1, -1,  1,  0.f, 0.f,
 
-            -1.f, -1.f, -1.f,  0.f, 0.f,      // negative z
-            -1.f,  1.f, -1.f,  0.f, 1.f,
-            1.f,  1.f, -1.f,  1.f, 1.f,
-            1.f,  1.f, -1.f,  1.f, 1.f,
-            1.f, -1.f, -1.f,  1.f, 0.f,
-            -1.f, -1.f, -1.f,  0.f, 0.f,
+            //-1, -1, -1,  0.f, 0.f,      // negative z
+            //-1,  1, -1,  0.f, 1.f,
+             1,  1, -1,  1.f, 1.f,
+            // 1,  1, -1,  1.f, 1.f,
+            // 1, -1, -1,  1.f, 0.f,
+            //-1, -1, -1,  0.f, 0.f,
 
-            -1.f,  1.f, -1.f,  0.f, 0.f,      // positive y
-            -1.f,  1.f,  1.f,  0.f, 1.f,
-            1.f,  1.f,  1.f,  1.f, 1.f,
-            1.f,  1.f,  1.f,  1.f, 1.f, 
-            1.f,  1.f, -1.f,  1.f, 0.f,
-            -1.f,  1.f, -1.f,  0.f, 0.f,
+            //-1,  1, -1,  0.f, 0.f,      // positive y
+            //-1,  1,  1,  0.f, 1.f,
+            // 1,  1,  1,  1.f, 1.f,
+            // 1,  1,  1,  1.f, 1.f, 
+            // 1,  1, -1,  1.f, 0.f,
+            //-1,  1, -1,  0.f, 0.f,
 
-            1.f, -1.f,  1.f,  0.f, 0.f,      //positive x
-            1.f, -1.f, -1.f,  0.f, 1.f,
-            1.f,  1.f, -1.f,  1.f, 1.f,
-            1.f,  1.f, -1.f,  1.f, 1.f,
-            1.f,  1.f,  1.f,  1.f, 0.f,
-            1.f, -1.f,  1.f,  0.f, 0.f
+            // 1, -1,  1,  0.f, 0.f,      //positive x
+            // 1, -1, -1,  0.f, 1.f,
+            // 1,  1, -1,  1.f, 1.f,
+            // 1,  1, -1,  1.f, 1.f,
+            // 1,  1,  1,  1.f, 0.f,
+            // 1, -1,  1,  0.f, 0.f
+        };
+
+        u16 indices[] = {
+            0, 1, 2,  2, 3, 0,
+            0, 3, 4,  4, 5, 0,
+            0, 5, 6,  6, 1, 0,
+            5, 4, 7,  7, 6, 5,
+            4, 3, 2,  2, 7, 4,
+            1, 6, 7,  7, 2, 1
         };
 
         D3D11_SUBRESOURCE_DATA TriangleData = {(void *)cube};
-        D3D11_BUFFER_DESC VertexBufferDescription = {};
-        VertexBufferDescription.ByteWidth = sizeof(cube);
-        VertexBufferDescription.Usage = D3D11_USAGE_IMMUTABLE;
-        VertexBufferDescription.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-        VertexBufferDescription.CPUAccessFlags = 0;
-        VertexBufferDescription.MiscFlags = 0;
-        VertexBufferDescription.StructureByteStride = sizeof(vertex_shader_input);
-        Device->CreateBuffer(&VertexBufferDescription, &TriangleData, &State->VertexBuffer);
+        D3D11_BUFFER_DESC vertex_buff_desc = {};
+        vertex_buff_desc.ByteWidth = sizeof(cube);
+        vertex_buff_desc.Usage = D3D11_USAGE_IMMUTABLE;
+        vertex_buff_desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        vertex_buff_desc.CPUAccessFlags = 0;
+        vertex_buff_desc.MiscFlags = 0;
+        vertex_buff_desc.StructureByteStride = sizeof(vertex_shader_input);
+        Device->CreateBuffer(&vertex_buff_desc, &TriangleData, &State->vertex_buff);
 
         //
         // input layout description
@@ -170,11 +167,22 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                                   VertexBytes.Data, VertexBytes.Size,
                                   &InputLayout);
 
+        //
+        // sending indices to gpu
+        //
+        D3D11_SUBRESOURCE_DATA index_data = {(void *)indices};
+        D3D11_BUFFER_DESC index_buff_desc = {};
+        index_buff_desc.ByteWidth = sizeof(indices);
+        index_buff_desc.Usage = D3D11_USAGE_IMMUTABLE;
+        index_buff_desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+        Device->CreateBuffer(&index_buff_desc, &index_data, &State->index_buff);
+
         // TODO(dave): can strides and offsets be 0???
         u32 Stride = sizeof(vertex_shader_input);
         u32 Offset = 0;
-        Context->IASetVertexBuffers(0, 1, &State->VertexBuffer, &Stride, &Offset);
+        Context->IASetVertexBuffers(0, 1, &State->vertex_buff, &Stride, &Offset);
         Context->IASetInputLayout(InputLayout);
+        Context->IASetIndexBuffer(State->index_buff, DXGI_FORMAT_R16_UINT, 0);
         Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
         //
@@ -265,8 +273,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         MatrixBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
         MatrixBufferDesc.MiscFlags = 0;
         MatrixBufferDesc.StructureByteStride = sizeof(m4);
-        Device->CreateBuffer(&MatrixBufferDesc, 0, &State->MatrixBuffer);
-        Context->VSSetConstantBuffers(0, 1, &State->MatrixBuffer);
+        Device->CreateBuffer(&MatrixBufferDesc, 0, &State->matrix_buff);
+        Context->VSSetConstantBuffers(0, 1, &State->matrix_buff);
 
         D3D11_RASTERIZER_DESC raster_settings = {};
         raster_settings.FillMode = D3D11_FILL_SOLID;
@@ -311,16 +319,17 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     State->main_cam.pos = Normalize(State->main_cam.pos)*State->cam_radius;
 
     D3D11_MAPPED_SUBRESOURCE MatrixMap = {};
-    Context->Map(State->MatrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MatrixMap);
+    Context->Map(State->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &MatrixMap);
     m4 *matrix_buffer = (m4 *)MatrixMap.pData;
     matrix_buffer[0] = Pitch_m4(State->theta);
     matrix_buffer[1] = Camera_m4(State->main_cam.pos, State->main_cam.target, State->main_cam.up);
     matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
-    Context->Unmap(State->MatrixBuffer, 0);
+    Context->Unmap(State->matrix_buff, 0);
 
     Context->OMSetRenderTargets(1, &State->render_target_rgb, State->render_target_depth);
     r32 ClearColor[] = {0.06f, 0.05f, 0.08f, 1.f};
     Context->ClearRenderTargetView(State->render_target_rgb, ClearColor);
     Context->ClearDepthStencilView(State->render_target_depth, D3D11_CLEAR_DEPTH, 1.f, 1);
-    Context->Draw(36, 0);
+    //Context->Draw(36, 0);
+    Context->DrawIndexed(36, 0, 0);
 }
