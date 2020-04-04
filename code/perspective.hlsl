@@ -9,8 +9,9 @@ struct VS_OUTPUT
 
 struct VS_INPUT
 {
-    float3 pos : POSITION;
-    float2 txc : TEXCOORD;
+    float3 pos  : POSITION;
+    float3 norm : NORMAL;
+    float2 txc  : TEXCOORD;
 };
 
 cbuffer Matrices: register(b0)

@@ -59,6 +59,8 @@ class WexpExport(bpy.types.Operator):
                 print("{:2d}: {: .2f}, {: .2f}, {: .2f},  {: .2f}, {: .2f}, {: .2f},  {:.2f}, {:.2f} -> {: d}".\
                 format(ngon_indices[len(ngon_indices)-1], v.co.x, v.co.y, v.co.z, n.x, n.y, n.z, uv.x, uv.y, hash))
         
+        if(ISDEBUG):
+            print("Total unique vertices: {}".format(len(hashes)))
         #
         # Triangulating
         # 
@@ -70,6 +72,9 @@ class WexpExport(bpy.types.Operator):
             trigon_indices.append(ngon_indices[i])
             trigon_indices.append(ngon_indices[i+2])
             trigon_indices.append(ngon_indices[i+3])
+            
+        if(ISDEBUG):
+            print("Total indices: {}".format(len(trigon_indices)))
 
         header_size = 12
         vertex_bytes_offset = header_size
@@ -85,6 +90,7 @@ class WexpExport(bpy.types.Operator):
         for index in trigon_indices:
             bytes = struct.pack("<H", index)
             file.write(bytes)
+        file.close()
         return {'FINISHED'}
 
     def invoke(self, context, event):

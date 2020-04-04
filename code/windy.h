@@ -76,5 +76,34 @@ PushSize_(memory_pool *Pool, memory_index Size)
     return(Result);
 }
 
+#pragma pack(push, 1)
+struct Bitmap_header
+{
+    u16 Signature;
+    u32 FileSize;
+    u32 Reserved;
+    u32 DataOffset;
+    u32 InfoHeaderSize;
+    u32 Width;
+    u32 Height;
+    u16 Planes;
+    u16 BitsPerPixel;
+    u32 Compression;
+    u32 ImageSize;
+    u32 XPixelsPerMeter;
+    u32 YPixelsPerMeter;
+    u32 ColorsUsed;
+    u32 ImportantColors;
+};
+
+struct Wexp_header
+{
+    u16 signature;
+    u16 vert_offset;
+    u32 indices_offset;
+    u32 eof_offset;
+};
+#pragma pack(pop)
+
 #define WINDY_H
 #endif

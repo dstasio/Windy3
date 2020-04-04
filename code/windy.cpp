@@ -15,27 +15,6 @@ struct vertex_shader_input
     r32 tx, ty;
 };
 
-#pragma pack(push, 1)
-struct bitmap_header
-{
-    u16 Signature;
-    u32 FileSize;
-    u32 Reserved;
-    u32 DataOffset;
-    u32 InfoHeaderSize;
-    u32 Width;
-    u32 Height;
-    u16 Planes;
-    u16 BitsPerPixel;
-    u32 Compression;
-    u32 ImageSize;
-    u32 XPixelsPerMeter;
-    u32 YPixelsPerMeter;
-    u32 ColorsUsed;
-    u32 ImportantColors;
-};
-#pragma pack(pop)
-
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
     game_state *State = (game_state *)Memory->Storage;
@@ -81,78 +60,83 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         depth_stencil_settings.DepthEnable = 1;
         depth_stencil_settings.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
         depth_stencil_settings.DepthFunc = D3D11_COMPARISON_LESS;
-        //depth_stencil_settings.StencilEnable = 0;
-        //depth_stencil_settings.StencilReadMask;
-        //depth_stencil_settings.StencilWriteMask;
-        //depth_stencil_settings.FrontFace;
-        //depth_stencil_settings.BackFace;
+        depth_stencil_settings.StencilEnable = 0;
+        depth_stencil_settings.StencilReadMask;
+        depth_stencil_settings.StencilWriteMask;
+        depth_stencil_settings.FrontFace = {D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_COMPARISON_ALWAYS};
+        depth_stencil_settings.BackFace = {D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_COMPARISON_ALWAYS};
 
         ID3D11DepthStencilState *depth_state;
         Device->CreateDepthStencilState(&depth_stencil_settings, &depth_state);
         Context->OMSetDepthStencilState(depth_state, 1);
 
 
-        vertex_shader_input cube[] = {
-            -1, -1,  1,  0.f, 0.f,     // positive z
-             1, -1,  1,  0.f, 1.f,
-             1,  1,  1,  1.f, 1.f,
-            // 1,  1,  1,  1.f, 1.f,
-            -1,  1,  1,  1.f, 0.f,
-            //-1, -1,  1,  0.f, 0.f,
+        //vertex_shader_input cube[] = {
+        //    -1, -1,  1,  0.f, 0.f,     // positive z
+        //     1, -1,  1,  0.f, 1.f,
+        //     1,  1,  1,  1.f, 1.f,
+        //    // 1,  1,  1,  1.f, 1.f,
+        //    -1,  1,  1,  1.f, 0.f,
+        //    //-1, -1,  1,  0.f, 0.f,
 
-            //-1, -1,  1,  0.f, 0.f,      // negative x
-            //-1,  1,  1,  0.f, 1.f,
-            -1,  1, -1,  1.f, 1.f,
-            //-1,  1, -1,  1.f, 1.f,
-            -1, -1, -1,  1.f, 0.f,
-            //-1, -1,  1,  0.f, 0.f,
+        //    //-1, -1,  1,  0.f, 0.f,      // negative x
+        //    //-1,  1,  1,  0.f, 1.f,
+        //    -1,  1, -1,  1.f, 1.f,
+        //    //-1,  1, -1,  1.f, 1.f,
+        //    -1, -1, -1,  1.f, 0.f,
+        //    //-1, -1,  1,  0.f, 0.f,
 
-            //-1, -1,  1,  0.f, 0.f,      // negative y
-            //-1, -1, -1,  0.f, 1.f,
-             1, -1, -1,  1.f, 1.f,
-            // 1, -1, -1,  1.f, 1.f,
-            // 1, -1,  1,  1.f, 0.f,
-            //-1, -1,  1,  0.f, 0.f,
+        //    //-1, -1,  1,  0.f, 0.f,      // negative y
+        //    //-1, -1, -1,  0.f, 1.f,
+        //     1, -1, -1,  1.f, 1.f,
+        //    // 1, -1, -1,  1.f, 1.f,
+        //    // 1, -1,  1,  1.f, 0.f,
+        //    //-1, -1,  1,  0.f, 0.f,
 
-            //-1, -1, -1,  0.f, 0.f,      // negative z
-            //-1,  1, -1,  0.f, 1.f,
-             1,  1, -1,  1.f, 1.f,
-            // 1,  1, -1,  1.f, 1.f,
-            // 1, -1, -1,  1.f, 0.f,
-            //-1, -1, -1,  0.f, 0.f,
+        //    //-1, -1, -1,  0.f, 0.f,      // negative z
+        //    //-1,  1, -1,  0.f, 1.f,
+        //     1,  1, -1,  1.f, 1.f,
+        //    // 1,  1, -1,  1.f, 1.f,
+        //    // 1, -1, -1,  1.f, 0.f,
+        //    //-1, -1, -1,  0.f, 0.f,
 
-            //-1,  1, -1,  0.f, 0.f,      // positive y
-            //-1,  1,  1,  0.f, 1.f,
-            // 1,  1,  1,  1.f, 1.f,
-            // 1,  1,  1,  1.f, 1.f, 
-            // 1,  1, -1,  1.f, 0.f,
-            //-1,  1, -1,  0.f, 0.f,
+        //    //-1,  1, -1,  0.f, 0.f,      // positive y
+        //    //-1,  1,  1,  0.f, 1.f,
+        //    // 1,  1,  1,  1.f, 1.f,
+        //    // 1,  1,  1,  1.f, 1.f, 
+        //    // 1,  1, -1,  1.f, 0.f,
+        //    //-1,  1, -1,  0.f, 0.f,
 
-            // 1, -1,  1,  0.f, 0.f,      //positive x
-            // 1, -1, -1,  0.f, 1.f,
-            // 1,  1, -1,  1.f, 1.f,
-            // 1,  1, -1,  1.f, 1.f,
-            // 1,  1,  1,  1.f, 0.f,
-            // 1, -1,  1,  0.f, 0.f
-        };
+        //    // 1, -1,  1,  0.f, 0.f,      //positive x
+        //    // 1, -1, -1,  0.f, 1.f,
+        //    // 1,  1, -1,  1.f, 1.f,
+        //    // 1,  1, -1,  1.f, 1.f,
+        //    // 1,  1,  1,  1.f, 0.f,
+        //    // 1, -1,  1,  0.f, 0.f
+        //};
 
-        u16 indices[] = {
-            0, 1, 2,  2, 3, 0,
-            0, 3, 4,  4, 5, 0,
-            0, 5, 6,  6, 1, 0,
-            5, 4, 7,  7, 6, 5,
-            4, 3, 2,  2, 7, 4,
-            1, 6, 7,  7, 2, 1
-        };
+        //u16 indices[] = {
+        //    0, 1, 2,  2, 3, 0,
+        //    0, 3, 4,  4, 5, 0,
+        //    0, 5, 6,  6, 1, 0,
+        //    5, 4, 7,  7, 6, 5,
+        //    4, 3, 2,  2, 7, 4,
+        //    1, 6, 7,  7, 2, 1
+        //};
 
-        D3D11_SUBRESOURCE_DATA TriangleData = {(void *)cube};
+        Wexp_header *cube = (Wexp_header *)Memory->ReadFile("assets/cube.wexp").Data;
+        Assert(cube->signature == 0x7877);
+        u32 vertices_size = cube->indices_offset - cube->vert_offset;
+        u32 indices_size  = cube->eof_offset - cube->indices_offset;
+
+        D3D11_SUBRESOURCE_DATA TriangleData = {(void *)((u8 *)cube + cube->vert_offset)};
         D3D11_BUFFER_DESC vertex_buff_desc = {};
-        vertex_buff_desc.ByteWidth = sizeof(cube);
+        vertex_buff_desc.ByteWidth = vertices_size;
         vertex_buff_desc.Usage = D3D11_USAGE_IMMUTABLE;
         vertex_buff_desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         vertex_buff_desc.CPUAccessFlags = 0;
         vertex_buff_desc.MiscFlags = 0;
-        vertex_buff_desc.StructureByteStride = sizeof(vertex_shader_input);
+        vertex_buff_desc.StructureByteStride = 8*sizeof(r32);
         Device->CreateBuffer(&vertex_buff_desc, &TriangleData, &State->vertex_buff);
 
         //
@@ -161,26 +145,27 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         ID3D11InputLayout *InputLayout;
         D3D11_INPUT_ELEMENT_DESC InputDescription[] = {
             {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-            {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0}
+            {"NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+            {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0}
         };
-        Device->CreateInputLayout(InputDescription, 2,
+        Device->CreateInputLayout(InputDescription, 3,
                                   VertexBytes.Data, VertexBytes.Size,
                                   &InputLayout);
 
         //
         // sending indices to gpu
         //
-        D3D11_SUBRESOURCE_DATA index_data = {(void *)indices};
+        D3D11_SUBRESOURCE_DATA index_data = {(void *)((u8 *)cube + cube->indices_offset)};
         D3D11_BUFFER_DESC index_buff_desc = {};
-        index_buff_desc.ByteWidth = sizeof(indices);
+        index_buff_desc.ByteWidth = indices_size;
         index_buff_desc.Usage = D3D11_USAGE_IMMUTABLE;
         index_buff_desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
         Device->CreateBuffer(&index_buff_desc, &index_data, &State->index_buff);
 
-        // TODO(dave): can strides and offsets be 0???
-        u32 Stride = sizeof(vertex_shader_input);
+        // can strides and offsets be 0???
+        // edit: apparently not!
         u32 Offset = 0;
-        Context->IASetVertexBuffers(0, 1, &State->vertex_buff, &Stride, &Offset);
+        Context->IASetVertexBuffers(0, 1, &State->vertex_buff, &vertex_buff_desc.StructureByteStride, &Offset);
         Context->IASetInputLayout(InputLayout);
         Context->IASetIndexBuffer(State->index_buff, DXGI_FORMAT_R16_UINT, 0);
         Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -188,7 +173,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         //
         // bitmap texture loading
         //
-        bitmap_header *ImageBMP = (bitmap_header *)Memory->ReadFile("assets/sampletexture.bmp").Data;
+        Bitmap_header *ImageBMP = (Bitmap_header *)Memory->ReadFile("assets/sampletexture.bmp").Data;
         image_data Texture = {};
         Texture.Bytes = (u8 *)ImageBMP + ImageBMP->DataOffset;
         Texture.Width = ImageBMP->Width;
@@ -330,6 +315,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     r32 ClearColor[] = {0.06f, 0.05f, 0.08f, 1.f};
     Context->ClearRenderTargetView(State->render_target_rgb, ClearColor);
     Context->ClearDepthStencilView(State->render_target_depth, D3D11_CLEAR_DEPTH, 1.f, 1);
-    //Context->Draw(36, 0);
+    // @todo: keep index count for each mesh
     Context->DrawIndexed(36, 0, 0);
 }
