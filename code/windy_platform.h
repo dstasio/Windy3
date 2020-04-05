@@ -10,8 +10,8 @@
 
 struct file
 {
-    u8 *Data;
-    u64 Size;
+    u8 *data;
+    u64 size;
 };
 
 #define PLATFORM_READ_FILE(name) file name(char *Path)
@@ -56,7 +56,7 @@ typedef struct game_memory
 
     file VertexShaderBytes;
 
-    platform_read_file *ReadFile;
+    platform_read_file *read_file;
 } game_memory;
 
 #define GAME_UPDATE_AND_RENDER(name) void name(input *Input, r32 dtime, ID3D11Device *Device, ID3D11DeviceContext *Context, ID3D11Texture2D *rendering_backbuffer, file VertexBytes, game_memory *Memory)

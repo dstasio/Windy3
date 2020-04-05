@@ -9,21 +9,138 @@
 #include "windy.h"
 #include <string.h>
 
-struct vertex_shader_input
+#define byte_offset(base, offset) ((u8*)(base) + (offset))
+
+inline u16 truncate_to_u16(u32 v) {Assert(v <= 0xFFFF); return (u16)v; };
+
+internal mesh_data
+load_wexp(ID3D11Device *dev, platform_read_file *read_file, char *path, file vshader)
 {
-    r32 x, y, z;
-    r32 tx, ty;
-};
+    mesh_data mesh = {};
+    Wexp_header *wexp = (Wexp_header *)read_file(path).data;
+    Assert(wexp->signature == 0x7877);
+    u32 vertices_size = wexp->indices_offset - wexp->vert_offset;
+    u32 indices_size  = wexp->eof_offset - wexp->indices_offset;
+    mesh.index_count  = truncate_to_u16(indices_size / 2); // two bytes per index
+    mesh.vert_stride  = 8*sizeof(r32);
+
+    //
+    // vertex buffer
+    //
+    D3D11_SUBRESOURCE_DATA raw_vert_data = {byte_offset(wexp, wexp->vert_offset)};
+    D3D11_BUFFER_DESC vert_buff_desc     = {};
+    vert_buff_desc.ByteWidth             = vertices_size;
+    vert_buff_desc.Usage                 = D3D11_USAGE_IMMUTABLE;
+    vert_buff_desc.BindFlags             = D3D11_BIND_VERTEX_BUFFER;
+    vert_buff_desc.StructureByteStride   = mesh.vert_stride;
+    dev->CreateBuffer(&vert_buff_desc, &raw_vert_data, &mesh.vbuff);
+
+    //
+    // input layout description
+    //
+    D3D11_INPUT_ELEMENT_DESC in_desc[] = {
+        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0}
+    };
+    dev->CreateInputLayout(in_desc, 3, vshader.data, vshader.size, &mesh.in_layout);
+
+    //
+    // index buffer
+    //
+    D3D11_SUBRESOURCE_DATA index_data = {byte_offset(wexp, wexp->indices_offset)};
+    D3D11_BUFFER_DESC index_buff_desc = {};
+    index_buff_desc.ByteWidth         = indices_size;
+    index_buff_desc.Usage             = D3D11_USAGE_IMMUTABLE;
+    index_buff_desc.BindFlags         = D3D11_BIND_INDEX_BUFFER;
+    dev->CreateBuffer(&index_buff_desc, &index_data, &mesh.ibuff);
+
+    return mesh;
+}
+
+inline void
+set_active_mesh(ID3D11DeviceContext *context, mesh_data *mesh)
+{
+    u32 offsets = 0;
+    context->IASetVertexBuffers(0, 1, &mesh->vbuff, (u32*)&mesh->vert_stride, &offsets);
+    context->IASetInputLayout(mesh->in_layout);
+    context->IASetIndexBuffer(mesh->ibuff, DXGI_FORMAT_R16_UINT, 0);
+    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
+
+internal image_data
+load_bitmap(memory_pool *mempool, platform_read_file *read_file, char *path)
+{
+    image_data image = {};
+    Bitmap_header *bmp = (Bitmap_header *)read_file(path).data;
+    image.width  = bmp->Width;
+    image.height = bmp->Height;
+    image.size = image.width*image.height*4;
+    image.data = PushArray(mempool, image.size, u8);
+
+    Assert(bmp->BitsPerPixel == 24);
+    Assert(bmp->Compression == 0);
+
+    u32 scanline_byte_count = image.width*3;
+    scanline_byte_count    += scanline_byte_count & 0x3;
+    u32 r_mask = 0x000000FF;
+    u32 g_mask = 0x0000FF00;
+    u32 b_mask = 0x00FF0000;
+    u32 a_mask = 0xFF000000;
+    for(u32 y = 0; y < image.height; ++y)
+    {
+        for(u32 x = 0; x < image.width; ++x)
+        {
+            u32 src_offset  = (image.height - y - 1)*scanline_byte_count + x*3;
+            u32 dest_offset = y*image.width*4 + x*4;
+            u32 *src_pixel  = (u32 *)byte_offset(bmp, bmp->DataOffset + src_offset);
+            u32 *dest_pixel = (u32 *)byte_offset(image.data, dest_offset);
+            *dest_pixel = (r_mask & (*src_pixel >> 16)) | (g_mask & (*src_pixel)) | (b_mask & (*src_pixel >> 8)) | a_mask;
+        }
+    }
+
+    return image;
+}
+
+internal texture_data
+load_texture(ID3D11Device *dev, memory_pool *mempool, platform_read_file *read_file, char *path)
+{
+    texture_data texture = {};
+    image_data image = load_bitmap(mempool, read_file, path);
+    D3D11_TEXTURE2D_DESC tex_desc = {};
+    tex_desc.Width = image.width;
+    tex_desc.Height = image.height;
+    tex_desc.MipLevels = 1;
+    tex_desc.ArraySize = 1;
+    tex_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    tex_desc.SampleDesc.Count = 1;
+    tex_desc.SampleDesc.Quality = 0;
+    tex_desc.Usage = D3D11_USAGE_IMMUTABLE;
+    tex_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    tex_desc.MiscFlags = 0;
+
+    D3D11_SUBRESOURCE_DATA tex_subres = {image.data, image.width*4};
+    dev->CreateTexture2D(&tex_desc, &tex_subres, &texture.handle);
+    dev->CreateShaderResourceView(texture.handle, 0, &texture.view);
+    
+    return texture;
+}
+
+inline void
+set_active_texture(ID3D11DeviceContext *context, texture_data *texture)
+{
+    context->PSSetShaderResources(0, 1, &texture->view); 
+}
 
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
     game_state *State = (game_state *)Memory->Storage;
     if(!Memory->IsInitialized)
     {
-        memory_pool Pool = {};
-        Pool.Base = (u8 *)Memory->Storage;
-        Pool.Size = Memory->StorageSize;
-        Pool.Used = sizeof(game_state);
+        memory_pool mempool = {};
+        mempool.Base = (u8 *)Memory->Storage;
+        mempool.Size = Memory->StorageSize;
+        mempool.Used = sizeof(game_state);
 
         D3D11_VIEWPORT Viewport = {};
         Viewport.TopLeftX = 0;
@@ -70,183 +187,17 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         Device->CreateDepthStencilState(&depth_stencil_settings, &depth_state);
         Context->OMSetDepthStencilState(depth_state, 1);
 
-
-        //vertex_shader_input cube[] = {
-        //    -1, -1,  1,  0.f, 0.f,     // positive z
-        //     1, -1,  1,  0.f, 1.f,
-        //     1,  1,  1,  1.f, 1.f,
-        //    // 1,  1,  1,  1.f, 1.f,
-        //    -1,  1,  1,  1.f, 0.f,
-        //    //-1, -1,  1,  0.f, 0.f,
-
-        //    //-1, -1,  1,  0.f, 0.f,      // negative x
-        //    //-1,  1,  1,  0.f, 1.f,
-        //    -1,  1, -1,  1.f, 1.f,
-        //    //-1,  1, -1,  1.f, 1.f,
-        //    -1, -1, -1,  1.f, 0.f,
-        //    //-1, -1,  1,  0.f, 0.f,
-
-        //    //-1, -1,  1,  0.f, 0.f,      // negative y
-        //    //-1, -1, -1,  0.f, 1.f,
-        //     1, -1, -1,  1.f, 1.f,
-        //    // 1, -1, -1,  1.f, 1.f,
-        //    // 1, -1,  1,  1.f, 0.f,
-        //    //-1, -1,  1,  0.f, 0.f,
-
-        //    //-1, -1, -1,  0.f, 0.f,      // negative z
-        //    //-1,  1, -1,  0.f, 1.f,
-        //     1,  1, -1,  1.f, 1.f,
-        //    // 1,  1, -1,  1.f, 1.f,
-        //    // 1, -1, -1,  1.f, 0.f,
-        //    //-1, -1, -1,  0.f, 0.f,
-
-        //    //-1,  1, -1,  0.f, 0.f,      // positive y
-        //    //-1,  1,  1,  0.f, 1.f,
-        //    // 1,  1,  1,  1.f, 1.f,
-        //    // 1,  1,  1,  1.f, 1.f, 
-        //    // 1,  1, -1,  1.f, 0.f,
-        //    //-1,  1, -1,  0.f, 0.f,
-
-        //    // 1, -1,  1,  0.f, 0.f,      //positive x
-        //    // 1, -1, -1,  0.f, 1.f,
-        //    // 1,  1, -1,  1.f, 1.f,
-        //    // 1,  1, -1,  1.f, 1.f,
-        //    // 1,  1,  1,  1.f, 0.f,
-        //    // 1, -1,  1,  0.f, 0.f
-        //};
-
-        //u16 indices[] = {
-        //    0, 1, 2,  2, 3, 0,
-        //    0, 3, 4,  4, 5, 0,
-        //    0, 5, 6,  6, 1, 0,
-        //    5, 4, 7,  7, 6, 5,
-        //    4, 3, 2,  2, 7, 4,
-        //    1, 6, 7,  7, 2, 1
-        //};
-
-        Wexp_header *cube = (Wexp_header *)Memory->ReadFile("assets/cube.wexp").Data;
-        Assert(cube->signature == 0x7877);
-        u32 vertices_size = cube->indices_offset - cube->vert_offset;
-        u32 indices_size  = cube->eof_offset - cube->indices_offset;
-
-        D3D11_SUBRESOURCE_DATA TriangleData = {(void *)((u8 *)cube + cube->vert_offset)};
-        D3D11_BUFFER_DESC vertex_buff_desc = {};
-        vertex_buff_desc.ByteWidth = vertices_size;
-        vertex_buff_desc.Usage = D3D11_USAGE_IMMUTABLE;
-        vertex_buff_desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-        vertex_buff_desc.CPUAccessFlags = 0;
-        vertex_buff_desc.MiscFlags = 0;
-        vertex_buff_desc.StructureByteStride = 8*sizeof(r32);
-        Device->CreateBuffer(&vertex_buff_desc, &TriangleData, &State->vertex_buff);
-
-        //
-        // input layout description
-        //
-        ID3D11InputLayout *InputLayout;
-        D3D11_INPUT_ELEMENT_DESC InputDescription[] = {
-            {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-            {"NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
-            {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0}
-        };
-        Device->CreateInputLayout(InputDescription, 3,
-                                  VertexBytes.Data, VertexBytes.Size,
-                                  &InputLayout);
-
-        //
-        // sending indices to gpu
-        //
-        D3D11_SUBRESOURCE_DATA index_data = {(void *)((u8 *)cube + cube->indices_offset)};
-        D3D11_BUFFER_DESC index_buff_desc = {};
-        index_buff_desc.ByteWidth = indices_size;
-        index_buff_desc.Usage = D3D11_USAGE_IMMUTABLE;
-        index_buff_desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-        Device->CreateBuffer(&index_buff_desc, &index_data, &State->index_buff);
-
-        // can strides and offsets be 0???
-        // edit: apparently not!
-        u32 Offset = 0;
-        Context->IASetVertexBuffers(0, 1, &State->vertex_buff, &vertex_buff_desc.StructureByteStride, &Offset);
-        Context->IASetInputLayout(InputLayout);
-        Context->IASetIndexBuffer(State->index_buff, DXGI_FORMAT_R16_UINT, 0);
-        Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-        //
-        // bitmap texture loading
-        //
-        Bitmap_header *ImageBMP = (Bitmap_header *)Memory->ReadFile("assets/sampletexture.bmp").Data;
-        image_data Texture = {};
-        Texture.Bytes = (u8 *)ImageBMP + ImageBMP->DataOffset;
-        Texture.Width = ImageBMP->Width;
-        Texture.Height = ImageBMP->Height;
-
-        Assert(ImageBMP->BitsPerPixel == 24);
-        Assert(ImageBMP->Compression == 0);
-
-        u32 ImageSizeInBytes = Texture.Width*Texture.Height*4;
-        u8 *ImageOrderedBytes = PushArray(&Pool, ImageSizeInBytes, u8);
-        for(u32 Y = 0;
-            Y < Texture.Height;
-            ++Y)
-        {
-            for(u32 X = 0;
-                X < Texture.Width;
-                ++X)
-            {
-                u32 BytesPerScanline = Texture.Width*3;
-                u32 PaddingPerScanline = (4 - BytesPerScanline % 4) % 4;
-                u32 SourceOffset = ((Texture.Height - Y - 1)*
-                                    (BytesPerScanline + PaddingPerScanline) +
-                                    X*3);
-                u32 DestOffset = Y*Texture.Width*4 + X*4;
-                u32 *SourcePixel = (u32 *)((u8 *)Texture.Bytes + SourceOffset);
-                u32 *DestPixel = (u32 *)(ImageOrderedBytes + DestOffset);
-                u32 RMask = 0x000000FF;
-                u32 GMask = 0x0000FF00;
-                u32 BMask = 0x00FF0000;
-                *DestPixel = ((RMask & (*SourcePixel >> 16)) |
-                              (GMask & (*SourcePixel)) |
-                              (BMask & (*SourcePixel >> 8)) |
-                              0xFF000000);
-            }
-        }
-        Texture.Bytes = ImageOrderedBytes;
-
-        //
-        // texture to gpu
-        //
-        D3D11_TEXTURE2D_DESC TextureDescription = {};
-        TextureDescription.Width = Texture.Width;
-        TextureDescription.Height = Texture.Height;
-        TextureDescription.MipLevels = 1;
-        TextureDescription.ArraySize = 1;
-        TextureDescription.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        TextureDescription.SampleDesc.Count = 1;
-        TextureDescription.SampleDesc.Quality = 0;
-        TextureDescription.Usage = D3D11_USAGE_IMMUTABLE;
-        TextureDescription.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-        TextureDescription.MiscFlags = 0;
-
-        texture Tex = {};
-
-        D3D11_SUBRESOURCE_DATA TextureSubresource = {};
-        TextureSubresource.pSysMem = Texture.Bytes;
-        TextureSubresource.SysMemPitch = Texture.Width*4;
-
-        Device->CreateTexture2D(&TextureDescription, &TextureSubresource, &Tex.Handle);
-        Device->CreateShaderResourceView(Tex.Handle, 0, &Tex.Resource);
-        Context->PSSetShaderResources(0, 1, &Tex.Resource);
-
-        ID3D11SamplerState *Sampler;
-        D3D11_SAMPLER_DESC SamplerDescription = {};
+        ID3D11SamplerState *sampler;
+        D3D11_SAMPLER_DESC sampler_desc = {};
         SamplerDescription.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
         SamplerDescription.AddressU = D3D11_TEXTURE_ADDRESS_MIRROR;
         SamplerDescription.AddressV = D3D11_TEXTURE_ADDRESS_MIRROR;
         SamplerDescription.AddressW = D3D11_TEXTURE_ADDRESS_MIRROR;
-        SamplerDescription.ComparisonFunc = D3D11_COMPARISON_NEVER;
+        SamplerDescription.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
         SamplerDescription.MinLOD = 0;
         SamplerDescription.MaxLOD = 1000;
-        Device->CreateSamplerState(&SamplerDescription, &Sampler);
-        Context->PSSetSamplers(0, 1, &Sampler);
+        Device->CreateSamplerState(&sampler_desc, &sampler);
+        Context->PSSetSamplers(0, 1, &sampler);
 
         //
         // constant buffer setup
@@ -263,7 +214,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
         D3D11_RASTERIZER_DESC raster_settings = {};
         raster_settings.FillMode = D3D11_FILL_SOLID;
-        raster_settings.CullMode = D3D11_CULL_NONE;
+        raster_settings.CullMode = D3D11_CULL_BACK;
         raster_settings.FrontCounterClockwise = 1;
         raster_settings.DepthBias = 0;
         raster_settings.DepthBiasClamp = 0;
@@ -276,6 +227,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         ID3D11RasterizerState *raster_state = 0;
         Device->CreateRasterizerState(&raster_settings, &raster_state);
         Context->RSSetState(raster_state);
+
+        State->environment = load_wexp(Device, Memory->read_file, "assets/environment.wexp", VertexBytes);
+        State->guardians_tex = load_texture(Device, &mempool, Memory->read_file, "assets/sampletexture.bmp");
 
         //
         // camera set-up
@@ -315,6 +269,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     r32 ClearColor[] = {0.06f, 0.05f, 0.08f, 1.f};
     Context->ClearRenderTargetView(State->render_target_rgb, ClearColor);
     Context->ClearDepthStencilView(State->render_target_depth, D3D11_CLEAR_DEPTH, 1.f, 1);
+
+    set_active_mesh(Context, &env);
+    set_active_texture(Context, &guardians_tex);
     // @todo: keep index count for each mesh
-    Context->DrawIndexed(36, 0, 0);
+    Context->DrawIndexed(204, 0, 0);
 }

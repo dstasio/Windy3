@@ -20,16 +20,16 @@
 
 struct image_data
 {
-    u32   Size;
-    u32   Width;
-    u32   Height;
-    void *Bytes;
+    u32   width;
+    u32   height;
+    u32   size;
+    void *data;
 };
 
-struct texture
+struct texture_data
 {
-    ID3D11Texture2D *Handle;
-    ID3D11ShaderResourceView *Resource;
+    ID3D11ShaderResourceView *view;
+    ID3D11Texture2D          *handle;
 };
 
 struct camera
@@ -39,13 +39,24 @@ struct camera
     v3 up;
 };
 
+struct mesh_data
+{
+    ID3D11InputLayout *in_layout;
+    ID3D11Buffer      *vbuff;
+    ID3D11Buffer      *ibuff;
+
+    u16 index_count;
+    u8  vert_stride;
+};
+
 struct game_state
 {
     ID3D11RenderTargetView *render_target_rgb;
     ID3D11DepthStencilView *render_target_depth;
     ID3D11Buffer *matrix_buff;
-    ID3D11Buffer *vertex_buff;
-    ID3D11Buffer * index_buff;
+
+    mesh_data environment;
+    texture_data guardians_tex;
 
     m4 CameraMatrix;
     m4 ProjectionMatrix;

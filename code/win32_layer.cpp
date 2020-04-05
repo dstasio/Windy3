@@ -58,8 +58,8 @@ PLATFORM_READ_FILE(Win32ReadFile)
         u8 *Buffer = (u8 *)VirtualAlloc(0, FileSize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
         if(ReadFile(FileHandle, Buffer, FileSize, &BytesRead, 0))
         {
-            Result.Data = Buffer;
-            Result.Size = (u32)BytesRead;
+            Result.data = Buffer;
+            Result.size = (u32)BytesRead;
         }
         else
         {
@@ -164,7 +164,7 @@ CheckAndReloadShader(char *Path, shader *Shader)
 
     if(CompareFileTime(&CurrentWriteTime, &Shader->WriteTime))
     {
-        VirtualFree(Shader->Bytes.Data, 0, MEM_RELEASE);
+        VirtualFree(Shader->Bytes.data, 0, MEM_RELEASE);
         Shader->Bytes = Win32ReadFile(Path);
         Shader->WriteTime = CurrentWriteTime;
         HasChanged = true;
@@ -251,7 +251,7 @@ WinMain(
         GameMemory.StorageSize = Megabytes(500);
         GameMemory.Storage = VirtualAlloc(BaseAddress, GameMemory.StorageSize,
                                            MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
-        GameMemory.ReadFile = Win32ReadFile;
+        GameMemory.read_file = Win32ReadFile;
 
         win32_game_code Windy = LoadWindy();
 
@@ -304,10 +304,10 @@ WinMain(
         ID3D11VertexShader *VSLinked;
         ID3D11PixelShader *PSLinked;
         CheckAndReloadShader("assets\\vs.sh", &VSRaw);
-        RenderingDevice->CreateVertexShader(VSRaw.Bytes.Data, VSRaw.Bytes.Size,
+        RenderingDevice->CreateVertexShader(VSRaw.Bytes.data, VSRaw.Bytes.size,
                                             0, &VSLinked);
         CheckAndReloadShader("assets\\ps.sh", &PSRaw);
-        RenderingDevice->CreatePixelShader(PSRaw.Bytes.Data, PSRaw.Bytes.Size,
+        RenderingDevice->CreatePixelShader(PSRaw.Bytes.data, PSRaw.Bytes.size,
                                            0, &PSLinked);
         RenderingContext->VSSetShader(VSLinked, 0, 0);
         RenderingContext->PSSetShader(PSLinked, 0, 0);
@@ -382,13 +382,13 @@ WinMain(
             if(CheckAndReloadShader("assets\\vs.sh", &VSRaw))
             {
                 // TODO(dave) maybe change if to while
-                while(VSRaw.Bytes.Size == 0)
+                while(VSRaw.Bytes.size == 0)
                 {
                     VSRaw.WriteTime = {};
                     CheckAndReloadShader("assets\\vs.sh", &VSRaw);
                 }
                 VSLinked->Release();
-                RenderingDevice->CreateVertexShader(VSRaw.Bytes.Data, VSRaw.Bytes.Size,
+                RenderingDevice->CreateVertexShader(VSRaw.Bytes.data, VSRaw.Bytes.size,
                                                     0, &VSLinked);
                 RenderingContext->VSSetShader(VSLinked, 0, 0);
 
@@ -396,13 +396,13 @@ WinMain(
             }
             if(CheckAndReloadShader("assets\\ps.sh", &PSRaw))
             {
-                while(PSRaw.Bytes.Size == 0)
+                while(PSRaw.Bytes.size == 0)
                 {
                     PSRaw.WriteTime = {};
                     CheckAndReloadShader("assets\\ps.sh", &PSRaw);
                 }
                 PSLinked->Release();
-                RenderingDevice->CreatePixelShader(PSRaw.Bytes.Data, PSRaw.Bytes.Size,
+                RenderingDevice->CreatePixelShader(PSRaw.Bytes.data, PSRaw.Bytes.size,
                                                    0, &PSLinked);
                 RenderingContext->PSSetShader(PSLinked, 0, 0);
 

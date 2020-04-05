@@ -31,7 +31,7 @@ class WexpExport(bpy.types.Operator):
         if(ISDEBUG):
             print('\nExporting mesh:')
         
-        mesh = bpy.data.meshes[0]
+        mesh =  bpy.context.selected_objects[0].data
         loop_indices = [mesh.polygons[x].loop_indices[y] for x in range(len(mesh.polygons)) for y in range(len(mesh.polygons[x].loop_indices))]
 
         #
