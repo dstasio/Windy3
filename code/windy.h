@@ -47,6 +47,11 @@ struct mesh_data
 
     u16 index_count;
     u8  vert_stride;
+
+    m4 transform;
+    v3 p;
+    v3 dp;
+    v3 ddp;
 };
 
 struct game_state
@@ -56,7 +61,10 @@ struct game_state
     ID3D11Buffer *matrix_buff;
 
     mesh_data environment;
-    texture_data guardians_tex;
+    mesh_data player;
+    texture_data tex;
+    texture_data tex_m;
+    b32 mip_flag;
 
     m4 CameraMatrix;
     m4 ProjectionMatrix;
@@ -66,6 +74,7 @@ struct game_state
     r32 cam_radius;
     r32 cam_vtheta;
     r32 cam_htheta;
+
 };
 
 struct memory_pool

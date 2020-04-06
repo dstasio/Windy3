@@ -16,14 +16,28 @@
 #define COL_Z 2
 #define COL_W 3
 
-struct v3
+union v2
 {
-    union
-    {
-        struct { r32 x, y, z; };
-        r32    row[3];
-    };
+    struct { r32 x, y; };
+    r32    row[2];
 };
+
+union v3
+{
+    struct { r32 x, y, z; };
+    r32    row[3];
+    v2     xy;
+
+    operator bool()
+    {
+        return x||y||z;
+    }
+
+};
+
+inline v3 make_v3(r32 x, r32 y, r32 z) { return {  x,   y,   z}; }
+inline v3 make_v3(v2  a)               { return {a.x, a.y, 0.f}; }
+inline v3 make_v3(r32 a)               { return {  a,   a,   a}; }
 
 v3 operator-(v3 a)
 {
@@ -43,16 +57,33 @@ v3 operator/(v3 a, r32 b)
     return result;
 }
 
+v3 operator+(v3 a, v3 b)
+{
+    v3 result = {a.x+b.x, a.y+b.y, a.z+b.z};
+    return result;
+}
+
 v3 operator-(v3 a, v3 b)
 {
     v3 result = {a.x-b.x, a.y-b.y, a.z-b.z};
     return result;
 }
-
 v3 operator-(v3 a, r32 b)
 {
     v3 result = {a.x-b, a.y-b, a.z-b};
     return result;
+}
+
+v3 &operator+=(v3 &a, v3 b)
+{
+    a = a + b;
+    return a;
+}
+
+v3 &operator-=(v3 &a, v3 b)
+{
+    a = a - b;
+    return a;
 }
 
 inline r32
@@ -98,13 +129,10 @@ Normalize(v3 a)
     return result;
 }
 
-struct v4
+union v4
 {
-    union
-    {
-        struct { r32 x, y, z, w; };
-        r32    row[4];
-    };
+    struct { r32 x, y, z, w; };
+    r32    row[4];
 };
 
 inline r32
@@ -114,13 +142,10 @@ Dot(v4 a, v4 b)
     return result;
 }
 
-struct m4
+union m4
 {
-    union
-    {
-        r32 m[4][4];
-        v4  col [4];
-    };
+    r32 m[4][4];
+    v4  col [4];
 };
 
 inline m4
@@ -152,6 +177,12 @@ m4 operator*(m4 a, m4 b)
         }
     }
     return matrix;
+}
+
+m4 &operator*=(m4 &a, m4 b)
+{
+    a = b*a;
+    return a;
 }
 
 inline m4
@@ -286,12 +317,6 @@ inline m4
 Perspective_m4(r32 fov, r32 ar, r32 n, r32 f)
 {
     r32 cot = 1.f/Tan(fov/2.f);
-    //m4 matrix = {
-    //    cot/ar, 0.f,         0.f, 0.f,
-    //    0.f,    cot,         0.f, 0.f,
-    //    0.f,    0.f, (f+n)/(f-n), 1.f,
-    //    0.f,    0.f, 2*f*n/(n-f), 0.f
-    //};
     m4 matrix = {
         cot/ar, 0.f,         0.f, 0.f,
         0.f,    cot,         0.f, 0.f,
@@ -299,6 +324,13 @@ Perspective_m4(r32 fov, r32 ar, r32 n, r32 f)
         0.f,    0.f, n*f/(n-f), 0.f
     };
 
+    return matrix;
+}
+
+inline m4
+Transform_m4(v3 pos, v3 euler, v3 scale)
+{
+    m4 matrix = Translation_m4(pos) * Rotation_m4(euler) * Scale_m4(scale);
     return matrix;
 }
 

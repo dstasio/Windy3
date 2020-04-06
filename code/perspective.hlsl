@@ -1,7 +1,8 @@
 struct VS_OUTPUT
 {
-    float4 pos   : SV_POSITION;
-    float2 txc   : TEXCOORD;
+    float4 pos    : SV_POSITION;
+    float2 txc    : TEXCOORD0;
+    //float3 normal : NORMAL;
 };
 
 #if VERTEX_HLSL // ---------------------------------------------------
@@ -9,9 +10,9 @@ struct VS_OUTPUT
 
 struct VS_INPUT
 {
-    float3 pos  : POSITION;
-    float3 norm : NORMAL;
-    float2 txc  : TEXCOORD;
+    float3 pos    : POSITION;
+    float3 normal : NORMAL;
+    float2 txc    : TEXCOORD;
 };
 
 cbuffer Matrices: register(b0)
@@ -25,18 +26,17 @@ VS_OUTPUT
 main(VS_INPUT input)
 {
     VS_OUTPUT output;
-    float4x4 total_matrix = mul(projection, mul(camera, model));
-    output.pos = mul(total_matrix,float4(input.pos, 1.f));
-    output.txc = input.txc;
+    float4x4 camera_space = mul(projection, mul(camera, model));
+    output.pos = mul(camera_space, float4(input.pos, 1.f));
+    //output.txc = input.txc;
+    output.txc = input.pos.xy;
+
     return(output);
 }
 
 #elif PIXEL_HLSL // --------------------------------------------------
 
-SamplerState TextureSamplerState
-{
-    Filter = MIN_MAG_MIP_LINEAR;
-};
+SamplerState TextureSamplerState;
 
 struct PS_OUTPUT
 {
@@ -49,7 +49,8 @@ PS_OUTPUT
 main(VS_OUTPUT input)
 {
     PS_OUTPUT output; 
-    output.color = SampleTexture.Sample(TextureSamplerState, input.txc);
+    output.color = SampleTexture.Sample(TextureSamplerState,
+                                        input.txc);
 
     return(output);
 }

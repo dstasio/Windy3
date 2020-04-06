@@ -343,10 +343,12 @@ WinMain(
                             KeyDown(VK_A,       a);
                             KeyDown(VK_S,       s);
                             KeyDown(VK_D,       d);
+                            KeyDown(VK_F,       f);
                             KeyDown(VK_SPACE,   space);
                             KeyDown(VK_SHIFT,   shift);
                             KeyDown(VK_CONTROL, ctrl);
                             KeyDown(VK_ESCAPE,  esc);
+                            KeyDown(VK_MENU,    alt);
                         } break;
 
                         case WM_KEYUP:
@@ -359,10 +361,12 @@ WinMain(
                             KeyUp(VK_A,       a);
                             KeyUp(VK_S,       s);
                             KeyUp(VK_D,       d);
+                            KeyUp(VK_F,       f);
                             KeyUp(VK_SPACE,   space);
                             KeyUp(VK_SHIFT,   shift);
                             KeyUp(VK_CONTROL, ctrl);
                             KeyUp(VK_ESCAPE,  esc);
+                            KeyUp(VK_MENU,    alt);
                         } break;
 
                         default:
