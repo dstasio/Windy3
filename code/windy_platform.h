@@ -17,12 +17,6 @@ struct file
 #define PLATFORM_READ_FILE(name) file name(char *Path)
 typedef PLATFORM_READ_FILE(platform_read_file);
 
-struct input_key
-{
-    u32 IsHeld;
-    u32 WasPressed;
-};
-
 struct input_keyboard
 {
     u32 up;
@@ -48,6 +42,11 @@ struct input
 {
     input_keyboard Pressed;
     input_keyboard Held;
+
+    i16 m_x;
+    i16 m_y;
+    i32 dm_x;
+    i32 dm_y;
 };
  
 typedef struct game_memory

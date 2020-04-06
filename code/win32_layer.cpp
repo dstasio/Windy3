@@ -240,6 +240,20 @@ WinMain(
 
     if(MainWindow)
     {
+        RECT window_rect = {};
+        GetWindowRect(MainWindow, &window_rect);
+        ClipCursor(&window_rect);
+
+        ShowCursor(false);
+
+        //
+        // raw input set-up
+        //
+        RAWINPUTDEVICE raw_in_devices[] = {
+            {0x01, 0x02, 0, MainWindow}
+        };
+        RegisterRawInputDevices(raw_in_devices, 1, sizeof(raw_in_devices[0]));
+
 #if WINDY_INTERNAL
         LPVOID BaseAddress = (LPVOID)Terabytes(2);
 #else
@@ -368,6 +382,32 @@ WinMain(
                             KeyUp(VK_ESCAPE,  esc);
                             KeyUp(VK_MENU,    alt);
                         } break;
+
+                        case WM_INPUT:
+                        {
+                            RAWINPUT raw_input = {};
+                            u32 raw_size = sizeof(raw_input);
+                            GetRawInputData((HRAWINPUT)Message.lParam, RID_INPUT, &raw_input, &raw_size, sizeof(RAWINPUTHEADER));
+                            RAWMOUSE raw_mouse = raw_input.data.mouse;
+                            if (raw_mouse.usFlags == MOUSE_MOVE_RELATIVE)
+                            {
+                                NewInput->dm_x = raw_mouse.lLastX;
+                                NewInput->dm_y = raw_mouse.lLastY;
+                            }
+                            SetCursorPos((window_rect.right - window_rect.left)/2, (window_rect.bottom - window_rect.top)/2);
+                        } break;
+
+                        //case WM_MOUSEMOVE:
+                        //{
+                        //    i16 m_x = ((i16*)&Message.lParam)[0];
+                        //    i16 m_y = ((i16*)&Message.lParam)[1];
+                        //    NewInput->dm_x = NewInput->m_x - m_x;
+                        //    NewInput->dm_y = NewInput->m_y - m_y;
+                        //    NewInput->m_x = m_x;
+                        //    NewInput->m_y = m_y;
+
+                        //    //SetCursorPos((window_rect.right - window_rect.left)/2, (window_rect.bottom - window_rect.top)/2);
+                        //} break;
 
                         default:
                         {

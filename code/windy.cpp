@@ -281,12 +281,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     v3  movement = {};
     v3  cam_forward = Normalize(State->main_cam.target - State->main_cam.pos);
     v3  cam_right   = Normalize(Cross(cam_forward, State->main_cam.up));
-    //if (Input->Held.up)    State->theta += (PI/4.f)*dtime;
-    //if (Input->Held.down)  State->theta -= (PI/4.f)*dtime;
     if (Input->Held.up)    State->cam_radius -= speed*dtime;
     if (Input->Held.down)  State->cam_radius += speed*dtime;
-    if (Input->Held.left)  State->cam_htheta -= speed*(PI/12.f)*dtime;
-    if (Input->Held.right) State->cam_htheta += speed*(PI/12.f)*dtime;
     if (Input->Held.w)     movement += make_v3(cam_forward.xy);
     if (Input->Held.s)     movement -= make_v3(cam_forward.xy);
     if (Input->Held.d)     movement += make_v3(cam_right.xy);
@@ -295,9 +291,14 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     if (Input->Held.ctrl)  movement -= State->main_cam.up;
     if (movement)
     {
-        State->player.p += movement*speed*dtime;
+        State->player.p += Normalize(movement)*speed*dtime;
     }
     if (Input->Pressed.f) State->mip_flag = !State->mip_flag;
+    State->cam_htheta += Input->dm_x*dtime;
+    State->cam_vtheta -= Input->dm_y*dtime;
+    State->cam_vtheta = Clamp(State->cam_vtheta, -PI/2.1f, PI/2.1f);
+    Input->dm_x = 0;
+    Input->dm_y = 0;
 
     texture_data *active_tex = State->mip_flag ? &State->tex : &State->tex_m;
 

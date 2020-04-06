@@ -49,5 +49,14 @@ Abs(i32 a)
     return result;
 }
 
+inline r32
+Clamp(r32 a, r32 min, r32 max)
+{
+    r32 result = a;
+    if (a < min) result = min;
+    if (a > max) result = max;
+    return result;
+}
+
 #define WINDY_INTRINSICS_H
 #endif
