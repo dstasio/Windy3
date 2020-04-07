@@ -16,29 +16,13 @@
 #define COL_Z 2
 #define COL_W 3
 
-union v2
-{
-    struct { r32 x, y; };
-    r32    row[2];
-};
-
-union v3
-{
-    struct { r32 x, y, z; };
-    r32    row[3];
-    v2     xy;
-
-    operator bool()
-    {
-        return x||y||z;
-    }
-
-};
-
 inline v3 make_v3(r32 x, r32 y, r32 z) { return {  x,   y,   z}; }
 inline v3 make_v3(v2  a)               { return {a.x, a.y, 0.f}; }
 inline v3 make_v3(r32 a)               { return {  a,   a,   a}; }
 
+//
+// Vector 3
+// 
 v3 operator-(v3 a)
 {
     v3 result = {-a.x, -a.y, -a.z};
@@ -129,11 +113,9 @@ Normalize(v3 a)
     return result;
 }
 
-union v4
-{
-    struct { r32 x, y, z, w; };
-    r32    row[4];
-};
+//
+// Vector 4
+// 
 
 inline r32
 Dot(v4 a, v4 b)
@@ -142,11 +124,9 @@ Dot(v4 a, v4 b)
     return result;
 }
 
-union m4
-{
-    r32 m[4][4];
-    v4  col [4];
-};
+//
+// Matrix 4
+//
 
 inline m4
 Transpose(m4 a)

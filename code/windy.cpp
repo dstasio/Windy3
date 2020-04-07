@@ -105,7 +105,7 @@ load_bitmap(memory_pool *mempool, platform_read_file *read_file, char *path)
 }
 
 internal texture_data
-load_texture_mipmap(ID3D11Device *dev, ID3D11DeviceContext *context, memory_pool *mempool, platform_read_file *read_file, char *path)
+load_texture(ID3D11Device *dev, ID3D11DeviceContext *context, memory_pool *mempool, platform_read_file *read_file, char *path)
 {
     texture_data texture = {};
     image_data image = load_bitmap(mempool, read_file, path);
@@ -121,35 +121,10 @@ load_texture_mipmap(ID3D11Device *dev, ID3D11DeviceContext *context, memory_pool
     tex_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE|D3D11_BIND_RENDER_TARGET;
     tex_desc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
 
-    //D3D11_SUBRESOURCE_DATA tex_subres = {image.data, image.width*4};
     dev->CreateTexture2D(&tex_desc, 0, &texture.handle);
     dev->CreateShaderResourceView(texture.handle, 0, &texture.view);
     context->UpdateSubresource(texture.handle, 0, 0, image.data, image.width*4, 0);
     context->GenerateMips(texture.view);
-    
-    return texture;
-}
-
-internal texture_data
-load_texture(ID3D11Device *dev, ID3D11DeviceContext *context, memory_pool *mempool, platform_read_file *read_file, char *path)
-{
-    texture_data texture = {};
-    image_data image = load_bitmap(mempool, read_file, path);
-    D3D11_TEXTURE2D_DESC tex_desc = {};
-    tex_desc.Width = image.width;
-    tex_desc.Height = image.height;
-    tex_desc.MipLevels = 1;
-    tex_desc.ArraySize = 1;
-    tex_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    tex_desc.SampleDesc.Count = 1;
-    tex_desc.SampleDesc.Quality = 0;
-    tex_desc.Usage = D3D11_USAGE_DEFAULT;
-    tex_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE|D3D11_BIND_RENDER_TARGET;
-    tex_desc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
-
-    D3D11_SUBRESOURCE_DATA tex_subres = {image.data, image.width*4};
-    dev->CreateTexture2D(&tex_desc, &tex_subres, &texture.handle);
-    dev->CreateShaderResourceView(texture.handle, 0, &texture.view);
     
     return texture;
 }
@@ -242,6 +217,19 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         Device->CreateBuffer(&MatrixBufferDesc, 0, &State->matrix_buff);
         Context->VSSetConstantBuffers(0, 1, &State->matrix_buff);
 
+        D3D11_BUFFER_DESC light_buff_desc = {};
+        light_buff_desc.ByteWidth = 16*3;
+        light_buff_desc.Usage = D3D11_USAGE_DYNAMIC;
+        light_buff_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        light_buff_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        light_buff_desc.MiscFlags = 0;
+        light_buff_desc.StructureByteStride = sizeof(v3);
+        Device->CreateBuffer(&light_buff_desc, 0, &State->light_buff);
+        Context->PSSetConstantBuffers(0, 1, &State->light_buff);
+
+        //
+        // rasterizer set-up
+        //
         D3D11_RASTERIZER_DESC raster_settings = {};
         raster_settings.FillMode = D3D11_FILL_SOLID;
         raster_settings.CullMode = D3D11_CULL_BACK;
@@ -259,9 +247,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         Context->RSSetState(raster_state);
 
         State->environment = load_wexp(Device, Memory->read_file, "assets/environment.wexp", VertexBytes);
-        State->player = load_wexp(Device, Memory->read_file, "assets/sphere.wexp", VertexBytes);
-        State->tex    = load_texture(Device, Context, &mempool, Memory->read_file, "assets/blockout_white.bmp");
-        State->tex_m  = load_texture_mipmap(Device, Context, &mempool, Memory->read_file, "assets/blockout_white.bmp");
+        State->player      = load_wexp(Device, Memory->read_file, "assets/sphere.wexp", VertexBytes);
+        State->tex_white   = load_texture(Device, Context, &mempool, Memory->read_file, "assets/blockout_white.bmp");
+        State->tex_yellow  = load_texture(Device, Context, &mempool, Memory->read_file, "assets/blockout_yellow.bmp");
 
         //
         // camera set-up
@@ -273,7 +261,10 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         State->cam_vtheta = 0.5f;
         State->cam_htheta = -PI/2.f;
 
-        State->mip_flag = 0;
+        //State->sun.color = {1.f,  1.f,  1.f};
+        //State->sun.dir   = {0.f, -1.f, -1.f};
+        State->lamp.color = {1.f,  1.f, 1.f};
+        State->lamp.p     = {0.f, -1.f, 1.f};
         Memory->IsInitialized = true;
     }
 
@@ -281,8 +272,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     v3  movement = {};
     v3  cam_forward = Normalize(State->main_cam.target - State->main_cam.pos);
     v3  cam_right   = Normalize(Cross(cam_forward, State->main_cam.up));
-    if (Input->Held.up)    State->cam_radius -= speed*dtime;
-    if (Input->Held.down)  State->cam_radius += speed*dtime;
     if (Input->Held.w)     movement += make_v3(cam_forward.xy);
     if (Input->Held.s)     movement -= make_v3(cam_forward.xy);
     if (Input->Held.d)     movement += make_v3(cam_right.xy);
@@ -293,14 +282,10 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     {
         State->player.p += Normalize(movement)*speed*dtime;
     }
-    if (Input->Pressed.f) State->mip_flag = !State->mip_flag;
-    State->cam_htheta += Input->dm_x*dtime;
-    State->cam_vtheta -= Input->dm_y*dtime;
+    State->cam_htheta += Input->dmouse.x*dtime;
+    State->cam_vtheta -= Input->dmouse.y*dtime;
     State->cam_vtheta = Clamp(State->cam_vtheta, -PI/2.1f, PI/2.1f);
-    Input->dm_x = 0;
-    Input->dm_y = 0;
-
-    texture_data *active_tex = State->mip_flag ? &State->tex : &State->tex_m;
+    State->cam_radius -= Input->dwheel*dtime;
 
     State->main_cam.pos.z  = Sin(State->cam_vtheta);
     State->main_cam.pos.x  = Cos(State->cam_htheta) * Cos(State->cam_vtheta);
@@ -314,10 +299,20 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     Context->ClearRenderTargetView(State->render_target_rgb, ClearColor);
     Context->ClearDepthStencilView(State->render_target_depth, D3D11_CLEAR_DEPTH, 1.f, 1);
 
+
+
     set_active_mesh(Context, &State->environment);
-    set_active_texture(Context, active_tex);
+    set_active_texture(Context, &State->tex_white);
 
     D3D11_MAPPED_SUBRESOURCE matrices_map = {};
+    D3D11_MAPPED_SUBRESOURCE lights_map = {};
+    Context->Map(State->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
+    v3 *lights_mapped = (v3 *)lights_map.pData;
+    lights_mapped[0] = State->lamp.color;
+    lights_mapped[1] = State->lamp.p;
+    lights_mapped[2] = State->main_cam.pos;
+    Context->Unmap(State->light_buff, 0);
+
     Context->Map(State->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
     m4 *matrix_buffer = (m4 *)matrices_map.pData;
     matrix_buffer[0] = State->environment.transform;
@@ -329,6 +324,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
 
     set_active_mesh(Context, &State->player);
+    set_active_texture(Context, &State->tex_yellow);
 
     Context->Map(State->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
     matrix_buffer = (m4 *)matrices_map.pData;

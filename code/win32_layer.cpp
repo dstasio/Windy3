@@ -240,11 +240,11 @@ WinMain(
 
     if(MainWindow)
     {
+        ShowCursor(false);
         RECT window_rect = {};
         GetWindowRect(MainWindow, &window_rect);
-        ClipCursor(&window_rect);
-
-        ShowCursor(false);
+        u32 window_width  = window_rect.right - window_rect.left;
+        u32 window_height = window_rect.bottom - window_rect.top;
 
         //
         // raw input set-up
@@ -339,6 +339,9 @@ WinMain(
         while(GlobalRunning && !GlobalError && !NewInput->Pressed.esc)
         {
             NewInput->Pressed = {};
+            NewInput->dmouse = {};
+            NewInput->dwheel = 0;
+
             Assert(QueryPerformanceCounter((LARGE_INTEGER *)&current_performance_counter));
             r32 dtime = (r32)(current_performance_counter - last_performance_counter) / (r32)performance_counter_frequency;
             while(dtime <= target_ms_per_frame)
@@ -391,8 +394,13 @@ WinMain(
                             RAWMOUSE raw_mouse = raw_input.data.mouse;
                             if (raw_mouse.usFlags == MOUSE_MOVE_RELATIVE)
                             {
-                                NewInput->dm_x = raw_mouse.lLastX;
-                                NewInput->dm_y = raw_mouse.lLastY;
+                                NewInput->dmouse.x = raw_mouse.lLastX;
+                                NewInput->dmouse.y = raw_mouse.lLastY;
+                            }
+
+                            if (raw_mouse.usButtonFlags & RI_MOUSE_WHEEL)
+                            {
+                                NewInput->dwheel = raw_mouse.usButtonData;
                             }
                             SetCursorPos((window_rect.right - window_rect.left)/2, (window_rect.bottom - window_rect.top)/2);
                         } break;

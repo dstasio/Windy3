@@ -7,7 +7,6 @@
    $Notice: (C) Copyright 2020 by Davide Stasio. All Rights Reserved. $
    ======================================================================== */
 
-#include "windy_types.h"
 #include <math.h>
 
 //

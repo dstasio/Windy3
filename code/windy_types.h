@@ -33,5 +33,42 @@ typedef size_t memory_index;
 typedef float  r32;
 typedef double r64;
 
+union v2i
+{
+    struct { i32 x, y; };
+    i32    row[2];
+};
+
+union v2
+{
+    struct { r32 x, y; };
+    r32    row[2];
+};
+
+union v3
+{
+    struct { r32 x, y, z; };
+    r32    row[3];
+    v2     xy;
+
+    operator bool()
+    {
+        return x||y||z;
+    }
+
+};
+
+union v4
+{
+    struct { r32 x, y, z, w; };
+    r32    row[4];
+};
+
+union m4
+{
+    r32 m[4][4];
+    v4  col [4];
+};
+
 #define WINDY_TYPES_H
 #endif

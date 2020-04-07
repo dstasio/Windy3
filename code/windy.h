@@ -54,27 +54,40 @@ struct mesh_data
     v3 ddp;
 };
 
+struct Point_Light
+{
+    v3 color;
+    v3 p;
+};
+
+struct Dir_Light
+{
+    v3 color;
+    v3 dir;
+};
+ 
 struct game_state
 {
     ID3D11RenderTargetView *render_target_rgb;
     ID3D11DepthStencilView *render_target_depth;
     ID3D11Buffer *matrix_buff;
+    ID3D11Buffer *light_buff;
 
     mesh_data environment;
     mesh_data player;
-    texture_data tex;
-    texture_data tex_m;
-    b32 mip_flag;
+    texture_data tex_white;
+    texture_data tex_yellow;
 
     m4 CameraMatrix;
     m4 ProjectionMatrix;
-    r32 theta;
 
     camera main_cam;
     r32 cam_radius;
     r32 cam_vtheta;
     r32 cam_htheta;
 
+    Dir_Light sun_;
+    Point_Light lamp;
 };
 
 struct memory_pool
