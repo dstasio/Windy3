@@ -16,13 +16,14 @@
 #define COL_Z 2
 #define COL_W 3
 
-inline v3 make_v3(r32 x, r32 y, r32 z) { return {  x,   y,   z}; }
-inline v3 make_v3(v2  a)               { return {a.x, a.y, 0.f}; }
-inline v3 make_v3(r32 a)               { return {  a,   a,   a}; }
-
 //
 // Vector 3
 // 
+inline v3 make_v3(r32 x, r32 y, r32 z) { return {  x,   y,   z}; }
+inline v3 make_v3(v4  a)               { return {a.x, a.y, a.z}; }
+inline v3 make_v3(v2  a)               { return {a.x, a.y, 0.f}; }
+inline v3 make_v3(r32 a)               { return {  a,   a,   a}; }
+
 v3 operator-(v3 a)
 {
     v3 result = {-a.x, -a.y, -a.z};
@@ -114,8 +115,11 @@ Normalize(v3 a)
 }
 
 //
-// Vector 4
+// Vector 4 ----------------------------------------------------------
 // 
+inline v4 make_v4(r32 x, r32 y, r32 z, r32 w) { return {  x,   y,   z,   w}; }
+inline v4 make_v4(v3  a)                      { return {a.x, a.y, a.z, 1.f}; }
+inline v4 make_v4(r32 a)                      { return {  a,   a,   a,   a}; }
 
 inline r32
 Dot(v4 a, v4 b)
@@ -125,8 +129,15 @@ Dot(v4 a, v4 b)
 }
 
 //
-// Matrix 4
+// Matrix 4 ----------------------------------------------------------
 //
+// @todo: maybe add m4t (matrix4 transposed)?
+
+union m4
+{
+    r32 m[4][4];
+    v4  col [4];
+};
 
 inline m4
 Transpose(m4 a)
@@ -138,6 +149,24 @@ Transpose(m4 a)
         a.m[0][3], a.m[1][3], a.m[2][3], a.m[3][3]
     };
     return matrix;
+}
+
+v4 operator*(m4 a, v4 b)
+{
+    v4 result = {};
+    a = Transpose(a);  // column-major to row-major
+
+    result.x = Dot(a.col[0], b);
+    result.y = Dot(a.col[1], b);
+    result.z = Dot(a.col[2], b);
+    result.w = Dot(a.col[3], b);
+    return result;
+}
+
+v3 operator*(m4 a, v3 b)
+{
+    v3 result = make_v3(a*make_v4(b));
+    return result;
 }
 
 m4 operator*(m4 a, m4 b)
@@ -310,7 +339,11 @@ Perspective_m4(r32 fov, r32 ar, r32 n, r32 f)
 inline m4
 Transform_m4(v3 pos, v3 euler, v3 scale)
 {
-    m4 matrix = Translation_m4(pos) * Rotation_m4(euler) * Scale_m4(scale);
+    //m4 matrix = Translation_m4(pos) * Rotation_m4(euler) * Scale_m4(scale);
+    m4 matrix = Scale_m4(scale);
+    matrix.m[3][0] = pos.x;
+    matrix.m[3][1] = pos.y;
+    matrix.m[3][2] = pos.z;
     return matrix;
 }
 

@@ -71,6 +71,8 @@ PLATFORM_READ_FILE(Win32ReadFile)
     else
     {
         ThrowError("Unable to open file: %s\n", Path);
+        DWORD error = GetLastError();
+        error = 0;
     }
 
     return(Result);
@@ -333,10 +335,11 @@ WinMain(
         MSG Message = {};
         u32 Count = 0;
 
+        b32 in_menu = false;
         i64 last_performance_counter = 0;
         i64 current_performance_counter = 0;
         Assert(QueryPerformanceCounter((LARGE_INTEGER *)&last_performance_counter));
-        while(GlobalRunning && !GlobalError && !NewInput->Pressed.esc)
+        while(GlobalRunning && !GlobalError && !(NewInput->Pressed.esc && in_menu && 0))
         {
             NewInput->Pressed = {};
             NewInput->dmouse = {};
@@ -388,21 +391,24 @@ WinMain(
 
                         case WM_INPUT:
                         {
-                            RAWINPUT raw_input = {};
-                            u32 raw_size = sizeof(raw_input);
-                            GetRawInputData((HRAWINPUT)Message.lParam, RID_INPUT, &raw_input, &raw_size, sizeof(RAWINPUTHEADER));
-                            RAWMOUSE raw_mouse = raw_input.data.mouse;
-                            if (raw_mouse.usFlags == MOUSE_MOVE_RELATIVE)
+                            if (!in_menu)
                             {
-                                NewInput->dmouse.x = raw_mouse.lLastX;
-                                NewInput->dmouse.y = raw_mouse.lLastY;
-                            }
+                                RAWINPUT raw_input = {};
+                                u32 raw_size = sizeof(raw_input);
+                                GetRawInputData((HRAWINPUT)Message.lParam, RID_INPUT, &raw_input, &raw_size, sizeof(RAWINPUTHEADER));
+                                RAWMOUSE raw_mouse = raw_input.data.mouse;
+                                if (raw_mouse.usFlags == MOUSE_MOVE_RELATIVE)
+                                {
+                                    NewInput->dmouse.x = raw_mouse.lLastX;
+                                    NewInput->dmouse.y = raw_mouse.lLastY;
+                                }
 
-                            if (raw_mouse.usButtonFlags & RI_MOUSE_WHEEL)
-                            {
-                                NewInput->dwheel = raw_mouse.usButtonData;
+                                if (raw_mouse.usButtonFlags & RI_MOUSE_WHEEL)
+                                {
+                                    NewInput->dwheel = raw_mouse.usButtonData;
+                                }
+                                SetCursorPos((window_rect.right - window_rect.left)/2, (window_rect.bottom - window_rect.top)/2);
                             }
-                            SetCursorPos((window_rect.right - window_rect.left)/2, (window_rect.bottom - window_rect.top)/2);
                         } break;
 
                         //case WM_MOUSEMOVE:
@@ -422,6 +428,18 @@ WinMain(
                             TranslateMessage(&Message);
                             DispatchMessage(&Message);
                         } break;
+                    }
+                    if (NewInput->Pressed.esc)
+                    {
+                        in_menu = !in_menu;
+                        if (in_menu)
+                        {
+                            ShowCursor(true);
+                        }
+                        else
+                        {
+                            ShowCursor(false);
+                        }
                     }
                 }
                 Assert(QueryPerformanceCounter((LARGE_INTEGER *)&current_performance_counter));

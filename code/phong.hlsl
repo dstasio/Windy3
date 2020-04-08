@@ -31,8 +31,8 @@ main(VS_INPUT input)
     output.proj_pos = mul(camera_space, float4(input.pos, 1.f));
     //output.txc = input.txc;
     output.txc = input.pos.xy;
-    output.normal = mul((float3x3)model, input.normal);
-    output.world_pos = (float3)mul(model, float4(input.pos, 1.f));
+    output.normal = input.normal;
+    output.world_pos = input.pos;//(float3)mul(model, float4(input.pos, 1.f));
 
     return(output);
 }
@@ -59,18 +59,20 @@ float4
 light(float3 color, float3 dir, float3 eyedir, float3 normal)
 {
     float ambient = 0.1f;
-    float diffuse = max(dot(normal, -dir), 0.f);
-    float specular = max(dot(reflect(eyedir, normal), -dir), 0.f);
-    return float4(color*(ambient+diffuse+specular), 1.f);
+    float diffuse = max(dot(normal, dir), 0.f);
+    float specular = pow(max(dot(reflect(eyedir, normal), dir), 0.f),
+                         32);
+    return float4(color*(ambient+diffuse), 1.f);
 }
 
 PS_OUTPUT
 main(VS_OUTPUT input)
 {
     PS_OUTPUT output; 
-    float3 eyedir = normalize(input.world_pos - eye);
-    output.color = light(color, normalize(lightpos - input.world_pos), eyedir, input.normal) * SampleTexture.Sample(TextureSamplerState, input.txc);
-
+    float3 normal = normalize(input.normal);
+    float3 eyedir = normalize(-input.world_pos + eye);
+    output.color = light(color, normalize(lightpos - input.world_pos), eyedir, normal) * SampleTexture.Sample(TextureSamplerState, input.txc);
+    //output.color = float4(eyedir, 1.f);
     return(output);
 }
 

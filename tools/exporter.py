@@ -12,6 +12,8 @@ class WexpExport(bpy.types.Operator):
     bl_label = "Wexp"
 
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
+    settings_triangulate = True
+    settings_smooth_normals = False
 
     @classmethod
     def poll(cls, context):
@@ -32,32 +34,54 @@ class WexpExport(bpy.types.Operator):
             print('\nExporting mesh:')
         
         mesh =  bpy.context.selected_objects[0].data
-        loop_indices = [mesh.polygons[x].loop_indices[y] for x in range(len(mesh.polygons)) for y in range(len(mesh.polygons[x].loop_indices))]
-
+        
         #
         # Getting vertex data without repetitions
         #
         hashes = []
         ngon_indices = []
         vertex_data = []
-        for loop_index in loop_indices:
-            v = mesh.vertices[mesh.loops[loop_index].vertex_index]
-            uv = mesh.uv_layers.active.data[loop_index].uv
-            n = v.normal
-            v_hash  = float_to_int(v.co.x*3) + float_to_int(v.co.y*5) + float_to_int(v.co.z*7)
-            n_hash  = float_to_int(  n.x*11) + float_to_int(  n.y*13) + float_to_int(  n.z*17)
-            uv_hash = float_to_int( uv.x*19) + float_to_int( uv.y*23)
-            hash = v_hash*27 + n_hash*29 + uv_hash*31
-            if (hash in hashes):
-                ngon_indices.append(hashes.index(hash))
-            else:
-                vertex_data.extend([v.co.x, v.co.y, v.co.z, n.x, n.y, n.z, uv.x, uv.y])
-                ngon_indices.append(len(hashes))
-                hashes.append(hash)
-            
-            if (ISDEBUG):
-                print("{:2d}: {: .2f}, {: .2f}, {: .2f},  {: .2f}, {: .2f}, {: .2f},  {:.2f}, {:.2f} -> {: d}".\
-                format(ngon_indices[len(ngon_indices)-1], v.co.x, v.co.y, v.co.z, n.x, n.y, n.z, uv.x, uv.y, hash))
+        
+        if self.settings_smooth_normals:
+            loop_indices = [mesh.polygons[x].loop_indices[y] for x in range(len(mesh.polygons)) for y in range(len(mesh.polygons[x].loop_indices))]
+            for loop_index in loop_indices:
+                v = mesh.vertices[mesh.loops[loop_index].vertex_index]
+                uv = mesh.uv_layers.active.data[loop_index].uv
+                n = v.normal
+                v_hash  = float_to_int(v.co.x*3) + float_to_int(v.co.y*5) + float_to_int(v.co.z*7)
+                n_hash  = float_to_int(  n.x*11) + float_to_int(  n.y*13) + float_to_int(  n.z*17)
+                uv_hash = float_to_int( uv.x*19) + float_to_int( uv.y*23)
+                hash = v_hash*27 + n_hash*29 + uv_hash*31
+                if (hash in hashes):
+                    ngon_indices.append(hashes.index(hash))
+                else:
+                    vertex_data.extend([v.co.x, v.co.y, v.co.z, n.x, n.y, n.z, uv.x, uv.y])
+                    ngon_indices.append(len(hashes))
+                    hashes.append(hash)
+                
+                if (ISDEBUG):
+                    print("{:2d}: {: .2f}, {: .2f}, {: .2f},  {: .2f}, {: .2f}, {: .2f},  {:.2f}, {:.2f} -> {: d}".\
+                    format(ngon_indices[len(ngon_indices)-1], v.co.x, v.co.y, v.co.z, n.x, n.y, n.z, uv.x, uv.y, hash))
+        else: # flat normals
+            for polygon in mesh.polygons:
+                for loop_index in polygon.loop_indices:
+                    v = mesh.vertices[mesh.loops[loop_index].vertex_index]
+                    uv = mesh.uv_layers.active.data[loop_index].uv
+                    n = polygon.normal
+                    v_hash  = float_to_int(v.co.x*3) + float_to_int(v.co.y*5) + float_to_int(v.co.z*7)
+                    n_hash  = float_to_int(  n.x*11) + float_to_int(  n.y*13) + float_to_int(  n.z*17)
+                    uv_hash = float_to_int( uv.x*19) + float_to_int( uv.y*23)
+                    hash = v_hash*27 + n_hash*29 + uv_hash*31
+                    if (hash in hashes):
+                        ngon_indices.append(hashes.index(hash))
+                    else:
+                        vertex_data.extend([v.co.x, v.co.y, v.co.z, n.x, n.y, n.z, uv.x, uv.y])
+                        ngon_indices.append(len(hashes))
+                        hashes.append(hash)
+                
+                    if (ISDEBUG):
+                        print("{:2d}: {: .2f}, {: .2f}, {: .2f},  {: .2f}, {: .2f}, {: .2f},  {:.2f}, {:.2f} -> {: d}".\
+                        format(ngon_indices[len(ngon_indices)-1], v.co.x, v.co.y, v.co.z, n.x, n.y, n.z, uv.x, uv.y, hash))
         
         if(ISDEBUG):
             print("Total unique vertices: {}".format(len(hashes)))
@@ -91,6 +115,7 @@ class WexpExport(bpy.types.Operator):
             bytes = struct.pack("<H", index)
             file.write(bytes)
         file.close()
+        file = None
         return {'FINISHED'}
 
     def invoke(self, context, event):

@@ -135,6 +135,14 @@ set_active_texture(ID3D11DeviceContext *context, texture_data *texture)
     context->PSSetShaderResources(0, 1, &texture->view); 
 }
 
+struct Light_Buffer
+{
+    v3 color;
+    r32 pad0_; // 16 bytes
+    v3 p;      // 28 bytes
+    v3 eye;    // 40 bytes
+};
+
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
     game_state *State = (game_state *)Memory->Storage;
@@ -264,7 +272,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         //State->sun.color = {1.f,  1.f,  1.f};
         //State->sun.dir   = {0.f, -1.f, -1.f};
         State->lamp.color = {1.f,  1.f, 1.f};
-        State->lamp.p     = {0.f, -1.f, 1.f};
+        State->lamp.p     = {0.f, -1.f, 5.f};
         Memory->IsInitialized = true;
     }
 
@@ -303,35 +311,58 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
     set_active_mesh(Context, &State->environment);
     set_active_texture(Context, &State->tex_white);
+    State->lamp.p = {0.f, -1.f, 3.f};
 
-    D3D11_MAPPED_SUBRESOURCE matrices_map = {};
-    D3D11_MAPPED_SUBRESOURCE lights_map = {};
-    Context->Map(State->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
-    v3 *lights_mapped = (v3 *)lights_map.pData;
-    lights_mapped[0] = State->lamp.color;
-    lights_mapped[1] = State->lamp.p;
-    lights_mapped[2] = State->main_cam.pos;
-    Context->Unmap(State->light_buff, 0);
+    { // environment -------------------------------------------------
+        D3D11_MAPPED_SUBRESOURCE matrices_map = {};
+        D3D11_MAPPED_SUBRESOURCE lights_map = {};
+        Context->Map(State->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
+        Light_Buffer *lights_mapped = (Light_Buffer *)lights_map.pData;
+        lights_mapped->color = State->lamp.color;
+        lights_mapped->p     = State->lamp.p;
+        lights_mapped->eye   = State->main_cam.pos;
+        Context->Unmap(State->light_buff, 0);
 
-    Context->Map(State->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
-    m4 *matrix_buffer = (m4 *)matrices_map.pData;
-    matrix_buffer[0] = State->environment.transform;
-    matrix_buffer[1] = Camera_m4(State->main_cam.pos, State->main_cam.target, State->main_cam.up);
-    matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
-    Context->Unmap(State->matrix_buff, 0);
+        Context->Map(State->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+        m4 *matrix_buffer = (m4 *)matrices_map.pData;
+        matrix_buffer[0] = State->environment.transform;
+        matrix_buffer[1] = Camera_m4(State->main_cam.pos, State->main_cam.target, State->main_cam.up);
+        matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
+        Context->Unmap(State->matrix_buff, 0);
 
-    Context->DrawIndexed(204, 0, 0);
+        Context->DrawIndexed(204, 0, 0);
+    }
 
+    { // player ------------------------------------------------------
+        set_active_mesh(Context, &State->player);
+        D3D11_MAPPED_SUBRESOURCE matrices_map = {};
+        D3D11_MAPPED_SUBRESOURCE lights_map = {};
 
-    set_active_mesh(Context, &State->player);
-    set_active_texture(Context, &State->tex_yellow);
+        Context->Map(State->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+        m4 *matrix_buffer = (m4 *)matrices_map.pData;
+        matrix_buffer[0] = Transform_m4(State->lamp.p, make_v3(0.f), make_v3(0.1f));
+        matrix_buffer[1] = Camera_m4(State->main_cam.pos, State->main_cam.target, State->main_cam.up);
+        matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
+        Context->Unmap(State->matrix_buff, 0);
 
-    Context->Map(State->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
-    matrix_buffer = (m4 *)matrices_map.pData;
-    matrix_buffer[0] = Translation_m4(State->player.p);
-    matrix_buffer[1] = Camera_m4(State->main_cam.pos, State->main_cam.target, State->main_cam.up);
-    matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
-    Context->Unmap(State->matrix_buff, 0);
+        Context->DrawIndexed(2880, 0, 0);
 
-    Context->DrawIndexed(2880, 0, 0);
+        set_active_texture(Context, &State->tex_yellow);
+
+        Context->Map(State->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
+        Light_Buffer *lights_mapped = (Light_Buffer *)lights_map.pData;
+        lights_mapped->color = State->lamp.color;
+        lights_mapped->p     = State->lamp.p-State->player.p;
+        lights_mapped->eye   = State->main_cam.pos;
+        Context->Unmap(State->light_buff, 0);
+
+        Context->Map(State->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+        matrix_buffer = (m4 *)matrices_map.pData;
+        matrix_buffer[0] = Translation_m4(State->player.p);
+        matrix_buffer[1] = Camera_m4(State->main_cam.pos, State->main_cam.target, State->main_cam.up);
+        matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
+        Context->Unmap(State->matrix_buff, 0);
+
+        Context->DrawIndexed(2880, 0, 0);
+    }
 }
