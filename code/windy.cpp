@@ -84,7 +84,7 @@ load_bitmap(memory_pool *mempool, platform_read_file *read_file, char *path)
     Assert(bmp->Compression == 0);
 
     u32 scanline_byte_count = image.width*3;
-    scanline_byte_count    += scanline_byte_count & 0x3;
+    scanline_byte_count    += 4 - (scanline_byte_count & 0x3);
     u32 r_mask = 0x000000FF;
     u32 g_mask = 0x0000FF00;
     u32 b_mask = 0x00FF0000;
@@ -272,7 +272,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         //State->sun.color = {1.f,  1.f,  1.f};
         //State->sun.dir   = {0.f, -1.f, -1.f};
         State->lamp.color = {1.f,  1.f, 1.f};
-        State->lamp.p     = {0.f, -1.f, 5.f};
+        State->lamp.p     = {0.f, -1.f, -5.f};
         Memory->IsInitialized = true;
     }
 
