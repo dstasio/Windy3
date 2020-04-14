@@ -59,10 +59,9 @@ float4
 light(float3 color, float3 dir, float3 eyedir, float3 normal)
 {
     float ambient = 0.1f;
-    float diffuse = max(dot(normal, dir), 0.f);
-    float specular = pow(max(dot(reflect(eyedir, normal), dir), 0.f),
-                         32);
-    return float4(color*(ambient+diffuse), 1.f);
+    float diffuse = max(dot(dir, normal), 0.f);
+    float specular = pow(max(dot(reflect(-dir, normal), eyedir), 0.0f), 128);
+    return float4(color*(ambient+diffuse+specular*0.3), 1.f);
 }
 
 PS_OUTPUT
@@ -70,9 +69,9 @@ main(VS_OUTPUT input)
 {
     PS_OUTPUT output; 
     float3 normal = normalize(input.normal);
-    float3 eyedir = normalize(-input.world_pos + eye);
-    output.color = light(color, normalize(lightpos - input.world_pos), eyedir, normal) * SampleTexture.Sample(TextureSamplerState, input.txc);
-    //output.color = float4(eyedir, 1.f);
+    float3 eyedir = normalize(eye - input.world_pos);
+    float3 lightdir = normalize(lightpos - input.world_pos);
+    output.color = light(color, lightdir, eyedir, normal) * SampleTexture.Sample(TextureSamplerState, input.txc);
     return(output);
 }
 

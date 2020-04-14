@@ -31,8 +31,8 @@
 #define Warn(w, ...)
 #define Info(i, ...)
 #endif
-#define KeyDown(Code, Key) {if(Message.wParam == (Code))  NewInput->Held.Key = 1;}
-#define KeyUp(Code, Key)   {if(Message.wParam == (Code)) {NewInput->Held.Key = 0;NewInput->Pressed.Key = 1;}}
+#define KeyDown(code, key) {if(Message.wParam == (code))  input.held.key = 1;}
+#define KeyUp(code, key)   {if(Message.wParam == (code)) {input.held.key = 0;input.pressed.key = 1;}}
 
 #ifndef MAX_PATH
 #define MAX_PATH 100
@@ -44,7 +44,7 @@ global b32 GlobalError;
 internal
 PLATFORM_READ_FILE(Win32ReadFile)
 {
-    file Result = {};
+    Input_File Result = {};
     HANDLE FileHandle = CreateFileA(Path, GENERIC_READ, FILE_SHARE_READ, 0,
                                     OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
 
@@ -164,11 +164,11 @@ CheckAndReloadShader(char *Path, shader *Shader)
     b32 HasChanged = false;
     FILETIME CurrentWriteTime = GetLastWriteTime(Path);
 
-    if(CompareFileTime(&CurrentWriteTime, &Shader->WriteTime))
+    if(CompareFileTime(&CurrentWriteTime, &Shader->write_time))
     {
-        VirtualFree(Shader->Bytes.data, 0, MEM_RELEASE);
-        Shader->Bytes = Win32ReadFile(Path);
-        Shader->WriteTime = CurrentWriteTime;
+        VirtualFree(Shader->bytes.data, 0, MEM_RELEASE);
+        Shader->bytes = Win32ReadFile(Path);
+        Shader->write_time = CurrentWriteTime;
         HasChanged = true;
     }
 
@@ -264,8 +264,8 @@ WinMain(
         GlobalRunning = true;
         GlobalError = false;
         game_memory GameMemory = {};
-        GameMemory.StorageSize = Megabytes(500);
-        GameMemory.Storage = VirtualAlloc(BaseAddress, GameMemory.StorageSize,
+        GameMemory.storage_size = Megabytes(500);
+        GameMemory.storage = VirtualAlloc(BaseAddress, GameMemory.storage_size,
                                            MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
         GameMemory.read_file = Win32ReadFile;
 
@@ -320,18 +320,15 @@ WinMain(
         ID3D11VertexShader *VSLinked;
         ID3D11PixelShader *PSLinked;
         CheckAndReloadShader("assets\\vs.sh", &VSRaw);
-        RenderingDevice->CreateVertexShader(VSRaw.Bytes.data, VSRaw.Bytes.size,
+        RenderingDevice->CreateVertexShader(VSRaw.bytes.data, VSRaw.bytes.size,
                                             0, &VSLinked);
         CheckAndReloadShader("assets\\ps.sh", &PSRaw);
-        RenderingDevice->CreatePixelShader(PSRaw.Bytes.data, PSRaw.Bytes.size,
+        RenderingDevice->CreatePixelShader(PSRaw.bytes.data, PSRaw.bytes.size,
                                            0, &PSLinked);
         RenderingContext->VSSetShader(VSLinked, 0, 0);
         RenderingContext->PSSetShader(PSLinked, 0, 0);
 
-        input Inputs[1] = {};
-
-        input *NewInput = &Inputs[0];
-        //input *OldInput = &Inputs[1];
+        Input input = {};
         MSG Message = {};
         u32 Count = 0;
 
@@ -339,11 +336,11 @@ WinMain(
         i64 last_performance_counter = 0;
         i64 current_performance_counter = 0;
         Assert(QueryPerformanceCounter((LARGE_INTEGER *)&last_performance_counter));
-        while(GlobalRunning && !GlobalError && !(NewInput->Pressed.esc && in_menu && 0))
+        while(GlobalRunning && !GlobalError && !(input.pressed.esc && in_menu && 0))
         {
-            NewInput->Pressed = {};
-            NewInput->dmouse = {};
-            NewInput->dwheel = 0;
+            input.pressed = {};
+            input.dmouse = {};
+            input.dwheel = 0;
 
             Assert(QueryPerformanceCounter((LARGE_INTEGER *)&current_performance_counter));
             r32 dtime = (r32)(current_performance_counter - last_performance_counter) / (r32)performance_counter_frequency;
@@ -399,13 +396,13 @@ WinMain(
                                 RAWMOUSE raw_mouse = raw_input.data.mouse;
                                 if (raw_mouse.usFlags == MOUSE_MOVE_RELATIVE)
                                 {
-                                    NewInput->dmouse.x = raw_mouse.lLastX;
-                                    NewInput->dmouse.y = raw_mouse.lLastY;
+                                    input.dmouse.x = raw_mouse.lLastX;
+                                    input.dmouse.y = raw_mouse.lLastY;
                                 }
 
                                 if (raw_mouse.usButtonFlags & RI_MOUSE_WHEEL)
                                 {
-                                    NewInput->dwheel = raw_mouse.usButtonData;
+                                    input.dwheel = raw_mouse.usButtonData;
                                 }
                                 SetCursorPos((window_rect.right - window_rect.left)/2, (window_rect.bottom - window_rect.top)/2);
                             }
@@ -429,7 +426,7 @@ WinMain(
                             DispatchMessage(&Message);
                         } break;
                     }
-                    if (NewInput->Pressed.esc)
+                    if (input.pressed.esc)
                     {
                         in_menu = !in_menu;
                         if (in_menu)
@@ -452,13 +449,13 @@ WinMain(
             if(CheckAndReloadShader("assets\\vs.sh", &VSRaw))
             {
                 // TODO(dave) maybe change if to while
-                while(VSRaw.Bytes.size == 0)
+                while(VSRaw.bytes.size == 0)
                 {
-                    VSRaw.WriteTime = {};
+                    VSRaw.write_time = {};
                     CheckAndReloadShader("assets\\vs.sh", &VSRaw);
                 }
                 VSLinked->Release();
-                RenderingDevice->CreateVertexShader(VSRaw.Bytes.data, VSRaw.Bytes.size,
+                RenderingDevice->CreateVertexShader(VSRaw.bytes.data, VSRaw.bytes.size,
                                                     0, &VSLinked);
                 RenderingContext->VSSetShader(VSLinked, 0, 0);
 
@@ -466,13 +463,13 @@ WinMain(
             }
             if(CheckAndReloadShader("assets\\ps.sh", &PSRaw))
             {
-                while(PSRaw.Bytes.size == 0)
+                while(PSRaw.bytes.size == 0)
                 {
-                    PSRaw.WriteTime = {};
+                    PSRaw.write_time = {};
                     CheckAndReloadShader("assets\\ps.sh", &PSRaw);
                 }
                 PSLinked->Release();
-                RenderingDevice->CreatePixelShader(PSRaw.Bytes.data, PSRaw.Bytes.size,
+                RenderingDevice->CreatePixelShader(PSRaw.bytes.data, PSRaw.bytes.size,
                                                    0, &PSLinked);
                 RenderingContext->PSSetShader(PSLinked, 0, 0);
 
@@ -482,8 +479,8 @@ WinMain(
 
             if(Windy.GameUpdateAndRender)
             {
-                Windy.GameUpdateAndRender(NewInput, dtime, RenderingDevice, RenderingContext,
-                                          rendering_backbuffer, VSRaw.Bytes, &GameMemory);
+                Windy.GameUpdateAndRender(&input, dtime, RenderingDevice, RenderingContext,
+                                          rendering_backbuffer, VSRaw.bytes, &GameMemory);
             }
             last_performance_counter = current_performance_counter;
             Info("Frametime: %f     FPS:%d\n", dtime, (u32)(1/dtime));

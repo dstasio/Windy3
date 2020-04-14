@@ -18,7 +18,7 @@
 #endif
 #include "windy_math.h"
 
-struct image_data
+struct Image_Data
 {
     u32   width;
     u32   height;
@@ -26,20 +26,20 @@ struct image_data
     void *data;
 };
 
-struct texture_data
+struct Texture_Data
 {
     ID3D11ShaderResourceView *view;
     ID3D11Texture2D          *handle;
 };
 
-struct camera
+struct Camera
 {
     v3 pos;
     v3 target;
     v3 up;
 };
 
-struct mesh_data
+struct Mesh_Data
 {
     ID3D11InputLayout *in_layout;
     ID3D11Buffer      *vbuff;
@@ -66,22 +66,22 @@ struct Dir_Light
     v3 dir;
 };
  
-struct game_state
+struct Game_State
 {
     ID3D11RenderTargetView *render_target_rgb;
     ID3D11DepthStencilView *render_target_depth;
     ID3D11Buffer *matrix_buff;
     ID3D11Buffer *light_buff;
 
-    mesh_data environment;
-    mesh_data player;
-    texture_data tex_white;
-    texture_data tex_yellow;
+    Mesh_Data environment;
+    Mesh_Data player;
+    Texture_Data tex_white;
+    Texture_Data tex_yellow;
 
-    m4 CameraMatrix;
-    m4 ProjectionMatrix;
+    m4 cam_matrix;
+    m4 proj_matrix;
 
-    camera main_cam;
+    Camera main_cam;
     r32 cam_radius;
     r32 cam_vtheta;
     r32 cam_htheta;
@@ -90,27 +90,27 @@ struct game_state
     Point_Light lamp;
 };
 
-struct memory_pool
+struct Memory_Pool
 {
-    memory_index Size;
-    memory_index Used;
-    u8 *Base;
+    memory_index size;
+    memory_index used;
+    u8 *base;
 };
 
 #define PushStruct(Pool, Type) (Type *)PushSize_((Pool), sizeof(Type))
 #define PushArray(Pool, Length, Type) (Type *)PushSize_((Pool), (Length)*sizeof(Type))
 inline void *
-PushSize_(memory_pool *Pool, memory_index Size)
+PushSize_(Memory_Pool *pool, memory_index size)
 {
-    Assert((Pool->Used + Size) < Pool->Size);
+    Assert((pool->used + size) < pool->size);
 
-    void *Result = Pool->Base + Pool->Used;
-    Pool->Used += Size;
-    return(Result);
+    void *result = pool->base + pool->used;
+    pool->used += size;
+    return(result);
 }
 
 #pragma pack(push, 1)
-struct Bitmap_header
+struct Bitmap_Header
 {
     u16 Signature;
     u32 FileSize;
@@ -129,7 +129,7 @@ struct Bitmap_header
     u32 ImportantColors;
 };
 
-struct Wexp_header
+struct Wexp_Header
 {
     u16 signature;
     u16 vert_offset;

@@ -45,8 +45,8 @@ struct win32_game_code
 
 struct shader
 {
-    file Bytes;
-    FILETIME WriteTime;
+    Input_File bytes;
+    FILETIME write_time;
 };
 
 #define WIN32_LAYER_H

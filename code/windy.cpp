@@ -9,15 +9,18 @@
 #include "windy.h"
 #include <string.h>
 
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "stb_truetype.h"
+
 #define byte_offset(base, offset) ((u8*)(base) + (offset))
 
 inline u16 truncate_to_u16(u32 v) {Assert(v <= 0xFFFF); return (u16)v; };
 
-internal mesh_data
-load_wexp(ID3D11Device *dev, platform_read_file *read_file, char *path, file vshader)
+internal Mesh_Data
+load_wexp(ID3D11Device *dev, platform_read_file *read_file, char *path, Input_File vshader)
 {
-    mesh_data mesh = {};
-    Wexp_header *wexp = (Wexp_header *)read_file(path).data;
+    Mesh_Data mesh = {};
+    Wexp_Header *wexp = (Wexp_Header *)read_file(path).data;
     Assert(wexp->signature == 0x7877);
     u32 vertices_size = wexp->indices_offset - wexp->vert_offset;
     u32 indices_size  = wexp->eof_offset - wexp->indices_offset;
@@ -60,7 +63,7 @@ load_wexp(ID3D11Device *dev, platform_read_file *read_file, char *path, file vsh
 }
 
 inline void
-set_active_mesh(ID3D11DeviceContext *context, mesh_data *mesh)
+set_active_mesh(ID3D11DeviceContext *context, Mesh_Data *mesh)
 {
     u32 offsets = 0;
     u32 stride = mesh->vert_stride;
@@ -70,11 +73,11 @@ set_active_mesh(ID3D11DeviceContext *context, mesh_data *mesh)
     context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
-internal image_data
-load_bitmap(memory_pool *mempool, platform_read_file *read_file, char *path)
+internal Image_Data
+load_bitmap(Memory_Pool *mempool, platform_read_file *read_file, char *path)
 {
-    image_data image = {};
-    Bitmap_header *bmp = (Bitmap_header *)read_file(path).data;
+    Image_Data image = {};
+    Bitmap_Header *bmp = (Bitmap_Header *)read_file(path).data;
     image.width  = bmp->Width;
     image.height = bmp->Height;
     image.size = image.width*image.height*4;
@@ -104,11 +107,28 @@ load_bitmap(memory_pool *mempool, platform_read_file *read_file, char *path)
     return image;
 }
 
-internal texture_data
-load_texture(ID3D11Device *dev, ID3D11DeviceContext *context, memory_pool *mempool, platform_read_file *read_file, char *path)
+internal Texture_Data
+load_texture(ID3D11Device *dev, ID3D11DeviceContext *context, Memory_Pool *mempool, platform_read_file *read_file, char *path)
 {
-    texture_data texture = {};
-    image_data image = load_bitmap(mempool, read_file, path);
+    // Loading font
+    //Image_Data image = {};
+    //Input_File inconsolata_file = read_file("assets/Inconsolata.ttf");
+    //stbtt_fontinfo inconsolata_info;
+    //stbtt_InitFont(&inconsolata_info, inconsolata_file.data, stbtt_GetFontOffsetForIndex(inconsolata_file.data, 0));
+    //u8 *font_bitmap = stbtt_GetCodepointBitmap(&inconsolata_info, 0, stbtt_ScaleForPixelHeight(&inconsolata_info, 50),
+    //                                           'N', (i32 *)&image.width, (i32 *)&image.height, 0, 0);
+    //image.size = image.width*image.height*4;
+    //image.data = PushArray(mempool, image.size, u32);
+
+    //for(u32 y = 0; y < image.height; ++y) {
+    //    for(u32 x = 0; x < image.width; ++x) {
+    //        u32 src = font_bitmap[y*image.width + x];
+    //        ((u32 *)image.data)[y*image.width + x] = ((src << 24) | (src << 16) | (src << 8) | src);
+    //    }
+    //}
+
+    Texture_Data texture = {};
+    Image_Data image = load_bitmap(mempool, read_file, path);
     D3D11_TEXTURE2D_DESC tex_desc = {};
     tex_desc.Width = image.width;
     tex_desc.Height = image.height;
@@ -130,7 +150,7 @@ load_texture(ID3D11Device *dev, ID3D11DeviceContext *context, memory_pool *mempo
 }
 
 inline void
-set_active_texture(ID3D11DeviceContext *context, texture_data *texture)
+set_active_texture(ID3D11DeviceContext *context, Texture_Data *texture)
 {
     context->PSSetShaderResources(0, 1, &texture->view); 
 }
@@ -140,18 +160,19 @@ struct Light_Buffer
     v3 color;
     r32 pad0_; // 16 bytes
     v3 p;      // 28 bytes
+    r32 pad1_;
     v3 eye;    // 40 bytes
 };
 
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
-    game_state *State = (game_state *)Memory->Storage;
-    if(!Memory->IsInitialized)
+    Game_State *state = (Game_State *)memory->storage;
+    if(!memory->is_initialized)
     {
-        memory_pool mempool = {};
-        mempool.Base = (u8 *)Memory->Storage;
-        mempool.Size = Memory->StorageSize;
-        mempool.Used = sizeof(game_state);
+        Memory_Pool mempool = {};
+        mempool.base = (u8 *)memory->storage;
+        mempool.size = memory->storage_size;
+        mempool.used = sizeof(Game_State);
 
         D3D11_VIEWPORT Viewport = {};
         Viewport.TopLeftX = 0;
@@ -160,7 +181,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         Viewport.Height = HEIGHT;
         Viewport.MinDepth = 0.f;
         Viewport.MaxDepth = 1.f;
-        Context->RSSetViewports(1, &Viewport);
+        context->RSSetViewports(1, &Viewport);
 
         //
         // allocating rgb and depth buffers
@@ -178,11 +199,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         depth_buffer_desc.MiscFlags = 0;
 
         ID3D11Texture2D *depth_texture;
-        Device->CreateTexture2D(&depth_buffer_desc, 0, &depth_texture);
+        device->CreateTexture2D(&depth_buffer_desc, 0, &depth_texture);
 
         D3D11_DEPTH_STENCIL_VIEW_DESC depth_view_desc = {DXGI_FORMAT_D32_FLOAT, D3D11_DSV_DIMENSION_TEXTURE2D};
-        Device->CreateRenderTargetView(rendering_backbuffer, 0, &State->render_target_rgb);
-        Device->CreateDepthStencilView(depth_texture, &depth_view_desc, &State->render_target_depth);
+        device->CreateRenderTargetView(rendering_backbuffer, 0, &state->render_target_rgb);
+        device->CreateDepthStencilView(depth_texture, &depth_view_desc, &state->render_target_depth);
 
         D3D11_DEPTH_STENCIL_DESC depth_stencil_settings;
         depth_stencil_settings.DepthEnable = 1;
@@ -195,8 +216,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         depth_stencil_settings.BackFace = {D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_COMPARISON_ALWAYS};
 
         ID3D11DepthStencilState *depth_state;
-        Device->CreateDepthStencilState(&depth_stencil_settings, &depth_state);
-        Context->OMSetDepthStencilState(depth_state, 1);
+        device->CreateDepthStencilState(&depth_stencil_settings, &depth_state);
+        context->OMSetDepthStencilState(depth_state, 1);
 
         ID3D11SamplerState *sampler;
         D3D11_SAMPLER_DESC sampler_desc = {};
@@ -209,8 +230,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         sampler_desc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
         sampler_desc.MinLOD = 0;
         sampler_desc.MaxLOD = 100;
-        Device->CreateSamplerState(&sampler_desc, &sampler);
-        Context->PSSetSamplers(0, 1, &sampler);
+        device->CreateSamplerState(&sampler_desc, &sampler);
+        context->PSSetSamplers(0, 1, &sampler);
 
         //
         // constant buffer setup
@@ -222,8 +243,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         MatrixBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
         MatrixBufferDesc.MiscFlags = 0;
         MatrixBufferDesc.StructureByteStride = sizeof(m4);
-        Device->CreateBuffer(&MatrixBufferDesc, 0, &State->matrix_buff);
-        Context->VSSetConstantBuffers(0, 1, &State->matrix_buff);
+        device->CreateBuffer(&MatrixBufferDesc, 0, &state->matrix_buff);
+        context->VSSetConstantBuffers(0, 1, &state->matrix_buff);
 
         D3D11_BUFFER_DESC light_buff_desc = {};
         light_buff_desc.ByteWidth = 16*3;
@@ -232,8 +253,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         light_buff_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
         light_buff_desc.MiscFlags = 0;
         light_buff_desc.StructureByteStride = sizeof(v3);
-        Device->CreateBuffer(&light_buff_desc, 0, &State->light_buff);
-        Context->PSSetConstantBuffers(0, 1, &State->light_buff);
+        device->CreateBuffer(&light_buff_desc, 0, &state->light_buff);
+        context->PSSetConstantBuffers(0, 1, &state->light_buff);
 
         //
         // rasterizer set-up
@@ -251,118 +272,121 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         raster_settings.AntialiasedLineEnable = 0;
 
         ID3D11RasterizerState *raster_state = 0;
-        Device->CreateRasterizerState(&raster_settings, &raster_state);
-        Context->RSSetState(raster_state);
+        device->CreateRasterizerState(&raster_settings, &raster_state);
+        context->RSSetState(raster_state);
 
-        State->environment = load_wexp(Device, Memory->read_file, "assets/environment.wexp", VertexBytes);
-        State->player      = load_wexp(Device, Memory->read_file, "assets/sphere.wexp", VertexBytes);
-        State->tex_white   = load_texture(Device, Context, &mempool, Memory->read_file, "assets/blockout_white.bmp");
-        State->tex_yellow  = load_texture(Device, Context, &mempool, Memory->read_file, "assets/blockout_yellow.bmp");
+        state->environment = load_wexp(device, memory->read_file, "assets/environment.wexp", VertexBytes);
+        state->player      = load_wexp(device, memory->read_file, "assets/sphere.wexp", VertexBytes);
+        state->tex_white   = load_texture(device, context, &mempool, memory->read_file, "assets/blockout_white.bmp");
+        state->tex_yellow  = load_texture(device, context, &mempool, memory->read_file, "assets/blockout_yellow.bmp");
+
+        // 
+        // loading font
+        //
 
         //
         // camera set-up
         //
-        State->main_cam.pos    = {0.f, -3.f, 2.f};
-        State->main_cam.target = {0.f,  0.f, 0.f};
-        State->main_cam.up     = {0.f,  0.f, 1.f};
-        State->cam_radius = 11.f;
-        State->cam_vtheta = 0.5f;
-        State->cam_htheta = -PI/2.f;
+        state->main_cam.pos    = {0.f, -3.f, 2.f};
+        state->main_cam.target = {0.f,  0.f, 0.f};
+        state->main_cam.up     = {0.f,  0.f, 1.f};
+        state->cam_radius = 11.f;
+        state->cam_vtheta = 0.5f;
+        state->cam_htheta = -PI/2.f;
 
-        //State->sun.color = {1.f,  1.f,  1.f};
-        //State->sun.dir   = {0.f, -1.f, -1.f};
-        State->lamp.color = {1.f,  1.f, 1.f};
-        State->lamp.p     = {0.f, -1.f, -5.f};
-        Memory->IsInitialized = true;
+        //state->sun.color = {1.f,  1.f,  1.f};
+        //state->sun.dir   = {0.f, -1.f, -1.f};
+        state->lamp.color = {1.f,  1.f, 1.f};
+        state->lamp.p     = {0.f, -1.f, 1.f};
+        memory->is_initialized = true;
     }
 
-    r32 speed = Input->Held.space ? 10.f : 3.f;
+    r32 speed = input->held.space ? 10.f : 3.f;
     v3  movement = {};
-    v3  cam_forward = Normalize(State->main_cam.target - State->main_cam.pos);
-    v3  cam_right   = Normalize(Cross(cam_forward, State->main_cam.up));
-    if (Input->Held.w)     movement += make_v3(cam_forward.xy);
-    if (Input->Held.s)     movement -= make_v3(cam_forward.xy);
-    if (Input->Held.d)     movement += make_v3(cam_right.xy);
-    if (Input->Held.a)     movement -= make_v3(cam_right.xy);
-    if (Input->Held.shift) movement += State->main_cam.up;
-    if (Input->Held.ctrl)  movement -= State->main_cam.up;
+    v3  cam_forward = Normalize(state->main_cam.target - state->main_cam.pos);
+    v3  cam_right   = Normalize(Cross(cam_forward, state->main_cam.up));
+    if (input->held.w)     movement += make_v3(cam_forward.xy);
+    if (input->held.s)     movement -= make_v3(cam_forward.xy);
+    if (input->held.d)     movement += make_v3(cam_right.xy);
+    if (input->held.a)     movement -= make_v3(cam_right.xy);
+    if (input->held.shift) movement += state->main_cam.up;
+    if (input->held.ctrl)  movement -= state->main_cam.up;
     if (movement)
     {
-        State->player.p += Normalize(movement)*speed*dtime;
+        state->player.p += Normalize(movement)*speed*dtime;
     }
-    State->cam_htheta += Input->dmouse.x*dtime;
-    State->cam_vtheta -= Input->dmouse.y*dtime;
-    State->cam_vtheta = Clamp(State->cam_vtheta, -PI/2.1f, PI/2.1f);
-    State->cam_radius -= Input->dwheel*dtime;
+    state->cam_htheta += input->dmouse.x*dtime;
+    state->cam_vtheta -= input->dmouse.y*dtime;
+    state->cam_vtheta = Clamp(state->cam_vtheta, -PI/2.1f, PI/2.1f);
+    state->cam_radius -= input->dwheel*dtime;
 
-    State->main_cam.pos.z  = Sin(State->cam_vtheta);
-    State->main_cam.pos.x  = Cos(State->cam_htheta) * Cos(State->cam_vtheta);
-    State->main_cam.pos.y  = Sin(State->cam_htheta) * Cos(State->cam_vtheta);
-    State->main_cam.pos    = Normalize(State->main_cam.pos)*State->cam_radius;
-    State->main_cam.pos   += State->player.p;
-    State->main_cam.target = State->player.p;
+    state->main_cam.pos.z  = Sin(state->cam_vtheta);
+    state->main_cam.pos.x  = Cos(state->cam_htheta) * Cos(state->cam_vtheta);
+    state->main_cam.pos.y  = Sin(state->cam_htheta) * Cos(state->cam_vtheta);
+    state->main_cam.pos    = Normalize(state->main_cam.pos)*state->cam_radius;
+    state->main_cam.pos   += state->player.p;
+    state->main_cam.target = state->player.p;
 
-    Context->OMSetRenderTargets(1, &State->render_target_rgb, State->render_target_depth);
+    context->OMSetRenderTargets(1, &state->render_target_rgb, state->render_target_depth);
     r32 ClearColor[] = {0.06f, 0.05f, 0.08f, 1.f};
-    Context->ClearRenderTargetView(State->render_target_rgb, ClearColor);
-    Context->ClearDepthStencilView(State->render_target_depth, D3D11_CLEAR_DEPTH, 1.f, 1);
+    context->ClearRenderTargetView(state->render_target_rgb, ClearColor);
+    context->ClearDepthStencilView(state->render_target_depth, D3D11_CLEAR_DEPTH, 1.f, 1);
 
 
 
-    set_active_mesh(Context, &State->environment);
-    set_active_texture(Context, &State->tex_white);
-    State->lamp.p = {0.f, -1.f, 3.f};
+    set_active_mesh(context, &state->environment);
+    set_active_texture(context, &state->tex_white);
 
     { // environment -------------------------------------------------
         D3D11_MAPPED_SUBRESOURCE matrices_map = {};
         D3D11_MAPPED_SUBRESOURCE lights_map = {};
-        Context->Map(State->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
+        context->Map(state->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
         Light_Buffer *lights_mapped = (Light_Buffer *)lights_map.pData;
-        lights_mapped->color = State->lamp.color;
-        lights_mapped->p     = State->lamp.p;
-        lights_mapped->eye   = State->main_cam.pos;
-        Context->Unmap(State->light_buff, 0);
+        lights_mapped->color = state->lamp.color;
+        lights_mapped->p     = state->lamp.p;
+        lights_mapped->eye   = state->main_cam.pos;
+        context->Unmap(state->light_buff, 0);
 
-        Context->Map(State->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+        context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
         m4 *matrix_buffer = (m4 *)matrices_map.pData;
-        matrix_buffer[0] = State->environment.transform;
-        matrix_buffer[1] = Camera_m4(State->main_cam.pos, State->main_cam.target, State->main_cam.up);
+        matrix_buffer[0] = state->environment.transform;
+        matrix_buffer[1] = Camera_m4(state->main_cam.pos, state->main_cam.target, state->main_cam.up);
         matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
-        Context->Unmap(State->matrix_buff, 0);
+        context->Unmap(state->matrix_buff, 0);
 
-        Context->DrawIndexed(204, 0, 0);
+        context->DrawIndexed(204, 0, 0);
     }
 
     { // player ------------------------------------------------------
-        set_active_mesh(Context, &State->player);
+        set_active_mesh(context, &state->player);
         D3D11_MAPPED_SUBRESOURCE matrices_map = {};
         D3D11_MAPPED_SUBRESOURCE lights_map = {};
 
-        Context->Map(State->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+        context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
         m4 *matrix_buffer = (m4 *)matrices_map.pData;
-        matrix_buffer[0] = Transform_m4(State->lamp.p, make_v3(0.f), make_v3(0.1f));
-        matrix_buffer[1] = Camera_m4(State->main_cam.pos, State->main_cam.target, State->main_cam.up);
+        matrix_buffer[0] = Transform_m4(state->lamp.p, make_v3(0.f), make_v3(0.1f));
+        matrix_buffer[1] = Camera_m4(state->main_cam.pos, state->main_cam.target, state->main_cam.up);
         matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
-        Context->Unmap(State->matrix_buff, 0);
+        context->Unmap(state->matrix_buff, 0);
 
-        Context->DrawIndexed(2880, 0, 0);
+        context->DrawIndexed(2880, 0, 0);
 
-        set_active_texture(Context, &State->tex_yellow);
+        set_active_texture(context, &state->tex_yellow);
 
-        Context->Map(State->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
+        context->Map(state->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
         Light_Buffer *lights_mapped = (Light_Buffer *)lights_map.pData;
-        lights_mapped->color = State->lamp.color;
-        lights_mapped->p     = State->lamp.p-State->player.p;
-        lights_mapped->eye   = State->main_cam.pos;
-        Context->Unmap(State->light_buff, 0);
+        lights_mapped->color = state->lamp.color;
+        lights_mapped->p     = state->lamp.p-state->player.p;
+        lights_mapped->eye   = state->main_cam.pos;
+        context->Unmap(state->light_buff, 0);
 
-        Context->Map(State->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+        context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
         matrix_buffer = (m4 *)matrices_map.pData;
-        matrix_buffer[0] = Translation_m4(State->player.p);
-        matrix_buffer[1] = Camera_m4(State->main_cam.pos, State->main_cam.target, State->main_cam.up);
+        matrix_buffer[0] = Translation_m4(state->player.p);
+        matrix_buffer[1] = Camera_m4(state->main_cam.pos, state->main_cam.target, state->main_cam.up);
         matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
-        Context->Unmap(State->matrix_buff, 0);
+        context->Unmap(state->matrix_buff, 0);
 
-        Context->DrawIndexed(2880, 0, 0);
+        context->DrawIndexed(2880, 0, 0);
     }
 }

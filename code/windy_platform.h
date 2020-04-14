@@ -8,13 +8,13 @@
    ======================================================================== */
 #include "windy_types.h"
 
-struct file
+struct Input_File
 {
     u8 *data;
     u64 size;
 };
 
-#define PLATFORM_READ_FILE(name) file name(char *Path)
+#define PLATFORM_READ_FILE(name) Input_File name(char *Path)
 typedef PLATFORM_READ_FILE(platform_read_file);
 
 struct Input_Keyboard
@@ -38,28 +38,28 @@ struct Input_Keyboard
     u32 esc;
 };
 
-struct input
+struct Input
 {
-    Input_Keyboard Pressed;
-    Input_Keyboard Held;
+    Input_Keyboard pressed;
+    Input_Keyboard held;
 
     v2i dmouse;
     i16 dwheel;
 };
 
-typedef struct game_memory
+typedef struct Game_Memory
 {
-    b32 IsInitialized;
+    b32 is_initialized;
 
-    u64 StorageSize;
-    void *Storage;
+    u64 storage_size;
+    void *storage;
 
-    file VertexShaderBytes;
+    Input_File vertex_shader_file;
 
     platform_read_file *read_file;
 } game_memory;
 
-#define GAME_UPDATE_AND_RENDER(name) void name(input *Input, r32 dtime, ID3D11Device *Device, ID3D11DeviceContext *Context, ID3D11Texture2D *rendering_backbuffer, file VertexBytes, game_memory *Memory)
+#define GAME_UPDATE_AND_RENDER(name) void name(Input *input, r32 dtime, ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Texture2D *rendering_backbuffer, Input_File VertexBytes, Game_Memory *memory)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 
 #define WINDY_PLATFORM_H
