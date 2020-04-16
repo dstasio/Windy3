@@ -18,6 +18,12 @@
 #endif
 #include "windy_math.h"
 
+struct Shader_Pack
+{
+    ID3D11VertexShader *vertex;
+    ID3D11PixelShader  *pixel;
+};
+
 struct Image_Data
 {
     u32   width;

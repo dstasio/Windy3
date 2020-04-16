@@ -19,30 +19,31 @@
 //#include <d3d10.h>
 
 #if WINDY_INTERNAL
-#define OutputString(s, ...) {char Buffer[100];sprintf_s(Buffer, s, __VA_ARGS__);OutputDebugStringA(Buffer);}
-#define ThrowErrorAndExit(e, ...) {OutputString("[ERROR] " ## e, __VA_ARGS__); getchar(); GlobalError = true;}
-#define ThrowError(e, ...) OutputString("[ERROR] " ## e, __VA_ARGS__)
-#define Warn(w, ...) OutputString("[WARNING] " ## w, __VA_ARGS__)
-#define Info(i, ...) OutputString("[INFO] " ## i, __VA_ARGS__)
+#define output_string(s, ...)        {char Buffer[100];sprintf_s(Buffer, s, __VA_ARGS__);OutputDebugStringA(Buffer);}
+#define throw_error_and_exit(e, ...) {output_string("[ERROR] " ## e, __VA_ARGS__); getchar(); global_error = true;}
+#define throw_error(e, ...)           output_string("[ERROR] " ## e, __VA_ARGS__)
+#define warn(w, ...)                  output_string("[WARNING] " ## w, __VA_ARGS__)
+#define info(i, ...)                  output_string("[INFO] " ## i, __VA_ARGS__)
 #else
-#define OutputString(s, ...)
-#define ThrowErrorAndExit(e, ...)
-#define ThrowError(e, ...)
-#define Warn(w, ...)
-#define Info(i, ...)
+#define output_string(s, ...)
+#define throw_error_and_exit(e, ...)
+#define throw_error(e, ...)
+#define warn(w, ...)
+#define info(i, ...)
 #endif
-#define KeyDown(code, key) {if(Message.wParam == (code))  input.held.key = 1;}
-#define KeyUp(code, key)   {if(Message.wParam == (code)) {input.held.key = 0;input.pressed.key = 1;}}
+#define key_down(code, key)    {if(Message.wParam == (code))  input.held.key = 1;}
+#define key_up(code, key)      {if(Message.wParam == (code)) {input.held.key = 0;input.pressed.key = 1;}}
+#define file_time_to_u64(wt) ((wt).dwLowDateTime | ((u64)((wt).dwHighDateTime) << 32))
 
 #ifndef MAX_PATH
 #define MAX_PATH 100
 #endif
 
-global b32 GlobalRunning;
-global b32 GlobalError;
+global b32 global_running;
+global b32 global_error;
 
 internal
-PLATFORM_READ_FILE(Win32ReadFile)
+PLATFORM_READ_FILE(win32_read_file)
 {
     Input_File Result = {};
     HANDLE FileHandle = CreateFileA(Path, GENERIC_READ, FILE_SHARE_READ, 0,
@@ -63,14 +64,14 @@ PLATFORM_READ_FILE(Win32ReadFile)
         }
         else
         {
-            ThrowError("Unable to read file: %s\n", Path);
+            throw_error("Unable to read file: %s\n", Path);
         }
 
         CloseHandle(FileHandle);
     }
     else
     {
-        ThrowError("Unable to open file: %s\n", Path);
+        throw_error("Unable to open file: %s\n", Path);
         DWORD error = GetLastError();
         error = 0;
     }
@@ -78,13 +79,15 @@ PLATFORM_READ_FILE(Win32ReadFile)
     return(Result);
 }
 
-inline FILETIME
-GetLastWriteTime(char *Path)
+inline u64
+win32_get_last_write_time(char *Path)
 {
     WIN32_FILE_ATTRIBUTE_DATA FileAttribs = {};
     GetFileAttributesExA(Path, GetFileExInfoStandard, (void *)&FileAttribs);
+    FILETIME last_write_time = FileAttribs.ftLastWriteTime;
 
-    return(FileAttribs.ftLastWriteTime);
+    u64 result = file_time_to_u64(last_write_time);
+    return result;
 }
 
 // NOTE(dave): This requires char arrays of length 'MAX_PATH'
@@ -115,64 +118,80 @@ GetWindyPaths(char *OriginalPath, char *TempPath)
     TempPath[PathLength+1] = '\0';
 }
 
-internal win32_game_code
-LoadWindy()
+internal Win32_Game_Code
+load_windy()
 {
-    win32_game_code GameCode = {};
-    GameCode.DLL = LoadLibraryA("windy.dll0");
-    if(GameCode.DLL)
+    Win32_Game_Code game_code = {};
+    game_code.dll = LoadLibraryA("windy.dll0");
+    if(game_code.dll)
     {
-        GameCode.GameUpdateAndRender = (game_update_and_render *)GetProcAddress(GameCode.DLL, "WindyUpdateAndRender");
+        game_code.game_update_and_render = (Game_Update_And_Render *)GetProcAddress(game_code.dll, "WindyUpdateAndRender");
     }
     else
     {
-        ThrowErrorAndExit("Could not load windy.dll0");
+        throw_error_and_exit("Could not load windy.dll0");
     }
 
-    return(GameCode);
+    return(game_code);
 }
 
 internal void
-UnloadWindy(win32_game_code *GameCode)
+UnloadWindy(Win32_Game_Code *game_code)
 {
-    GameCode->GameUpdateAndRender = 0;
-    FreeLibrary(GameCode->DLL);
+    game_code->game_update_and_render = 0;
+    FreeLibrary(game_code->dll);
 }
 
 internal void
-CheckAndReloadWindy(win32_game_code *GameCode)
+reload_windy(Win32_Game_Code *game_code)
 {
-    char OriginalPath[MAX_PATH];
-    char TempPath[MAX_PATH];
-    GetWindyPaths(OriginalPath, TempPath);
+    char orig_path[MAX_PATH];
+    char temp_path[MAX_PATH];
+    GetWindyPaths(orig_path, temp_path);
 
-    FILETIME CurrentWriteTime = GetLastWriteTime(OriginalPath);
+    u64 current_write_time = win32_get_last_write_time(orig_path);
 
-    if(CompareFileTime(&CurrentWriteTime, &GameCode->WriteTime))
+    if(current_write_time != game_code->write_time)
     {
-        UnloadWindy(GameCode);
+        UnloadWindy(game_code);
 
-        while(!CopyFile(OriginalPath, TempPath, false)) {}
-        *GameCode = LoadWindy();
-        GameCode->WriteTime = CurrentWriteTime;
+        while(!CopyFile(orig_path, temp_path, false)) {}
+        *game_code = load_windy();
+        game_code->write_time = current_write_time;
     }
 }
 
 internal b32
-CheckAndReloadShader(char *Path, shader *Shader)
+reload_shader(char *path, Input_File *shader)
 {
-    b32 HasChanged = false;
-    FILETIME CurrentWriteTime = GetLastWriteTime(Path);
+    b32 has_changed = false;
+    u64 current_write_time = win32_get_last_write_time(path);
 
-    if(CompareFileTime(&CurrentWriteTime, &Shader->write_time))
+    Input_File new_shader = {};
+    if(current_write_time != shader->write_time)
     {
-        VirtualFree(Shader->bytes.data, 0, MEM_RELEASE);
-        Shader->bytes = Win32ReadFile(Path);
-        Shader->write_time = CurrentWriteTime;
-        HasChanged = true;
+        // Try to read until it succeeds, or until trial count reaches max.
+        u32 trial_count = 0;
+        while(!new_shader.size)
+        {
+            VirtualFree(new_shader.data, 0, MEM_RELEASE);
+            new_shader = win32_read_file(path);
+            new_shader.write_time = current_write_time;
+            has_changed = true;
+            if (trial_count++ >= 100)
+            {
+                has_changed = false;
+                break;
+            }
+        }
+
+        if (has_changed) {
+            VirtualFree(shader->data, 0, MEM_RELEASE);
+            *shader = new_shader;
+        }
     }
 
-    return(HasChanged);
+    return(has_changed);
 }
 
 LRESULT CALLBACK WindyProc(
@@ -192,7 +211,7 @@ LRESULT CALLBACK WindyProc(
             
         case WM_DESTROY:
         {
-            GlobalRunning = false;
+            global_running = false;
             PostQuitMessage(0);
         } break;
 
@@ -261,15 +280,15 @@ WinMain(
 #else
         LPVOID BaseAddress = 0;
 #endif
-        GlobalRunning = true;
-        GlobalError = false;
+        global_running = true;
+        global_error = false;
         game_memory GameMemory = {};
         GameMemory.storage_size = Megabytes(500);
         GameMemory.storage = VirtualAlloc(BaseAddress, GameMemory.storage_size,
                                            MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
-        GameMemory.read_file = Win32ReadFile;
+        GameMemory.read_file = win32_read_file;
 
-        win32_game_code Windy = LoadWindy();
+        Win32_Game_Code windy = load_windy();
 
         ID3D11Device *RenderingDevice = 0;
         ID3D11DeviceContext *RenderingContext = 0;
@@ -315,18 +334,28 @@ WinMain(
         // shader initialization
         //
         // TODO(dave): Include all this in GameState struct
-        shader VSRaw = {};
-        shader PSRaw = {};
+        Input_File VSRaw = {};
+        Input_File PSRaw = {};
         ID3D11VertexShader *VSLinked;
         ID3D11PixelShader *PSLinked;
-        CheckAndReloadShader("assets\\vs.sh", &VSRaw);
-        RenderingDevice->CreateVertexShader(VSRaw.bytes.data, VSRaw.bytes.size,
+        
+        //
+        // Shaders
+        //
+        char *vertex_path = "assets\\vs.sh";
+        char *pixel_path  = "assets\\ps.sh";
+        if(!reload_shader(vertex_path, &VSRaw)) throw_error_and_exit("Couldn't read '%s'!", vertex_path);
+        RenderingDevice->CreateVertexShader(VSRaw.data, VSRaw.size,
                                             0, &VSLinked);
-        CheckAndReloadShader("assets\\ps.sh", &PSRaw);
-        RenderingDevice->CreatePixelShader(PSRaw.bytes.data, PSRaw.bytes.size,
+        if (!reload_shader(pixel_path, &PSRaw)) throw_error_and_exit("Couldn't read '%s'!", pixel_path);
+        RenderingDevice->CreatePixelShader(PSRaw.data, PSRaw.size,
                                            0, &PSLinked);
         RenderingContext->VSSetShader(VSLinked, 0, 0);
         RenderingContext->PSSetShader(PSLinked, 0, 0);
+
+        //
+        //
+        //
 
         Input input = {};
         MSG Message = {};
@@ -336,7 +365,7 @@ WinMain(
         i64 last_performance_counter = 0;
         i64 current_performance_counter = 0;
         Assert(QueryPerformanceCounter((LARGE_INTEGER *)&last_performance_counter));
-        while(GlobalRunning && !GlobalError && !(input.pressed.esc && in_menu && 0))
+        while(global_running && !global_error && !(input.pressed.esc && in_menu && 0))
         {
             input.pressed = {};
             input.dmouse = {};
@@ -352,38 +381,38 @@ WinMain(
                     {
                         case WM_KEYDOWN:
                         {
-                            KeyDown(VK_UP,      up);
-                            KeyDown(VK_DOWN,    down);
-                            KeyDown(VK_LEFT,    left);
-                            KeyDown(VK_RIGHT,   right);
-                            KeyDown(VK_W,       w);
-                            KeyDown(VK_A,       a);
-                            KeyDown(VK_S,       s);
-                            KeyDown(VK_D,       d);
-                            KeyDown(VK_F,       f);
-                            KeyDown(VK_SPACE,   space);
-                            KeyDown(VK_SHIFT,   shift);
-                            KeyDown(VK_CONTROL, ctrl);
-                            KeyDown(VK_ESCAPE,  esc);
-                            KeyDown(VK_MENU,    alt);
+                            key_down(VK_UP,      up);
+                            key_down(VK_DOWN,    down);
+                            key_down(VK_LEFT,    left);
+                            key_down(VK_RIGHT,   right);
+                            key_down(VK_W,       w);
+                            key_down(VK_A,       a);
+                            key_down(VK_S,       s);
+                            key_down(VK_D,       d);
+                            key_down(VK_F,       f);
+                            key_down(VK_SPACE,   space);
+                            key_down(VK_SHIFT,   shift);
+                            key_down(VK_CONTROL, ctrl);
+                            key_down(VK_ESCAPE,  esc);
+                            key_down(VK_MENU,    alt);
                         } break;
 
                         case WM_KEYUP:
                         {
-                            KeyUp(VK_UP,      up);
-                            KeyUp(VK_DOWN,    down);
-                            KeyUp(VK_LEFT,    left);
-                            KeyUp(VK_RIGHT,   right);
-                            KeyUp(VK_W,       w);
-                            KeyUp(VK_A,       a);
-                            KeyUp(VK_S,       s);
-                            KeyUp(VK_D,       d);
-                            KeyUp(VK_F,       f);
-                            KeyUp(VK_SPACE,   space);
-                            KeyUp(VK_SHIFT,   shift);
-                            KeyUp(VK_CONTROL, ctrl);
-                            KeyUp(VK_ESCAPE,  esc);
-                            KeyUp(VK_MENU,    alt);
+                            key_up(VK_UP,      up);
+                            key_up(VK_DOWN,    down);
+                            key_up(VK_LEFT,    left);
+                            key_up(VK_RIGHT,   right);
+                            key_up(VK_W,       w);
+                            key_up(VK_A,       a);
+                            key_up(VK_S,       s);
+                            key_up(VK_D,       d);
+                            key_up(VK_F,       f);
+                            key_up(VK_SPACE,   space);
+                            key_up(VK_SHIFT,   shift);
+                            key_up(VK_CONTROL, ctrl);
+                            key_up(VK_ESCAPE,  esc);
+                            key_up(VK_MENU,    alt);
                         } break;
 
                         case WM_INPUT:
@@ -444,50 +473,29 @@ WinMain(
             }
 
 #if WINDY_INTERNAL
-            CheckAndReloadWindy(&Windy);
+            reload_windy(&windy);
 
-            if(CheckAndReloadShader("assets\\vs.sh", &VSRaw))
+            if(reload_shader(vertex_path, &VSRaw))
             {
-                // TODO(dave) maybe change if to while
-                while(VSRaw.bytes.size == 0)
-                {
-                    VSRaw.write_time = {};
-                    CheckAndReloadShader("assets\\vs.sh", &VSRaw);
-                }
                 VSLinked->Release();
-                RenderingDevice->CreateVertexShader(VSRaw.bytes.data, VSRaw.bytes.size,
-                                                    0, &VSLinked);
+                RenderingDevice->CreateVertexShader(VSRaw.data, VSRaw.size, 0, &VSLinked);
                 RenderingContext->VSSetShader(VSLinked, 0, 0);
-
-                //Assert(ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_SUMMARY) == S_OK);
             }
-            if(CheckAndReloadShader("assets\\ps.sh", &PSRaw))
+            if(reload_shader(pixel_path, &PSRaw))
             {
-                while(PSRaw.bytes.size == 0)
-                {
-                    PSRaw.write_time = {};
-                    CheckAndReloadShader("assets\\ps.sh", &PSRaw);
-                }
                 PSLinked->Release();
-                RenderingDevice->CreatePixelShader(PSRaw.bytes.data, PSRaw.bytes.size,
-                                                   0, &PSLinked);
+                RenderingDevice->CreatePixelShader(PSRaw.data, PSRaw.size, 0, &PSLinked);
                 RenderingContext->PSSetShader(PSLinked, 0, 0);
-
-                //Assert(ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_SUMMARY) == S_OK);
             }
 #endif
 
-            if(Windy.GameUpdateAndRender)
+            if(windy.game_update_and_render)
             {
-                Windy.GameUpdateAndRender(&input, dtime, RenderingDevice, RenderingContext,
-                                          rendering_backbuffer, VSRaw.bytes, &GameMemory);
+                windy.game_update_and_render(&input, dtime, RenderingDevice, RenderingContext,
+                                             rendering_backbuffer, VSRaw, &GameMemory);
             }
             last_performance_counter = current_performance_counter;
-            Info("Frametime: %f     FPS:%d\n", dtime, (u32)(1/dtime));
-
-            //            input *SwitchInput = NewInput;
-            //            NewInput = OldInput;
-            //            OldInput = SwitchInput;
+            info("Frametime: %f     FPS:%d\n", dtime, (u32)(1/dtime));
 
             SwapChain->Present(0, 0);
         }
@@ -498,7 +506,7 @@ WinMain(
         return 1;
     }
 
-    if (GlobalError)
+    if (global_error)
     {
         return 1;
     }

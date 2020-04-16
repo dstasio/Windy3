@@ -32,7 +32,7 @@ main(VS_INPUT input)
     //output.txc = input.txc;
     output.txc = input.pos.xy;
     output.normal = input.normal;
-    output.world_pos = input.pos;//(float3)mul(model, float4(input.pos, 1.f));
+    output.world_pos = input.pos;
 
     return(output);
 }

@@ -12,10 +12,11 @@ struct Input_File
 {
     u8 *data;
     u64 size;
+    u64 write_time;
 };
 
 #define PLATFORM_READ_FILE(name) Input_File name(char *Path)
-typedef PLATFORM_READ_FILE(platform_read_file);
+typedef PLATFORM_READ_FILE(Platform_Read_File);
 
 struct Input_Keyboard
 {
@@ -56,11 +57,11 @@ typedef struct Game_Memory
 
     Input_File vertex_shader_file;
 
-    platform_read_file *read_file;
+    Platform_Read_File *read_file;
 } game_memory;
 
 #define GAME_UPDATE_AND_RENDER(name) void name(Input *input, r32 dtime, ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Texture2D *rendering_backbuffer, Input_File VertexBytes, Game_Memory *memory)
-typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
+typedef GAME_UPDATE_AND_RENDER(Game_Update_And_Render);
 
 #define WINDY_PLATFORM_H
 #endif

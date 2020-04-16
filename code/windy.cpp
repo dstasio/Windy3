@@ -16,8 +16,46 @@
 
 inline u16 truncate_to_u16(u32 v) {Assert(v <= 0xFFFF); return (u16)v; };
 
+//{
+//    Mesh_Data mesh = {};
+//    u32 vertices_size = wexp->indices_offset - wexp->vert_offset;
+//    u32 indices_size  = wexp->eof_offset - wexp->indices_offset;
+//    mesh.index_count  = truncate_to_u16(indices_size / 2); // two bytes per index
+//    mesh.vert_stride  = 8*sizeof(r32);
+//    mesh.transform    = Identity_m4();
+//
+//    r32 square = {
+//        -1.f, -1.f,  0.f, 1.f,
+//         1.f, -1.f,  1.f, 1.f,
+//         1.f,  1.f,  1.f, 0.f,
+//        -1.f,  1.f,  0.f, 0.f
+//    };
+//
+//    //
+//    // vertex buffer
+//    //
+//    D3D11_SUBRESOURCE_DATA raw_vert_data = {square};
+//    D3D11_BUFFER_DESC vert_buff_desc     = {};
+//    vert_buff_desc.ByteWidth             = sizeof(square);
+//    vert_buff_desc.Usage                 = D3D11_USAGE_IMMUTABLE;
+//    vert_buff_desc.BindFlags             = D3D11_BIND_VERTEX_BUFFER;
+//    vert_buff_desc.StructureByteStride   = 4*sizeof(r32);
+//    dev->CreateBuffer(&vert_buff_desc, &raw_vert_data, &mesh.vbuff);
+//
+//    //
+//    // input layout description
+//    //
+//    D3D11_INPUT_ELEMENT_DESC in_desc[] = {
+//        {"POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+//        {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+//    };
+//    dev->CreateInputLayout(in_desc, 2, vshader.data, vshader.size, &mesh.in_layout);
+//
+//    return mesh;
+//}
+
 internal Mesh_Data
-load_wexp(ID3D11Device *dev, platform_read_file *read_file, char *path, Input_File vshader)
+load_wexp(ID3D11Device *dev, Platform_Read_File *read_file, char *path, Input_File vshader)
 {
     Mesh_Data mesh = {};
     Wexp_Header *wexp = (Wexp_Header *)read_file(path).data;
@@ -74,7 +112,7 @@ set_active_mesh(ID3D11DeviceContext *context, Mesh_Data *mesh)
 }
 
 internal Image_Data
-load_bitmap(Memory_Pool *mempool, platform_read_file *read_file, char *path)
+load_bitmap(Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
 {
     Image_Data image = {};
     Bitmap_Header *bmp = (Bitmap_Header *)read_file(path).data;
@@ -108,7 +146,7 @@ load_bitmap(Memory_Pool *mempool, platform_read_file *read_file, char *path)
 }
 
 internal Texture_Data
-load_texture(ID3D11Device *dev, ID3D11DeviceContext *context, Memory_Pool *mempool, platform_read_file *read_file, char *path)
+load_texture(ID3D11Device *dev, ID3D11DeviceContext *context, Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
 {
     // Loading font
     //Image_Data image = {};
@@ -328,7 +366,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     state->main_cam.target = state->player.p;
 
     context->OMSetRenderTargets(1, &state->render_target_rgb, state->render_target_depth);
-    r32 ClearColor[] = {0.06f, 0.05f, 0.08f, 1.f};
+    r32 ClearColor[] = {0.06f, 0.5f, 0.8f, 1.f};
     context->ClearRenderTargetView(state->render_target_rgb, ClearColor);
     context->ClearDepthStencilView(state->render_target_depth, D3D11_CLEAR_DEPTH, 1.f, 1);
 

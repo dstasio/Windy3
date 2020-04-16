@@ -34,19 +34,13 @@
 #define VK_Y 0x59
 #define VK_Z 0x5a
 
-struct win32_game_code
+struct Win32_Game_Code
 {
-    HMODULE DLL;
-    //char *DLLPath;
-    FILETIME WriteTime;
+    HMODULE dll;
+    //char *dll_path;
+    u64 write_time;
 
-    game_update_and_render *GameUpdateAndRender;
-};
-
-struct shader
-{
-    Input_File bytes;
-    FILETIME write_time;
+    Game_Update_And_Render *game_update_and_render;
 };
 
 #define WIN32_LAYER_H
