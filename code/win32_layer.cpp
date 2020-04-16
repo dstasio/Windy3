@@ -20,10 +20,10 @@
 
 #if WINDY_INTERNAL
 #define output_string(s, ...)        {char Buffer[100];sprintf_s(Buffer, s, __VA_ARGS__);OutputDebugStringA(Buffer);}
-#define throw_error_and_exit(e, ...) {output_string("[ERROR] " ## e, __VA_ARGS__); getchar(); global_error = true;}
-#define throw_error(e, ...)           output_string("[ERROR] " ## e, __VA_ARGS__)
-#define warn(w, ...)                  output_string("[WARNING] " ## w, __VA_ARGS__)
-#define info(i, ...)                  output_string("[INFO] " ## i, __VA_ARGS__)
+#define throw_error_and_exit(e, ...) {output_string(" ------------------------------[ERROR] " ## e, __VA_ARGS__); getchar(); global_error = true;}
+#define throw_error(e, ...)           output_string(" ------------------------------[ERROR] " ## e, __VA_ARGS__)
+#define warn(w, ...)                  output_string(" ------------------------------[WARNING] " ## w, __VA_ARGS__)
+#define info(i, ...)                  output_string(" ------------------------------[INFO] " ## i, __VA_ARGS__)
 #else
 #define output_string(s, ...)
 #define throw_error_and_exit(e, ...)
@@ -34,10 +34,6 @@
 #define key_down(code, key)    {if(Message.wParam == (code))  input.held.key = 1;}
 #define key_up(code, key)      {if(Message.wParam == (code)) {input.held.key = 0;input.pressed.key = 1;}}
 #define file_time_to_u64(wt) ((wt).dwLowDateTime | ((u64)((wt).dwHighDateTime) << 32))
-
-#ifndef MAX_PATH
-#define MAX_PATH 100
-#endif
 
 global b32 global_running;
 global b32 global_error;
@@ -123,6 +119,11 @@ GetWindyPaths(char *OriginalPath, char *TempPath)
 internal Win32_Game_Code
 load_windy()
 {
+    char orig_path[MAX_PATH];
+    char temp_path[MAX_PATH];
+    GetWindyPaths(orig_path, temp_path);
+    while(!CopyFile(orig_path, temp_path, false)) {}
+
     Win32_Game_Code game_code = {};
     game_code.dll = LoadLibraryA("windy.dll0");
     if(game_code.dll)
@@ -131,7 +132,7 @@ load_windy()
     }
     else
     {
-        throw_error_and_exit("Could not load windy.dll0");
+        throw_error_and_exit("Could not load 'windy.dll0'\n");
     }
 
     return(game_code);
@@ -150,14 +151,12 @@ reload_windy(Win32_Game_Code *game_code)
     char orig_path[MAX_PATH];
     char temp_path[MAX_PATH];
     GetWindyPaths(orig_path, temp_path);
-
     u64 current_write_time = win32_get_last_write_time(orig_path);
 
     if(current_write_time != game_code->write_time)
     {
         UnloadWindy(game_code);
 
-        while(!CopyFile(orig_path, temp_path, false)) {}
         *game_code = load_windy();
         game_code->write_time = current_write_time;
     }
@@ -449,21 +448,8 @@ WinMain(
                 dtime = (r32)(current_performance_counter - last_performance_counter) / (r32)performance_counter_frequency;
             }
 
-#if 0//WINDY_INTERNAL
+#if WINDY_INTERNAL
             reload_windy(&windy);
-
-            if(reload_if_changed(&phong_shader.vertex_file))
-            {
-                phong_shader.vertex->Release();
-                RenderingDevice->CreateVertexShader(phong_shader.vertex_file.data, phong_shader.vertex_file.size, 0, &phong_shader.vertex);
-                RenderingContext->VSSetShader(phong_shader.vertex, 0, 0);
-            }
-            if(reload_if_changed(&phong_shader.pixel_file))
-            {
-                phong_shader.pixel->Release();
-                RenderingDevice->CreatePixelShader(phong_shader.pixel_file.data, phong_shader.pixel_file.size, 0, &phong_shader.pixel);
-                RenderingContext->PSSetShader(phong_shader.pixel, 0, 0);
-            }
 #endif
 
             if(windy.game_update_and_render)

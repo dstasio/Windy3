@@ -14,7 +14,15 @@
 
 #define byte_offset(base, offset) ((u8*)(base) + (offset))
 
-inline u16 truncate_to_u16(u32 v) {Assert(v <= 0xFFFF); return (u16)v; };
+inline u16 truncate_to_u16(u32 v) {assert(v <= 0xFFFF); return (u16)v; };
+
+inline void
+cat(char *src0, char *src1, char *dest)
+{
+    while (*src0)  *(dest++) = *(src0++);
+    while (*src1)  *(dest++) = *(src1++);
+    *dest = '\0';
+}
 
 //{
 //    Mesh_Data mesh = {};
@@ -59,7 +67,7 @@ load_wexp(ID3D11Device *dev, Platform_Read_File *read_file, char *path, Input_Fi
 {
     Mesh_Data mesh = {};
     Wexp_Header *wexp = (Wexp_Header *)read_file(path).data;
-    Assert(wexp->signature == 0x7877);
+    assert(wexp->signature == 0x7877);
     u32 vertices_size = wexp->indices_offset - wexp->vert_offset;
     u32 indices_size  = wexp->eof_offset - wexp->indices_offset;
     mesh.index_count  = truncate_to_u16(indices_size / 2); // two bytes per index
@@ -121,8 +129,8 @@ load_bitmap(Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
     image.size = image.width*image.height*4;
     image.data = push_array(mempool, image.size, u8);
 
-    Assert(bmp->BitsPerPixel == 24);
-    Assert(bmp->Compression == 0);
+    assert(bmp->BitsPerPixel == 24);
+    assert(bmp->Compression == 0);
 
     u32 scanline_byte_count = image.width*3;
     scanline_byte_count    += (4 - (scanline_byte_count & 0x3)) & 0x3;
@@ -188,11 +196,16 @@ load_texture(ID3D11Device *dev, ID3D11DeviceContext *context, Memory_Pool *mempo
 }
 
 internal Shader_Pack *
-reload_shader(Memory_Pool *pool, Platform_Reload_Changed_File *reload_if_changed, ID3D11Device *dev, char *name)
+reload_shader(Shader_Pack *shader, Platform_Reload_Changed_File *reload_if_changed, ID3D11Device *dev, char *name)
 {
-    Shader_Pack *shader = push_struct(pool, Shader_Pack);
-    shader->vertex_file.path = "assets\\vs.sh";
-    shader->pixel_file.path  = "assets\\ps.sh";
+    char vertex_path[MAX_PATH] = {};
+    char  pixel_path[MAX_PATH] = {};
+    cat("assets\\",    name, vertex_path);
+    cat(vertex_path, ".vsh", vertex_path);
+    cat("assets\\",    name,  pixel_path);
+    cat( pixel_path, ".psh",  pixel_path);
+    shader->vertex_file.path = vertex_path;
+    shader->pixel_file.path  =  pixel_path;
 
     if(reload_if_changed(&shader->vertex_file))
         dev->CreateVertexShader(shader->vertex_file.data, shader->vertex_file.size, 0, &shader->vertex);
@@ -247,8 +260,10 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         //
         // Shaders
         //
-        state->phong_shader = reload_shader(&mempool, memory->reload_if_changed, device, "phong");
-        set_active_shader(context, state->phong_shader);
+        state->phong_shader = push_struct(&mempool, Shader_Pack);
+#if !WINDY_INTERNAL
+        reload_shader(state->phong_shader, memory->reload_if_changed, device, "phong");
+#endif
         
         //
         // allocating rgb and depth buffers
@@ -363,10 +378,14 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
         //state->sun.color = {1.f,  1.f,  1.f};
         //state->sun.dir   = {0.f, -1.f, -1.f};
-        state->lamp.color = {1.f,  1.f, 1.f};
-        state->lamp.p     = {0.f, -1.f, 1.f};
+        state->lamp.color = {1.f,  1.f, 0.9f};
+        state->lamp.p     = {0.f,  0.f, 5.f};
         memory->is_initialized = true;
     }
+#if WINDY_INTERNAL
+    reload_shader(state->phong_shader, memory->reload_if_changed, device, "phong");
+#endif
+    set_active_shader(context, state->phong_shader);
 
     r32 speed = input->held.space ? 10.f : 3.f;
     v3  movement = {};
@@ -400,9 +419,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     context->ClearDepthStencilView(state->render_target_depth, D3D11_CLEAR_DEPTH, 1.f, 1);
 
 
-
     set_active_mesh(context, &state->environment);
     set_active_texture(context, &state->tex_white);
+    //set_active_shader(context, phong_shader);
 
     { // environment -------------------------------------------------
         D3D11_MAPPED_SUBRESOURCE matrices_map = {};

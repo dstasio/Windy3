@@ -8,6 +8,10 @@
    ======================================================================== */
 #include "windy_types.h"
 
+#ifndef MAX_PATH
+#define MAX_PATH 100
+#endif
+
 struct Input_File
 {
     char *path;
