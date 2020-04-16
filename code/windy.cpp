@@ -119,7 +119,7 @@ load_bitmap(Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
     image.width  = bmp->Width;
     image.height = bmp->Height;
     image.size = image.width*image.height*4;
-    image.data = PushArray(mempool, image.size, u8);
+    image.data = push_array(mempool, image.size, u8);
 
     Assert(bmp->BitsPerPixel == 24);
     Assert(bmp->Compression == 0);
@@ -187,10 +187,33 @@ load_texture(ID3D11Device *dev, ID3D11DeviceContext *context, Memory_Pool *mempo
     return texture;
 }
 
+internal Shader_Pack *
+reload_shader(Memory_Pool *pool, Platform_Reload_Changed_File *reload_if_changed, ID3D11Device *dev, char *name)
+{
+    Shader_Pack *shader = push_struct(pool, Shader_Pack);
+    shader->vertex_file.path = "assets\\vs.sh";
+    shader->pixel_file.path  = "assets\\ps.sh";
+
+    if(reload_if_changed(&shader->vertex_file))
+        dev->CreateVertexShader(shader->vertex_file.data, shader->vertex_file.size, 0, &shader->vertex);
+
+    if(reload_if_changed(&shader->pixel_file))
+        dev->CreatePixelShader(shader->pixel_file.data, shader->pixel_file.size, 0, &shader->pixel);
+
+    return shader;
+}
+
 inline void
 set_active_texture(ID3D11DeviceContext *context, Texture_Data *texture)
 {
     context->PSSetShaderResources(0, 1, &texture->view); 
+}
+
+inline void
+set_active_shader(ID3D11DeviceContext *context, Shader_Pack *shader)
+{
+    context->VSSetShader(shader->vertex, 0, 0);
+    context->PSSetShader(shader->pixel,  0, 0);
 }
 
 struct Light_Buffer
@@ -221,6 +244,12 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         Viewport.MaxDepth = 1.f;
         context->RSSetViewports(1, &Viewport);
 
+        //
+        // Shaders
+        //
+        state->phong_shader = reload_shader(&mempool, memory->reload_if_changed, device, "phong");
+        set_active_shader(context, state->phong_shader);
+        
         //
         // allocating rgb and depth buffers
         //
@@ -313,8 +342,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         device->CreateRasterizerState(&raster_settings, &raster_state);
         context->RSSetState(raster_state);
 
-        state->environment = load_wexp(device, memory->read_file, "assets/environment.wexp", VertexBytes);
-        state->player      = load_wexp(device, memory->read_file, "assets/sphere.wexp", VertexBytes);
+        state->environment = load_wexp(device, memory->read_file, "assets/environment.wexp", state->phong_shader->vertex_file);
+        state->player      = load_wexp(device, memory->read_file, "assets/sphere.wexp",      state->phong_shader->vertex_file);
         state->tex_white   = load_texture(device, context, &mempool, memory->read_file, "assets/blockout_white.bmp");
         state->tex_yellow  = load_texture(device, context, &mempool, memory->read_file, "assets/blockout_yellow.bmp");
 

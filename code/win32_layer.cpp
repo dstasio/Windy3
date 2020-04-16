@@ -42,6 +42,17 @@
 global b32 global_running;
 global b32 global_error;
 
+inline u64
+win32_get_last_write_time(char *Path)
+{
+    WIN32_FILE_ATTRIBUTE_DATA FileAttribs = {};
+    GetFileAttributesExA(Path, GetFileExInfoStandard, (void *)&FileAttribs);
+    FILETIME last_write_time = FileAttribs.ftLastWriteTime;
+
+    u64 result = file_time_to_u64(last_write_time);
+    return result;
+}
+
 internal
 PLATFORM_READ_FILE(win32_read_file)
 {
@@ -61,6 +72,8 @@ PLATFORM_READ_FILE(win32_read_file)
         {
             Result.data = Buffer;
             Result.size = (u32)BytesRead;
+            Result.path = Path;
+            Result.write_time = win32_get_last_write_time(Path);
         }
         else
         {
@@ -77,17 +90,6 @@ PLATFORM_READ_FILE(win32_read_file)
     }
 
     return(Result);
-}
-
-inline u64
-win32_get_last_write_time(char *Path)
-{
-    WIN32_FILE_ATTRIBUTE_DATA FileAttribs = {};
-    GetFileAttributesExA(Path, GetFileExInfoStandard, (void *)&FileAttribs);
-    FILETIME last_write_time = FileAttribs.ftLastWriteTime;
-
-    u64 result = file_time_to_u64(last_write_time);
-    return result;
 }
 
 // NOTE(dave): This requires char arrays of length 'MAX_PATH'
@@ -161,33 +163,34 @@ reload_windy(Win32_Game_Code *game_code)
     }
 }
 
-internal b32
-reload_shader(char *path, Input_File *shader)
+internal 
+PLATFORM_RELOAD_CHANGED_FILE(win32_reload_file_if_changed)
 {
     b32 has_changed = false;
-    u64 current_write_time = win32_get_last_write_time(path);
+    u64 current_write_time = win32_get_last_write_time(file->path);
 
-    Input_File new_shader = {};
-    if(current_write_time != shader->write_time)
+    Input_File new_file = {};
+    if(current_write_time != file->write_time)
     {
-        // Try to read until it succeeds, or until trial count reaches max.
         u32 trial_count = 0;
-        while(!new_shader.size)
+        while(!new_file.size)
         {
-            VirtualFree(new_shader.data, 0, MEM_RELEASE);
-            new_shader = win32_read_file(path);
-            new_shader.write_time = current_write_time;
+            VirtualFree(new_file.data, 0, MEM_RELEASE);
+            new_file = win32_read_file(file->path);
+            new_file.write_time = current_write_time;
             has_changed = true;
-            if (trial_count++ >= 100)
+
+            if (trial_count++ >= 100) // Try to read until it succeeds, or until trial count reaches max.
             {
                 has_changed = false;
+                throw_error_and_exit("Couldn't read changed file '%s'!", file->path);
                 break;
             }
         }
 
         if (has_changed) {
-            VirtualFree(shader->data, 0, MEM_RELEASE);
-            *shader = new_shader;
+            VirtualFree(file->data, 0, MEM_RELEASE);
+            *file = new_file;
         }
     }
 
@@ -287,12 +290,13 @@ WinMain(
         GameMemory.storage = VirtualAlloc(BaseAddress, GameMemory.storage_size,
                                            MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
         GameMemory.read_file = win32_read_file;
+        GameMemory.reload_if_changed = win32_reload_file_if_changed;
 
         Win32_Game_Code windy = load_windy();
 
-        ID3D11Device *RenderingDevice = 0;
+        ID3D11Device        *RenderingDevice = 0;
         ID3D11DeviceContext *RenderingContext = 0;
-        IDXGISwapChain *SwapChain = 0;
+        IDXGISwapChain      *SwapChain = 0;
 
         DXGI_MODE_DESC DisplayModeDescriptor = {};
         //DisplayModeDescriptor.Width = WIDTH;
@@ -329,33 +333,6 @@ WinMain(
 
         ID3D11Texture2D *rendering_backbuffer = 0;
         SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&rendering_backbuffer);
-
-        //
-        // shader initialization
-        //
-        // TODO(dave): Include all this in GameState struct
-        Input_File VSRaw = {};
-        Input_File PSRaw = {};
-        ID3D11VertexShader *VSLinked;
-        ID3D11PixelShader *PSLinked;
-        
-        //
-        // Shaders
-        //
-        char *vertex_path = "assets\\vs.sh";
-        char *pixel_path  = "assets\\ps.sh";
-        if(!reload_shader(vertex_path, &VSRaw)) throw_error_and_exit("Couldn't read '%s'!", vertex_path);
-        RenderingDevice->CreateVertexShader(VSRaw.data, VSRaw.size,
-                                            0, &VSLinked);
-        if (!reload_shader(pixel_path, &PSRaw)) throw_error_and_exit("Couldn't read '%s'!", pixel_path);
-        RenderingDevice->CreatePixelShader(PSRaw.data, PSRaw.size,
-                                           0, &PSLinked);
-        RenderingContext->VSSetShader(VSLinked, 0, 0);
-        RenderingContext->PSSetShader(PSLinked, 0, 0);
-
-        //
-        //
-        //
 
         Input input = {};
         MSG Message = {};
@@ -472,27 +449,26 @@ WinMain(
                 dtime = (r32)(current_performance_counter - last_performance_counter) / (r32)performance_counter_frequency;
             }
 
-#if WINDY_INTERNAL
+#if 0//WINDY_INTERNAL
             reload_windy(&windy);
 
-            if(reload_shader(vertex_path, &VSRaw))
+            if(reload_if_changed(&phong_shader.vertex_file))
             {
-                VSLinked->Release();
-                RenderingDevice->CreateVertexShader(VSRaw.data, VSRaw.size, 0, &VSLinked);
-                RenderingContext->VSSetShader(VSLinked, 0, 0);
+                phong_shader.vertex->Release();
+                RenderingDevice->CreateVertexShader(phong_shader.vertex_file.data, phong_shader.vertex_file.size, 0, &phong_shader.vertex);
+                RenderingContext->VSSetShader(phong_shader.vertex, 0, 0);
             }
-            if(reload_shader(pixel_path, &PSRaw))
+            if(reload_if_changed(&phong_shader.pixel_file))
             {
-                PSLinked->Release();
-                RenderingDevice->CreatePixelShader(PSRaw.data, PSRaw.size, 0, &PSLinked);
-                RenderingContext->PSSetShader(PSLinked, 0, 0);
+                phong_shader.pixel->Release();
+                RenderingDevice->CreatePixelShader(phong_shader.pixel_file.data, phong_shader.pixel_file.size, 0, &phong_shader.pixel);
+                RenderingContext->PSSetShader(phong_shader.pixel, 0, 0);
             }
 #endif
 
             if(windy.game_update_and_render)
             {
-                windy.game_update_and_render(&input, dtime, RenderingDevice, RenderingContext,
-                                             rendering_backbuffer, VSRaw, &GameMemory);
+                windy.game_update_and_render(&input, dtime, RenderingDevice, RenderingContext, rendering_backbuffer, &GameMemory);
             }
             last_performance_counter = current_performance_counter;
             info("Frametime: %f     FPS:%d\n", dtime, (u32)(1/dtime));

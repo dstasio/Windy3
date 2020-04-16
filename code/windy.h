@@ -22,6 +22,9 @@ struct Shader_Pack
 {
     ID3D11VertexShader *vertex;
     ID3D11PixelShader  *pixel;
+
+    Input_File vertex_file;
+    Input_File  pixel_file;
 };
 
 struct Image_Data
@@ -79,6 +82,8 @@ struct Game_State
     ID3D11Buffer *matrix_buff;
     ID3D11Buffer *light_buff;
 
+    Shader_Pack *phong_shader;
+
     Mesh_Data environment;
     Mesh_Data player;
     Texture_Data tex_white;
@@ -103,10 +108,10 @@ struct Memory_Pool
     u8 *base;
 };
 
-#define PushStruct(Pool, Type) (Type *)PushSize_((Pool), sizeof(Type))
-#define PushArray(Pool, Length, Type) (Type *)PushSize_((Pool), (Length)*sizeof(Type))
+#define push_struct(pool, type) (type *)push_size_((pool), sizeof(type))
+#define push_array(pool, length, type) (type *)push_size_((pool), (length)*sizeof(type))
 inline void *
-PushSize_(Memory_Pool *pool, memory_index size)
+push_size_(Memory_Pool *pool, memory_index size)
 {
     Assert((pool->used + size) < pool->size);
 

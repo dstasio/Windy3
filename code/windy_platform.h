@@ -10,13 +10,16 @@
 
 struct Input_File
 {
-    u8 *data;
-    u64 size;
-    u64 write_time;
+    char *path;
+    u8   *data;
+    u64   size;
+    u64   write_time;  // @todo: this should be useless in release build
 };
 
 #define PLATFORM_READ_FILE(name) Input_File name(char *Path)
 typedef PLATFORM_READ_FILE(Platform_Read_File);
+#define PLATFORM_RELOAD_CHANGED_FILE(name) b32 name(Input_File *file)
+typedef PLATFORM_RELOAD_CHANGED_FILE(Platform_Reload_Changed_File);
 
 struct Input_Keyboard
 {
@@ -55,12 +58,11 @@ typedef struct Game_Memory
     u64 storage_size;
     void *storage;
 
-    Input_File vertex_shader_file;
-
-    Platform_Read_File *read_file;
+    Platform_Read_File           *read_file;
+    Platform_Reload_Changed_File *reload_if_changed;
 } game_memory;
 
-#define GAME_UPDATE_AND_RENDER(name) void name(Input *input, r32 dtime, ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Texture2D *rendering_backbuffer, Input_File VertexBytes, Game_Memory *memory)
+#define GAME_UPDATE_AND_RENDER(name) void name(Input *input, r32 dtime, ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Texture2D *rendering_backbuffer, Game_Memory *memory)
 typedef GAME_UPDATE_AND_RENDER(Game_Update_And_Render);
 
 #define WINDY_PLATFORM_H
