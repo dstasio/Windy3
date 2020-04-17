@@ -503,6 +503,13 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         context->DrawIndexed(2880, 0, 0);
     }
 
-    context->OMSetDepthStencilState(state->depth_nostencil_state, 1);
-    draw_square(context, state->font_shader, &state->square);
+    {
+        D3D11_MAPPED_SUBRESOURCE matrices_map = {};
+        context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+        m4 *matrix_buffer = (m4 *)matrices_map.pData;
+        matrix_buffer[0] = Ortho_m4((r32)WIDTH/(r32)HEIGHT, 0.f, 100.f)*Scale_m4(0.1f);
+        context->Unmap(state->matrix_buff, 0);
+        context->OMSetDepthStencilState(state->depth_nostencil_state, 1);
+        draw_square(context, state->font_shader, &state->square);
+    }
 }

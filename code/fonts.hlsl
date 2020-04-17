@@ -20,7 +20,7 @@ cbuffer Matrices: register(b0)
 VS_OUTPUT main(VS_INPUT input)
 {
     VS_OUTPUT output;
-    output.pos = float4(input.pos.xy, 0.f, 1.f);
+    output.pos = mul(model, float4(input.pos.xy, 0.f, 1.f));
     output.txc = input.txc;
 
     return output;

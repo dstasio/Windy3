@@ -223,18 +223,18 @@ Flip_m4(i32 first_comp, i32 second_comp, i32 third_comp, i32 fourth_comp)
 }
 
 inline m4
-Scale_m4(v3 s)
+Scale_m4(r32 sx, r32 sy, r32 sz)
 {
     m4 matrix = {
-        s.x, 0.f, 0.f, 0.f,
-        0.f, s.y, 0.f, 0.f,
-        0.f, 0.f, s.z, 0.f,
+         sx, 0.f, 0.f, 0.f,
+        0.f,  sy, 0.f, 0.f,
+        0.f, 0.f,  sz, 0.f,
         0.f, 0.f, 0.f, 1.f
     };
     return matrix;
 }
-inline m4
-Scale_m4(r32 s) { return Scale_m4({s, s, s}); }
+inline m4 Scale_m4(v3  s) { return Scale_m4(s.x, s.y, s.z); }
+inline m4 Scale_m4(r32 s) { return Scale_m4(  s,   s,   s); }
 
 inline m4
 Translation_m4(v3 t)
@@ -247,8 +247,7 @@ Translation_m4(v3 t)
     };
     return matrix;
 }
-inline m4
-Translation_m4(r32 t) { return Translation_m4({t, t, t}); }
+inline m4 Translation_m4(r32 t) { return Translation_m4({t, t, t}); }
 
 inline m4
 Pitch_m4(r32 delta) // Around X axis
@@ -327,12 +326,24 @@ Perspective_m4(r32 fov, r32 ar, r32 n, r32 f)
 {
     r32 cot = 1.f/Tan(fov/2.f);
     m4 matrix = {
-        cot/ar, 0.f,         0.f, 0.f,
-        0.f,    cot,         0.f, 0.f,
-        0.f,    0.f, -f/(n-f), 1.f,
+        cot/ar, 0.f,       0.f, 0.f,
+        0.f,    cot,       0.f, 0.f,
+        0.f,    0.f,  -f/(n-f), 1.f,
         0.f,    0.f, n*f/(n-f), 0.f
     };
+    return matrix;
+}
 
+inline m4
+Ortho_m4(r32 ar, r32 n, r32 f)
+{
+    // @todo: test this matrix
+    m4 matrix = {
+        1.f/ar, 0.f,        0.f, 0.f,
+        0.f,    1.f,        0.f, 0.f,
+        0.f,    0.f, -1.f/(f-n), 0.f,
+        0.f,    0.f,    n/(f-n), 1.f
+    };
     return matrix;
 }
 
