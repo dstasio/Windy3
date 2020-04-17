@@ -77,28 +77,32 @@ struct Dir_Light
  
 struct Game_State
 {
-    ID3D11RenderTargetView *render_target_rgb;
-    ID3D11DepthStencilView *render_target_depth;
+    ID3D11DepthStencilState *depth_nostencil_state;
+    ID3D11DepthStencilState *nodepth_nostencil_state;
+    ID3D11RenderTargetView  *render_target_rgb;
+    ID3D11DepthStencilView  *render_target_depth;
     ID3D11Buffer *matrix_buff;
     ID3D11Buffer *light_buff;
 
-    Shader_Pack *phong_shader;
+    Shader_Pack  *phong_shader;
+    Shader_Pack  *font_shader;
 
-    Mesh_Data environment;
-    Mesh_Data player;
-    Texture_Data tex_white;
-    Texture_Data tex_yellow;
+    Mesh_Data     environment;
+    Mesh_Data     player;
+    Mesh_Data     square;
+    Texture_Data  tex_white;
+    Texture_Data  tex_yellow;
 
-    m4 cam_matrix;
-    m4 proj_matrix;
+    m4            cam_matrix;
+    m4            proj_matrix;
 
-    Camera main_cam;
-    r32 cam_radius;
-    r32 cam_vtheta;
-    r32 cam_htheta;
+    Camera        main_cam;
+    r32           cam_radius;
+    r32           cam_vtheta;
+    r32           cam_htheta;
 
-    Dir_Light sun_;
-    Point_Light lamp;
+    Dir_Light     sun_;
+    Point_Light   lamp;
 };
 
 struct Memory_Pool
