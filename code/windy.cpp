@@ -28,13 +28,13 @@ Mesh_Data make_square_mesh(ID3D11Device *dev, Shader_Pack *shader)
 {
     Mesh_Data mesh = {};
     r32 square[] = {
-        -1.f, -1.f,  0.f, 1.f,
-         1.f, -1.f,  1.f, 1.f,
-         1.f,  1.f,  1.f, 0.f,
+        0.f, -1.f,  0.f, 1.f,
+        1.f, -1.f,  1.f, 1.f,
+        1.f, 0.f,  1.f, 0.f,
 
-         1.f,  1.f,  1.f, 0.f,
-        -1.f,  1.f,  0.f, 0.f,
-        -1.f, -1.f,  0.f, 1.f
+        1.f, 0.f,  1.f, 0.f,
+        0.f, 0.f,  0.f, 0.f,
+        0.f, -1.f,  0.f, 1.f
     };
 
     u32 vertices_size = sizeof(square);
@@ -238,6 +238,32 @@ draw_square(ID3D11DeviceContext *context, Shader_Pack *shader, Mesh_Data *square
     set_active_mesh(context, square);
     set_active_shader(context, shader);
     context->Draw(6, 0);
+}
+
+// (0,0) = Top-Left; (WIDTH,HEIGHT) = Bottom-Right
+// @todo: test sub-pixel placement with AA.
+inline void
+draw_text(ID3D11DeviceContext *context, Game_State *state, r32 size, r32 x, r32 y)
+{
+    D3D11_MAPPED_SUBRESOURCE matrices_map = {};
+    context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+
+    m4 *matrix_buffer = (m4 *)matrices_map.pData;
+
+    v3 scale = {size, size, size};
+    scale.x /= (r32)WIDTH;
+    scale.y /= (r32)HEIGHT;
+    x /= (r32)WIDTH;
+    y /= (r32)HEIGHT;
+    //r32 ar = (r32)WIDTH/(r32)HEIGHT;
+    x =  (x*2.f - 1.f);
+    y = -(y*2.f - 1.f);
+    matrix_buffer[0] = Translation_m4(x, y, 0)*Scale_m4(scale*2.f);
+
+    context->Unmap(state->matrix_buff, 0);
+    context->OMSetDepthStencilState(state->nodepth_nostencil_state, 1);
+
+    draw_square(context, state->font_shader, &state->square);
 }
 
 struct Light_Buffer
@@ -503,13 +529,15 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         context->DrawIndexed(2880, 0, 0);
     }
 
-    {
-        D3D11_MAPPED_SUBRESOURCE matrices_map = {};
-        context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
-        m4 *matrix_buffer = (m4 *)matrices_map.pData;
-        matrix_buffer[0] = Ortho_m4((r32)WIDTH/(r32)HEIGHT, 0.f, 100.f)*Scale_m4(0.1f);
-        context->Unmap(state->matrix_buff, 0);
-        context->OMSetDepthStencilState(state->depth_nostencil_state, 1);
-        draw_square(context, state->font_shader, &state->square);
-    }
+    draw_text(context, state, 72,   0,   0);
+    draw_text(context, state, 72, 512,   0);
+    draw_text(context, state, 72, 952,   0);
+
+    draw_text(context, state, 72,   0, 360);
+    draw_text(context, state, 72, 512, 360);
+    draw_text(context, state, 72, 952, 360);
+    
+    draw_text(context, state, 72,   0, 648);
+    draw_text(context, state, 72, 512, 648);
+    draw_text(context, state, 72, 952, 648);
 }

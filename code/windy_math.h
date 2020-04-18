@@ -237,17 +237,18 @@ inline m4 Scale_m4(v3  s) { return Scale_m4(s.x, s.y, s.z); }
 inline m4 Scale_m4(r32 s) { return Scale_m4(  s,   s,   s); }
 
 inline m4
-Translation_m4(v3 t)
+Translation_m4(r32 tx, r32 ty, r32 tz)
 {
     m4 matrix = {
         1.f, 0.f, 0.f, 0.f,
         0.f, 1.f, 0.f, 0.f,
         0.f, 0.f, 1.f, 0.f,
-        t.x, t.y, t.z, 1.f
+         tx,  ty,  tz, 1.f
     };
     return matrix;
 }
-inline m4 Translation_m4(r32 t) { return Translation_m4({t, t, t}); }
+inline m4 Translation_m4(v3  t) { return Translation_m4(t.x, t.y, t.z); }
+inline m4 Translation_m4(r32 t) { return Translation_m4(  t,   t,   t); }
 
 inline m4
 Pitch_m4(r32 delta) // Around X axis
