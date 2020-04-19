@@ -29,16 +29,17 @@ struct Shader_Pack
 
 struct Image_Data
 {
-    u32   width;
-    u32   height;
-    u32   size;
-    void *data;
 };
 
 struct Texture_Data
 {
     ID3D11ShaderResourceView *view;
     ID3D11Texture2D          *handle;
+
+    u32   width;
+    u32   height;
+    u32   size;
+    void *data;
 };
 
 struct Camera
@@ -92,6 +93,7 @@ struct Game_State
     Mesh_Data     square;
     Texture_Data  tex_white;
     Texture_Data  tex_yellow;
+    Texture_Data  inconsolata;
 
     m4            cam_matrix;
     m4            proj_matrix;

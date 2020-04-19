@@ -17,6 +17,17 @@
 #define COL_W 3
 
 //
+// Vector 2
+//
+inline v2 make_v2(r32 x, r32 y) { return {x, y}; }
+
+v2 operator*(v2 a, r32 b)
+{
+    v2 result = {a.x*b, a.y*b};
+    return result;
+}
+
+//
 // Vector 3
 // 
 inline v3 make_v3(r32 x, r32 y, r32 z) { return {  x,   y,   z}; }
@@ -234,6 +245,7 @@ Scale_m4(r32 sx, r32 sy, r32 sz)
     return matrix;
 }
 inline m4 Scale_m4(v3  s) { return Scale_m4(s.x, s.y, s.z); }
+inline m4 Scale_m4(v2  s) { return Scale_m4(s.x, s.y, 1.f); }
 inline m4 Scale_m4(r32 s) { return Scale_m4(  s,   s,   s); }
 
 inline m4

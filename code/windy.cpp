@@ -30,10 +30,10 @@ Mesh_Data make_square_mesh(ID3D11Device *dev, Shader_Pack *shader)
     r32 square[] = {
         0.f, -1.f,  0.f, 1.f,
         1.f, -1.f,  1.f, 1.f,
-        1.f, 0.f,  1.f, 0.f,
+        1.f,  0.f,  1.f, 0.f,
 
-        1.f, 0.f,  1.f, 0.f,
-        0.f, 0.f,  0.f, 0.f,
+        1.f,  0.f,  1.f, 0.f,
+        0.f,  0.f,  0.f, 0.f,
         0.f, -1.f,  0.f, 1.f
     };
 
@@ -110,78 +110,100 @@ load_wexp(ID3D11Device *dev, Platform_Read_File *read_file, char *path, Shader_P
     return mesh;
 }
 
-internal Image_Data
+internal Texture_Data
 load_bitmap(Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
 {
-    Image_Data image = {};
+    Texture_Data texture = {};
     Bitmap_Header *bmp = (Bitmap_Header *)read_file(path).data;
-    image.width  = bmp->Width;
-    image.height = bmp->Height;
-    image.size = image.width*image.height*4;
-    image.data = push_array(mempool, image.size, u8);
+    texture.width  = bmp->Width;
+    texture.height = bmp->Height;
+    texture.size = texture.width*texture.height*4;
+    texture.data = push_array(mempool, texture.size, u8);
 
     assert(bmp->BitsPerPixel == 24);
     assert(bmp->Compression == 0);
 
-    u32 scanline_byte_count = image.width*3;
+    u32 scanline_byte_count = texture.width*3;
     scanline_byte_count    += (4 - (scanline_byte_count & 0x3)) & 0x3;
     u32 r_mask = 0x000000FF;
     u32 g_mask = 0x0000FF00;
     u32 b_mask = 0x00FF0000;
     u32 a_mask = 0xFF000000;
-    for(u32 y = 0; y < image.height; ++y)
+    for(u32 y = 0; y < texture.height; ++y)
     {
-        for(u32 x = 0; x < image.width; ++x)
+        for(u32 x = 0; x < texture.width; ++x)
         {
-            u32 src_offset  = (image.height - y - 1)*scanline_byte_count + x*3;
-            u32 dest_offset = y*image.width*4 + x*4;
+            u32 src_offset  = (texture.height - y - 1)*scanline_byte_count + x*3;
+            u32 dest_offset = y*texture.width*4 + x*4;
             u32 *src_pixel  = (u32 *)byte_offset(bmp, bmp->DataOffset + src_offset);
-            u32 *dest_pixel = (u32 *)byte_offset(image.data, dest_offset);
+            u32 *dest_pixel = (u32 *)byte_offset(texture.data, dest_offset);
             *dest_pixel = (r_mask & (*src_pixel >> 16)) | (g_mask & (*src_pixel)) | (b_mask & (*src_pixel >> 8)) | a_mask;
         }
     }
 
-    return image;
+    return texture;
 }
 
 internal Texture_Data
 load_texture(ID3D11Device *dev, ID3D11DeviceContext *context, Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
 {
-    // Loading font
-    //Image_Data image = {};
-    //Input_File inconsolata_file = read_file("assets/Inconsolata.ttf");
-    //stbtt_fontinfo inconsolata_info;
-    //stbtt_InitFont(&inconsolata_info, inconsolata_file.data, stbtt_GetFontOffsetForIndex(inconsolata_file.data, 0));
-    //u8 *font_bitmap = stbtt_GetCodepointBitmap(&inconsolata_info, 0, stbtt_ScaleForPixelHeight(&inconsolata_info, 50),
-    //                                           'N', (i32 *)&image.width, (i32 *)&image.height, 0, 0);
-    //image.size = image.width*image.height*4;
-    //image.data = PushArray(mempool, image.size, u32);
-
-    //for(u32 y = 0; y < image.height; ++y) {
-    //    for(u32 x = 0; x < image.width; ++x) {
-    //        u32 src = font_bitmap[y*image.width + x];
-    //        ((u32 *)image.data)[y*image.width + x] = ((src << 24) | (src << 16) | (src << 8) | src);
-    //    }
-    //}
-
-    Texture_Data texture = {};
-    Image_Data image = load_bitmap(mempool, read_file, path);
+    Texture_Data texture = load_bitmap(mempool, read_file, path);
     D3D11_TEXTURE2D_DESC tex_desc = {};
-    tex_desc.Width = image.width;
-    tex_desc.Height = image.height;
-    tex_desc.MipLevels = 0;
-    tex_desc.ArraySize = 1;
-    tex_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    tex_desc.SampleDesc.Count = 1;
+    tex_desc.Width              = texture.width;
+    tex_desc.Height             = texture.height;
+    tex_desc.MipLevels          = 0;
+    tex_desc.ArraySize          = 1;
+    tex_desc.Format             = DXGI_FORMAT_R8G8B8A8_UNORM;
+    tex_desc.SampleDesc.Count   = 1;
     tex_desc.SampleDesc.Quality = 0;
-    tex_desc.Usage = D3D11_USAGE_DEFAULT;
-    tex_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE|D3D11_BIND_RENDER_TARGET;
-    tex_desc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
+    tex_desc.Usage              = D3D11_USAGE_DEFAULT;
+    tex_desc.BindFlags          = D3D11_BIND_SHADER_RESOURCE|D3D11_BIND_RENDER_TARGET;
+    tex_desc.MiscFlags          = D3D11_RESOURCE_MISC_GENERATE_MIPS;
 
     dev->CreateTexture2D(&tex_desc, 0, &texture.handle);
     dev->CreateShaderResourceView(texture.handle, 0, &texture.view);
-    context->UpdateSubresource(texture.handle, 0, 0, image.data, image.width*4, 0);
+    context->UpdateSubresource(texture.handle, 0, 0, texture.data, texture.width*4, 0);
     context->GenerateMips(texture.view);
+    
+    return texture;
+}
+
+internal Texture_Data
+load_font(ID3D11Device *dev, Memory_Pool *mempool, Platform_Read_File *read_file, char *path, r32 height)
+{
+    // Loading font
+    Texture_Data texture = {};
+    Input_File inconsolata_file = read_file(path);
+    stbtt_fontinfo inconsolata_info = {};
+    stbtt_InitFont(&inconsolata_info, inconsolata_file.data, stbtt_GetFontOffsetForIndex(inconsolata_file.data, 0));
+    u8 *font_bitmap = stbtt_GetCodepointBitmap(&inconsolata_info, 0, stbtt_ScaleForPixelHeight(&inconsolata_info, height),
+                                               '8', (i32 *)&texture.width, (i32 *)&texture.height, 0, 0);
+    Assert(texture.width  < 0x80000000);
+    Assert(texture.height < 0x80000000);
+    texture.size = texture.width*texture.height*4;
+    texture.data = push_array(mempool, texture.size, u32);
+
+    for(u32 y = 0; y < texture.height; ++y) {
+        for(u32 x = 0; x < texture.width; ++x) {
+            u32 src = font_bitmap[y*texture.width + x];
+            ((u32 *)texture.data)[y*texture.width + x] = ((src << 24) | (src << 16) | (src << 8) | src);
+        }
+    }
+
+    D3D11_TEXTURE2D_DESC tex_desc = {};
+    tex_desc.Width              = texture.width;
+    tex_desc.Height             = texture.height;
+    tex_desc.MipLevels          = 1;
+    tex_desc.ArraySize          = 1;
+    tex_desc.Format             = DXGI_FORMAT_R8G8B8A8_UNORM;
+    tex_desc.SampleDesc.Count   = 1;
+    tex_desc.SampleDesc.Quality = 0;
+    tex_desc.Usage              = D3D11_USAGE_IMMUTABLE;
+    tex_desc.BindFlags          = D3D11_BIND_SHADER_RESOURCE;
+
+    D3D11_SUBRESOURCE_DATA subres = {texture.data, texture.width*4};
+    dev->CreateTexture2D(&tex_desc, &subres, &texture.handle);
+    dev->CreateShaderResourceView(texture.handle, 0, &texture.view);
     
     return texture;
 }
@@ -231,39 +253,39 @@ set_active_shader(ID3D11DeviceContext *context, Shader_Pack *shader)
     context->PSSetShader(shader->pixel,  0, 0);
 }
 
-inline void
-draw_square(ID3D11DeviceContext *context, Shader_Pack *shader, Mesh_Data *square)
-{
-    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    set_active_mesh(context, square);
-    set_active_shader(context, shader);
-    context->Draw(6, 0);
-}
-
 // (0,0) = Top-Left; (WIDTH,HEIGHT) = Bottom-Right
 // @todo: test sub-pixel placement with AA.
 inline void
-draw_text(ID3D11DeviceContext *context, Game_State *state, r32 size, r32 x, r32 y)
+draw_rect(ID3D11DeviceContext *context, Shader_Pack *shader, Game_State *state, v2 size, v2 pos)
 {
     D3D11_MAPPED_SUBRESOURCE matrices_map = {};
     context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
 
     m4 *matrix_buffer = (m4 *)matrices_map.pData;
 
-    v3 scale = {size, size, size};
-    scale.x /= (r32)WIDTH;
-    scale.y /= (r32)HEIGHT;
-    x /= (r32)WIDTH;
-    y /= (r32)HEIGHT;
-    //r32 ar = (r32)WIDTH/(r32)HEIGHT;
-    x =  (x*2.f - 1.f);
-    y = -(y*2.f - 1.f);
-    matrix_buffer[0] = Translation_m4(x, y, 0)*Scale_m4(scale*2.f);
+    size.x /= (r32)WIDTH;
+    size.y /= (r32)HEIGHT;
+    pos.x  /= (r32)WIDTH;
+    pos.y  /= (r32)HEIGHT;
+    pos.x   =  (pos.x*2.f - 1.f);
+    pos.y   = -(pos.y*2.f - 1.f);
 
+    matrix_buffer[0] = Translation_m4(pos.x, pos.y, 0)*Scale_m4(size*2.f);
     context->Unmap(state->matrix_buff, 0);
-    context->OMSetDepthStencilState(state->nodepth_nostencil_state, 1);
 
-    draw_square(context, state->font_shader, &state->square);
+    context->OMSetDepthStencilState(state->nodepth_nostencil_state, 1);
+    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    set_active_mesh(context, &state->square);
+    context->Draw(6, 0);
+}
+
+inline void
+draw_char(ID3D11DeviceContext *context, Game_State *state, Texture_Data font, r32 x, r32 y)
+{
+    set_active_shader(context, state->font_shader);
+    set_active_texture(context, &state->inconsolata);
+    v2 size = {(r32)font.width, (r32)font.height };
+    draw_rect(context, state->font_shader, state, size, make_v2(x, y));
 }
 
 struct Light_Buffer
@@ -406,6 +428,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->tex_yellow  = load_texture(device, context, &mempool, memory->read_file, "assets/blockout_yellow.bmp");
         state->square      = make_square_mesh(device, state->font_shader);
 
+        state->inconsolata = load_font(device, &mempool, memory->read_file, "assets/Inconsolata.ttf", 32);
+
         // 
         // loading font
         //
@@ -529,15 +553,5 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         context->DrawIndexed(2880, 0, 0);
     }
 
-    draw_text(context, state, 72,   0,   0);
-    draw_text(context, state, 72, 512,   0);
-    draw_text(context, state, 72, 952,   0);
-
-    draw_text(context, state, 72,   0, 360);
-    draw_text(context, state, 72, 512, 360);
-    draw_text(context, state, 72, 952, 360);
-    
-    draw_text(context, state, 72,   0, 648);
-    draw_text(context, state, 72, 512, 648);
-    draw_text(context, state, 72, 952, 648);
+    draw_char(context, state, state->inconsolata, 0, 0);
 }
