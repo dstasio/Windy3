@@ -7,6 +7,8 @@
    $Notice: (C) Copyright 2014 by Davide Stasio. All Rights Reserved. $
    ======================================================================== */
 #include "windy_platform.h"
+#define STB_TRUETYPE_IMPLEMENTATION 1
+#include "stb_truetype.h"
 
 #define WIDTH 1024
 #define HEIGHT 720
@@ -27,11 +29,7 @@ struct Shader_Pack
     Input_File  pixel_file;
 };
 
-struct Image_Data
-{
-};
-
-struct Texture_Data
+struct Texture
 {
     ID3D11ShaderResourceView *view;
     ID3D11Texture2D          *handle;
@@ -42,6 +40,16 @@ struct Texture_Data
     void *data;
 };
 
+#define first_nonwhite_char '!'
+#define last_nonwhite_char  '~'
+#define n_supported_characters (1+last_nonwhite_char-first_nonwhite_char)
+struct Font
+{
+    stbtt_fontinfo info;
+    r32 height;
+    Texture chars[n_supported_characters];
+};
+
 struct Camera
 {
     v3 pos;
@@ -49,7 +57,7 @@ struct Camera
     v3 up;
 };
 
-struct Mesh_Data
+struct Mesh
 {
     ID3D11InputLayout *in_layout;
     ID3D11Buffer      *vbuff;
@@ -88,23 +96,23 @@ struct Game_State
     Shader_Pack  *phong_shader;
     Shader_Pack  *font_shader;
 
-    Mesh_Data     environment;
-    Mesh_Data     player;
-    Mesh_Data     square;
-    Texture_Data  tex_white;
-    Texture_Data  tex_yellow;
-    Texture_Data  inconsolata;
+    Mesh     environment;
+    Mesh     player;
+    Mesh     square;
+    Texture  tex_white;
+    Texture  tex_yellow;
+    Font     inconsolata;
 
-    m4            cam_matrix;
-    m4            proj_matrix;
+    m4      cam_matrix;
+    m4      proj_matrix;
 
-    Camera        main_cam;
-    r32           cam_radius;
-    r32           cam_vtheta;
-    r32           cam_htheta;
+    Camera  main_cam;
+    r32     cam_radius;
+    r32     cam_vtheta;
+    r32     cam_htheta;
 
-    Dir_Light     sun_;
-    Point_Light   lamp;
+    Dir_Light    sun_;
+    Point_Light  lamp;
 };
 
 struct Memory_Pool

@@ -9,9 +9,6 @@
 #include "windy.h"
 #include <string.h>
 
-#define STB_TRUETYPE_IMPLEMENTATION
-#include "stb_truetype.h"
-
 #define byte_offset(base, offset) ((u8*)(base) + (offset))
 
 inline u16 truncate_to_u16(u32 v) {assert(v <= 0xFFFF); return (u16)v; };
@@ -24,9 +21,9 @@ cat(char *src0, char *src1, char *dest)
     *dest = '\0';
 }
 
-Mesh_Data make_square_mesh(ID3D11Device *dev, Shader_Pack *shader)
+Mesh make_square_mesh(ID3D11Device *dev, Shader_Pack *shader)
 {
-    Mesh_Data mesh = {};
+    Mesh mesh = {};
     r32 square[] = {
         0.f, -1.f,  0.f, 1.f,
         1.f, -1.f,  1.f, 1.f,
@@ -64,10 +61,10 @@ Mesh_Data make_square_mesh(ID3D11Device *dev, Shader_Pack *shader)
     return mesh;
 }
 
-internal Mesh_Data
+internal Mesh
 load_wexp(ID3D11Device *dev, Platform_Read_File *read_file, char *path, Shader_Pack *shader)
 {
-    Mesh_Data mesh = {};
+    Mesh mesh = {};
     Wexp_Header *wexp = (Wexp_Header *)read_file(path).data;
     assert(wexp->signature == 0x7877);
     u32 vertices_size = wexp->indices_offset - wexp->vert_offset;
@@ -110,10 +107,10 @@ load_wexp(ID3D11Device *dev, Platform_Read_File *read_file, char *path, Shader_P
     return mesh;
 }
 
-internal Texture_Data
+internal Texture
 load_bitmap(Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
 {
-    Texture_Data texture = {};
+    Texture texture = {};
     Bitmap_Header *bmp = (Bitmap_Header *)read_file(path).data;
     texture.width  = bmp->Width;
     texture.height = bmp->Height;
@@ -144,10 +141,10 @@ load_bitmap(Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
     return texture;
 }
 
-internal Texture_Data
+internal Texture
 load_texture(ID3D11Device *dev, ID3D11DeviceContext *context, Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
 {
-    Texture_Data texture = load_bitmap(mempool, read_file, path);
+    Texture texture = load_bitmap(mempool, read_file, path);
     D3D11_TEXTURE2D_DESC tex_desc = {};
     tex_desc.Width              = texture.width;
     tex_desc.Height             = texture.height;
@@ -168,44 +165,13 @@ load_texture(ID3D11Device *dev, ID3D11DeviceContext *context, Memory_Pool *mempo
     return texture;
 }
 
-internal Texture_Data
-load_font(ID3D11Device *dev, Memory_Pool *mempool, Platform_Read_File *read_file, char *path, r32 height)
+inline Font *
+load_font(Font *font, Platform_Read_File *read_file, char *path, r32 height)
 {
-    // Loading font
-    Texture_Data texture = {};
-    Input_File inconsolata_file = read_file(path);
-    stbtt_fontinfo inconsolata_info = {};
-    stbtt_InitFont(&inconsolata_info, inconsolata_file.data, stbtt_GetFontOffsetForIndex(inconsolata_file.data, 0));
-    u8 *font_bitmap = stbtt_GetCodepointBitmap(&inconsolata_info, 0, stbtt_ScaleForPixelHeight(&inconsolata_info, height),
-                                               '8', (i32 *)&texture.width, (i32 *)&texture.height, 0, 0);
-    Assert(texture.width  < 0x80000000);
-    Assert(texture.height < 0x80000000);
-    texture.size = texture.width*texture.height*4;
-    texture.data = push_array(mempool, texture.size, u32);
-
-    for(u32 y = 0; y < texture.height; ++y) {
-        for(u32 x = 0; x < texture.width; ++x) {
-            u32 src = font_bitmap[y*texture.width + x];
-            ((u32 *)texture.data)[y*texture.width + x] = ((src << 24) | (src << 16) | (src << 8) | src);
-        }
-    }
-
-    D3D11_TEXTURE2D_DESC tex_desc = {};
-    tex_desc.Width              = texture.width;
-    tex_desc.Height             = texture.height;
-    tex_desc.MipLevels          = 1;
-    tex_desc.ArraySize          = 1;
-    tex_desc.Format             = DXGI_FORMAT_R8G8B8A8_UNORM;
-    tex_desc.SampleDesc.Count   = 1;
-    tex_desc.SampleDesc.Quality = 0;
-    tex_desc.Usage              = D3D11_USAGE_IMMUTABLE;
-    tex_desc.BindFlags          = D3D11_BIND_SHADER_RESOURCE;
-
-    D3D11_SUBRESOURCE_DATA subres = {texture.data, texture.width*4};
-    dev->CreateTexture2D(&tex_desc, &subres, &texture.handle);
-    dev->CreateShaderResourceView(texture.handle, 0, &texture.view);
-    
-    return texture;
+    Input_File font_file = read_file(path);
+    stbtt_InitFont(&font->info, font_file.data, stbtt_GetFontOffsetForIndex(font_file.data, 0));
+    font->height = height;
+    return font;
 }
 
 internal Shader_Pack *
@@ -230,7 +196,7 @@ reload_shader(Shader_Pack *shader, ID3D11Device *dev, char *name, Platform_Reloa
 }
 
 inline void
-set_active_mesh(ID3D11DeviceContext *context, Mesh_Data *mesh)
+set_active_mesh(ID3D11DeviceContext *context, Mesh *mesh)
 {
     u32 offsets = 0;
     u32 stride = mesh->vert_stride;
@@ -241,7 +207,7 @@ set_active_mesh(ID3D11DeviceContext *context, Mesh_Data *mesh)
 }
 
 inline void
-set_active_texture(ID3D11DeviceContext *context, Texture_Data *texture)
+set_active_texture(ID3D11DeviceContext *context, Texture *texture)
 {
     context->PSSetShaderResources(0, 1, &texture->view); 
 }
@@ -280,12 +246,51 @@ draw_rect(ID3D11DeviceContext *context, Shader_Pack *shader, Game_State *state, 
 }
 
 inline void
-draw_char(ID3D11DeviceContext *context, Game_State *state, Texture_Data font, r32 x, r32 y)
+draw_char(ID3D11Device *dev, ID3D11DeviceContext *context, Game_State *state, Font *font, char character, v2 pos)
 {
     set_active_shader(context, state->font_shader);
-    set_active_texture(context, &state->inconsolata);
-    v2 size = {(r32)font.width, (r32)font.height };
-    draw_rect(context, state->font_shader, state, size, make_v2(x, y));
+
+    Assert(character >= first_nonwhite_char);
+    Assert(character <=  last_nonwhite_char);
+    Texture *texture = &font->chars[character - first_nonwhite_char];
+    if (!texture->view)
+    {
+        // Loading character bitmap
+        u8 *font_bitmap = stbtt_GetCodepointBitmap(&font->info, 0, stbtt_ScaleForPixelHeight(&font->info, font->height),
+                                                   character, (i32 *)&texture->width, (i32 *)&texture->height, 0, 0);
+        Assert(texture->width  < 0x80000000);
+        Assert(texture->height < 0x80000000);
+        texture->size = texture->width*texture->height*4;
+        Assert(texture->size/4 < 2500);
+        u32 texture_data[2500] = {};
+
+        for(u32 y = 0; y < texture->height; ++y) {
+            for(u32 x = 0; x < texture->width; ++x) {
+                u32 src = font_bitmap[y*texture->width + x];
+                texture_data[y*texture->width + x] = ((src << 24) | (src << 16) | (src << 8) | src);
+            }
+        }
+
+        D3D11_TEXTURE2D_DESC tex_desc = {};
+        tex_desc.Width              = texture->width;
+        tex_desc.Height             = texture->height;
+        tex_desc.MipLevels          = 1;
+        tex_desc.ArraySize          = 1;
+        tex_desc.Format             = DXGI_FORMAT_R8G8B8A8_UNORM;
+        tex_desc.SampleDesc.Count   = 1;
+        tex_desc.SampleDesc.Quality = 0;
+        tex_desc.Usage              = D3D11_USAGE_IMMUTABLE;
+        tex_desc.BindFlags          = D3D11_BIND_SHADER_RESOURCE;
+
+        D3D11_SUBRESOURCE_DATA subres = {texture_data, texture->width*4};
+        dev->CreateTexture2D(&tex_desc, &subres, &texture->handle);
+        dev->CreateShaderResourceView(texture->handle, 0, &texture->view);
+    }
+
+    set_active_texture(context, texture);
+    v2 size = {(r32)texture->width, (r32)texture->height};
+    //size *= 32.f/(r32)texture->height;
+    draw_rect(context, state->font_shader, state, size, pos);
 }
 
 struct Light_Buffer
@@ -428,7 +433,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->tex_yellow  = load_texture(device, context, &mempool, memory->read_file, "assets/blockout_yellow.bmp");
         state->square      = make_square_mesh(device, state->font_shader);
 
-        state->inconsolata = load_font(device, &mempool, memory->read_file, "assets/Inconsolata.ttf", 32);
+        load_font(&state->inconsolata, memory->read_file, "assets/Inconsolata.ttf", 32);
 
         // 
         // loading font
@@ -553,5 +558,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         context->DrawIndexed(2880, 0, 0);
     }
 
-    draw_char(context, state, state->inconsolata, 0, 0);
+    draw_char(device, context, state, &state->inconsolata, 'A', make_v2(0, 0*32));
+    draw_char(device, context, state, &state->inconsolata, 'B', make_v2(0, 1*32));
+    draw_char(device, context, state, &state->inconsolata, 'C', make_v2(0, 2*32));
+    draw_char(device, context, state, &state->inconsolata, 'D', make_v2(0, 3*32));
+    draw_char(device, context, state, &state->inconsolata, 'E', make_v2(0, 4*32));
+    draw_char(device, context, state, &state->inconsolata, 'F', make_v2(0, 5*32));
+    draw_char(device, context, state, &state->inconsolata, 'G', make_v2(0, 6*32));
 }

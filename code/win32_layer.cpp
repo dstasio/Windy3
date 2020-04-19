@@ -22,14 +22,14 @@
 #define output_string(s, ...)        {char Buffer[100];sprintf_s(Buffer, s, __VA_ARGS__);OutputDebugStringA(Buffer);}
 #define throw_error_and_exit(e, ...) {output_string(" ------------------------------[ERROR] " ## e, __VA_ARGS__); getchar(); global_error = true;}
 #define throw_error(e, ...)           output_string(" ------------------------------[ERROR] " ## e, __VA_ARGS__)
+#define inform(i, ...)                output_string(" ------------------------------[INFO] " ## i, __VA_ARGS__)
 #define warn(w, ...)                  output_string(" ------------------------------[WARNING] " ## w, __VA_ARGS__)
-#define info(i, ...)                  output_string(" ------------------------------[INFO] " ## i, __VA_ARGS__)
 #else
 #define output_string(s, ...)
 #define throw_error_and_exit(e, ...)
 #define throw_error(e, ...)
+#define inform(i, ...)
 #define warn(w, ...)
-#define info(i, ...)
 #endif
 #define key_down(code, key)    {if(Message.wParam == (code))  input.held.key = 1;}
 #define key_up(code, key)      {if(Message.wParam == (code)) {input.held.key = 0;input.pressed.key = 1;}}
@@ -457,7 +457,7 @@ WinMain(
                 windy.game_update_and_render(&input, dtime, RenderingDevice, RenderingContext, rendering_backbuffer, &GameMemory);
             }
             last_performance_counter = current_performance_counter;
-            info("Frametime: %f     FPS:%d\n", dtime, (u32)(1/dtime));
+            inform("Frametime: %f     FPS:%d\n", dtime, (u32)(1/dtime));
 
             SwapChain->Present(0, 0);
         }

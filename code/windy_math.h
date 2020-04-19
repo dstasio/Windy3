@@ -27,6 +27,12 @@ v2 operator*(v2 a, r32 b)
     return result;
 }
 
+v2 &operator*=(v2 &a, r32 b)
+{
+    a = a * b;
+    return a;
+}
+
 //
 // Vector 3
 // 
