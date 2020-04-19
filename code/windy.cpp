@@ -171,6 +171,7 @@ load_font(Font *font, Platform_Read_File *read_file, char *path, r32 height)
     Input_File font_file = read_file(path);
     stbtt_InitFont(&font->info, font_file.data, stbtt_GetFontOffsetForIndex(font_file.data, 0));
     font->height = height;
+    font->scale = stbtt_ScaleForPixelHeight(&font->info, height);
     return font;
 }
 
@@ -245,7 +246,7 @@ draw_rect(ID3D11DeviceContext *context, Shader_Pack *shader, Game_State *state, 
     context->Draw(6, 0);
 }
 
-inline void
+internal r32
 draw_char(ID3D11Device *dev, ID3D11DeviceContext *context, Game_State *state, Font *font, char character, v2 pos)
 {
     set_active_shader(context, state->font_shader);
@@ -270,6 +271,7 @@ draw_char(ID3D11Device *dev, ID3D11DeviceContext *context, Game_State *state, Fo
                 texture_data[y*texture->width + x] = ((src << 24) | (src << 16) | (src << 8) | src);
             }
         }
+        stbtt_FreeBitmap(font_bitmap, font->info.userdata);
 
         D3D11_TEXTURE2D_DESC tex_desc = {};
         tex_desc.Width              = texture->width;
@@ -291,6 +293,39 @@ draw_char(ID3D11Device *dev, ID3D11DeviceContext *context, Game_State *state, Fo
     v2 size = {(r32)texture->width, (r32)texture->height};
     //size *= 32.f/(r32)texture->height;
     draw_rect(context, state->font_shader, state, size, pos);
+    return size.x;
+}
+
+inline void
+draw_text(ID3D11Device *dev, ID3D11DeviceContext *context, Game_State *state, Font *font, char *text, v2 pivot)
+{
+    i32 ascent, descent, line_gap;
+    stbtt_GetFontVMetrics(&font->info, &ascent, &descent, &line_gap);
+    ascent   = (i32)((r32)ascent   * font->scale);
+    descent  = (i32)((r32)descent  * font->scale);
+    line_gap = (i32)((r32)line_gap * font->scale);
+    v2 pos = pivot;
+    i32 min_x, min_y, max_x, max_y;
+    stbtt_GetFontBoundingBox(&font->info, &min_x, &min_y, &max_x, &max_y);
+    v2 font_min = make_v2((r32)min_x, (r32)min_y)*font->scale;
+    v2 font_max = make_v2((r32)max_x, (r32)max_y)*font->scale;
+    for(char *c = text; *c != '\0'; ++c) {
+        if (*c == '\n') {
+            pos = pivot;
+            pos.y += ascent - descent + line_gap;
+        }
+        else if (*c == ' ') {
+            pos.x += font_max.x;
+        }
+        else {
+            stbtt_GetCodepointBox(&font->info, *c, &min_x, &min_y, &max_x, &max_y);
+            v2 min = make_v2((r32)min_x, (r32)min_y)*font->scale;
+            v2 max = make_v2((r32)max_x, (r32)max_y)*font->scale;
+            draw_char(dev, context, state, font, *c,
+                      make_v2(pos.x + min.x - font_min.x, pos.y + font_max.y - max.y));
+            pos.x += font_max.x;
+        }
+    }
 }
 
 struct Light_Buffer
@@ -558,11 +593,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         context->DrawIndexed(2880, 0, 0);
     }
 
-    draw_char(device, context, state, &state->inconsolata, 'A', make_v2(0, 0*32));
-    draw_char(device, context, state, &state->inconsolata, 'B', make_v2(0, 1*32));
-    draw_char(device, context, state, &state->inconsolata, 'C', make_v2(0, 2*32));
-    draw_char(device, context, state, &state->inconsolata, 'D', make_v2(0, 3*32));
-    draw_char(device, context, state, &state->inconsolata, 'E', make_v2(0, 4*32));
-    draw_char(device, context, state, &state->inconsolata, 'F', make_v2(0, 5*32));
-    draw_char(device, context, state, &state->inconsolata, 'G', make_v2(0, 6*32));
+    char *text = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\n0123456789 ?!\"'.,;<>[]{}()-_+=*&^%$#@/\\~`";
+    draw_text(device, context, state, &state->inconsolata, text, make_v2(0, 0));
 }

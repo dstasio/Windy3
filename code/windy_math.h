@@ -17,7 +17,7 @@
 #define COL_W 3
 
 //
-// Vector 2
+// Vector 2 ----------------------------------------------------------
 //
 inline v2 make_v2(r32 x, r32 y) { return {x, y}; }
 
@@ -34,8 +34,9 @@ v2 &operator*=(v2 &a, r32 b)
 }
 
 //
-// Vector 3
+// Vector 3 ----------------------------------------------------------
 // 
+
 inline v3 make_v3(r32 x, r32 y, r32 z) { return {  x,   y,   z}; }
 inline v3 make_v3(v4  a)               { return {a.x, a.y, a.z}; }
 inline v3 make_v3(v2  a)               { return {a.x, a.y, 0.f}; }

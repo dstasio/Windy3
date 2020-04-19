@@ -46,7 +46,7 @@ struct Texture
 struct Font
 {
     stbtt_fontinfo info;
-    r32 height;
+    r32 height, scale;
     Texture chars[n_supported_characters];
 };
 
