@@ -462,6 +462,25 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         device->CreateRasterizerState(&raster_settings, &raster_state);
         context->RSSetState(raster_state);
 
+        //
+        // Alpha blending.
+        //
+        CD3D11_BLEND_DESC blend_state_desc = {};
+        blend_state_desc.RenderTarget[0].BlendEnable = 1;
+        //blend_state_desc.RenderTarget[0].LogicOpEnable = 0;
+        blend_state_desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+        blend_state_desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+        blend_state_desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+        blend_state_desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+        blend_state_desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+        blend_state_desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+        //blend_state_desc.RenderTarget[0].LogicOp;
+        blend_state_desc.RenderTarget[0].RenderTargetWriteMask = 0x0F;
+
+        ID3D11BlendState *blend_state = 0;
+        device->CreateBlendState(&blend_state_desc, &blend_state);
+        context->OMSetBlendState(blend_state, 0, 0xFFFFFFFF);
+
         state->environment = load_wexp(device, memory->read_file, "assets/environment.wexp", state->phong_shader);
         state->player      = load_wexp(device, memory->read_file, "assets/sphere.wexp",      state->phong_shader);
         state->tex_white   = load_texture(device, context, &mempool, memory->read_file, "assets/blockout_white.bmp");
@@ -469,10 +488,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->square      = make_square_mesh(device, state->font_shader);
 
         load_font(&state->inconsolata, memory->read_file, "assets/Inconsolata.ttf", 32);
-
-        // 
-        // loading font
-        //
 
         //
         // camera set-up
