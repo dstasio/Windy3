@@ -13,12 +13,6 @@
 
 inline u16 truncate_to_u16(u32 v) {assert(v <= 0xFFFF); return (u16)v; };
 
-struct Renderer
-{
-    ID3D11Device        *device;
-    ID3D11DeviceContext *context;
-};
-
 inline void
 cat(char *src0, char *src1, char *dest)
 {
@@ -246,7 +240,7 @@ draw_rect(Renderer *renderer, Shader_Pack *shader, Game_State *state, v2 size, v
     matrix_buffer[0] = Translation_m4(pos.x, pos.y, 0)*Scale_m4(size*2.f);
     renderer->context->Unmap(state->matrix_buff, 0);
 
-    renderer->context->OMSetDepthStencilState(state->nodepth_nostencil_state, 1);
+    renderer->context->OMSetDepthStencilState(renderer->nodepth_nostencil_state, 1);
     renderer->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     set_active_mesh(renderer, &state->square);
     renderer->context->Draw(6, 0);
@@ -346,9 +340,6 @@ struct Light_Buffer
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
     Game_State *state = (Game_State *)memory->storage;
-    Renderer renderer = {};
-    renderer.device = device;
-    renderer.context = context;
     if(!memory->is_initialized)
     {
         Memory_Pool mempool = {};
@@ -363,7 +354,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         Viewport.Height = HEIGHT;
         Viewport.MinDepth = 0.f;
         Viewport.MaxDepth = 1.f;
-        context->RSSetViewports(1, &Viewport);
+        renderer->context->RSSetViewports(1, &Viewport);
 
         //
         // Shaders
@@ -371,8 +362,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         // @todo: remove need for pre-allocation
         state->phong_shader = push_struct(&mempool, Shader_Pack);
         state->font_shader  = push_struct(&mempool, Shader_Pack);
-        reload_shader(state->phong_shader, &renderer, "phong", memory->reload_if_changed);
-        reload_shader(state->font_shader, &renderer, "fonts", memory->reload_if_changed);
+        reload_shader(state->phong_shader, renderer, "phong", memory->reload_if_changed);
+        reload_shader(state->font_shader, renderer, "fonts", memory->reload_if_changed);
         
         //
         // allocating rgb and depth buffers
@@ -390,12 +381,12 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         depth_buffer_desc.MiscFlags = 0;
 
         ID3D11Texture2D *depth_texture;
-        device->CreateTexture2D(&depth_buffer_desc, 0, &depth_texture);
+        renderer->device->CreateTexture2D(&depth_buffer_desc, 0, &depth_texture);
 
         { // Depth states.
             D3D11_DEPTH_STENCIL_VIEW_DESC depth_view_desc = {DXGI_FORMAT_D32_FLOAT, D3D11_DSV_DIMENSION_TEXTURE2D};
-            device->CreateRenderTargetView(rendering_backbuffer, 0, &state->render_target_rgb);
-            device->CreateDepthStencilView(depth_texture, &depth_view_desc, &state->render_target_depth);
+            renderer->device->CreateRenderTargetView(renderer->backbuffer, 0, &renderer->render_target_rgb);
+            renderer->device->CreateDepthStencilView(depth_texture, &depth_view_desc, &renderer->render_target_depth);
 
             D3D11_DEPTH_STENCIL_DESC depth_stencil_settings;
             depth_stencil_settings.DepthEnable    = 1;
@@ -407,12 +398,12 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             depth_stencil_settings.FrontFace      = {D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_COMPARISON_ALWAYS};
             depth_stencil_settings.BackFace       = {D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_COMPARISON_ALWAYS};
 
-            device->CreateDepthStencilState(&depth_stencil_settings, &state->depth_nostencil_state);
+            renderer->device->CreateDepthStencilState(&depth_stencil_settings, &renderer->depth_nostencil_state);
 
             depth_stencil_settings.DepthEnable    = 0;
             depth_stencil_settings.DepthFunc      = D3D11_COMPARISON_ALWAYS;
 
-            device->CreateDepthStencilState(&depth_stencil_settings, &state->nodepth_nostencil_state);
+            renderer->device->CreateDepthStencilState(&depth_stencil_settings, &renderer->nodepth_nostencil_state);
         }
 
         ID3D11SamplerState *sampler;
@@ -426,8 +417,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         sampler_desc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
         sampler_desc.MinLOD = 0;
         sampler_desc.MaxLOD = 100;
-        device->CreateSamplerState(&sampler_desc, &sampler);
-        context->PSSetSamplers(0, 1, &sampler);
+        renderer->device->CreateSamplerState(&sampler_desc, &sampler);
+        renderer->context->PSSetSamplers(0, 1, &sampler);
 
         //
         // constant buffer setup
@@ -439,8 +430,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         MatrixBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
         MatrixBufferDesc.MiscFlags = 0;
         MatrixBufferDesc.StructureByteStride = sizeof(m4);
-        device->CreateBuffer(&MatrixBufferDesc, 0, &state->matrix_buff);
-        context->VSSetConstantBuffers(0, 1, &state->matrix_buff);
+        renderer->device->CreateBuffer(&MatrixBufferDesc, 0, &state->matrix_buff);
+        renderer->context->VSSetConstantBuffers(0, 1, &state->matrix_buff);
 
         D3D11_BUFFER_DESC light_buff_desc = {};
         light_buff_desc.ByteWidth = 16*3;
@@ -449,8 +440,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         light_buff_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
         light_buff_desc.MiscFlags = 0;
         light_buff_desc.StructureByteStride = sizeof(v3);
-        device->CreateBuffer(&light_buff_desc, 0, &state->light_buff);
-        context->PSSetConstantBuffers(0, 1, &state->light_buff);
+        renderer->device->CreateBuffer(&light_buff_desc, 0, &state->light_buff);
+        renderer->context->PSSetConstantBuffers(0, 1, &state->light_buff);
 
         //
         // rasterizer set-up
@@ -468,8 +459,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         raster_settings.AntialiasedLineEnable = 0;
 
         ID3D11RasterizerState *raster_state = 0;
-        device->CreateRasterizerState(&raster_settings, &raster_state);
-        context->RSSetState(raster_state);
+        renderer->device->CreateRasterizerState(&raster_settings, &raster_state);
+        renderer->context->RSSetState(raster_state);
 
         //
         // Alpha blending.
@@ -487,14 +478,14 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         blend_state_desc.RenderTarget[0].RenderTargetWriteMask = 0x0F;
 
         ID3D11BlendState *blend_state = 0;
-        device->CreateBlendState(&blend_state_desc, &blend_state);
-        context->OMSetBlendState(blend_state, 0, 0xFFFFFFFF);
+        renderer->device->CreateBlendState(&blend_state_desc, &blend_state);
+        renderer->context->OMSetBlendState(blend_state, 0, 0xFFFFFFFF);
 
-        state->environment = load_wexp(&renderer, memory->read_file, "assets/environment.wexp", state->phong_shader);
-        state->player      = load_wexp(&renderer, memory->read_file, "assets/sphere.wexp",      state->phong_shader);
-        state->tex_white   = load_texture(&renderer, &mempool, memory->read_file, "assets/blockout_white.bmp");
-        state->tex_yellow  = load_texture(&renderer, &mempool, memory->read_file, "assets/blockout_yellow.bmp");
-        state->square      = make_square_mesh(&renderer, state->font_shader);
+        state->environment = load_wexp(renderer, memory->read_file, "assets/environment.wexp", state->phong_shader);
+        state->player      = load_wexp(renderer, memory->read_file, "assets/sphere.wexp",      state->phong_shader);
+        state->tex_white   = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_white.bmp");
+        state->tex_yellow  = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_yellow.bmp");
+        state->square      = make_square_mesh(renderer, state->font_shader);
 
         load_font(&state->inconsolata, memory->read_file, "assets/Inconsolata.ttf", 32);
 
@@ -548,75 +539,75 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     }
 
 #if WINDY_INTERNAL
-    reload_shader(state->phong_shader, &renderer, "phong", memory->reload_if_changed);
-    reload_shader(state->font_shader,  &renderer, "fonts", memory->reload_if_changed);
+    reload_shader(state->phong_shader, renderer, "phong", memory->reload_if_changed);
+    reload_shader(state->font_shader,  renderer, "fonts", memory->reload_if_changed);
 #endif
-    set_active_shader(&renderer, state->phong_shader);
-    context->OMSetRenderTargets(1, &state->render_target_rgb, state->render_target_depth);
+    set_active_shader(renderer, state->phong_shader);
+    renderer->context->OMSetRenderTargets(1, &renderer->render_target_rgb, renderer->render_target_depth);
 
     r32 ClearColor[] = {0.06f, 0.5f, 0.8f, 1.f};
-    context->ClearRenderTargetView(state->render_target_rgb, ClearColor);
-    context->ClearDepthStencilView(state->render_target_depth, D3D11_CLEAR_DEPTH, 1.f, 1);
+    renderer->context->ClearRenderTargetView(renderer->render_target_rgb, ClearColor);
+    renderer->context->ClearDepthStencilView(renderer->render_target_depth, D3D11_CLEAR_DEPTH, 1.f, 1);
 
 
-    set_active_mesh(&renderer, &state->environment);
-    set_active_texture(&renderer, &state->tex_white);
+    set_active_mesh(renderer, &state->environment);
+    set_active_texture(renderer, &state->tex_white);
     //set_active_shader(context, phong_shader);
 
-    context->OMSetDepthStencilState(state->depth_nostencil_state, 1);
+    renderer->context->OMSetDepthStencilState(renderer->depth_nostencil_state, 1);
     { // environment -------------------------------------------------
         D3D11_MAPPED_SUBRESOURCE matrices_map = {};
         D3D11_MAPPED_SUBRESOURCE lights_map = {};
-        context->Map(state->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
+        renderer->context->Map(state->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
         Light_Buffer *lights_mapped = (Light_Buffer *)lights_map.pData;
         lights_mapped->color = state->lamp.color;
         lights_mapped->p     = state->lamp.p;
         lights_mapped->eye   = state->main_cam.pos;
-        context->Unmap(state->light_buff, 0);
+        renderer->context->Unmap(state->light_buff, 0);
 
-        context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+        renderer->context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
         m4 *matrix_buffer = (m4 *)matrices_map.pData;
         matrix_buffer[0] = state->environment.transform;
         matrix_buffer[1] = Camera_m4(state->main_cam.pos, state->main_cam.target, state->main_cam.up);
         matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
-        context->Unmap(state->matrix_buff, 0);
+        renderer->context->Unmap(state->matrix_buff, 0);
 
-        context->DrawIndexed(204, 0, 0);
+        renderer->context->DrawIndexed(204, 0, 0);
     }
 
     { // player ------------------------------------------------------
-        set_active_mesh(&renderer, &state->player);
+        set_active_mesh(renderer, &state->player);
         D3D11_MAPPED_SUBRESOURCE matrices_map = {};
         D3D11_MAPPED_SUBRESOURCE lights_map = {};
 
-        context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+        renderer->context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
         m4 *matrix_buffer = (m4 *)matrices_map.pData;
         matrix_buffer[0] = Transform_m4(state->lamp.p, make_v3(0.f), make_v3(0.1f));
         matrix_buffer[1] = Camera_m4(state->main_cam.pos, state->main_cam.target, state->main_cam.up);
         matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
-        context->Unmap(state->matrix_buff, 0);
+        renderer->context->Unmap(state->matrix_buff, 0);
 
-        context->DrawIndexed(2880, 0, 0);
+        renderer->context->DrawIndexed(2880, 0, 0);
 
-        set_active_texture(&renderer, &state->tex_yellow);
+        set_active_texture(renderer, &state->tex_yellow);
 
-        context->Map(state->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
+        renderer->context->Map(state->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
         Light_Buffer *lights_mapped = (Light_Buffer *)lights_map.pData;
         lights_mapped->color = state->lamp.color;
         lights_mapped->p     = state->lamp.p-state->player.p;
         lights_mapped->eye   = state->main_cam.pos;
-        context->Unmap(state->light_buff, 0);
+        renderer->context->Unmap(state->light_buff, 0);
 
-        context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+        renderer->context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
         matrix_buffer = (m4 *)matrices_map.pData;
         matrix_buffer[0] = Translation_m4(state->player.p);
         matrix_buffer[1] = Camera_m4(state->main_cam.pos, state->main_cam.target, state->main_cam.up);
         matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
-        context->Unmap(state->matrix_buff, 0);
+        renderer->context->Unmap(state->matrix_buff, 0);
 
-        context->DrawIndexed(2880, 0, 0);
+        renderer->context->DrawIndexed(2880, 0, 0);
     }
 
     char *text = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\n0123456789 ?!\"'.,;<>[]{}()-_+=*&^%$#@/\\~`";
-    draw_text(&renderer, state, &state->inconsolata, text, make_v2(0, 0));
+    draw_text(renderer, state, &state->inconsolata, text, make_v2(0, 0));
 }

@@ -6,6 +6,7 @@
    $Creator: Davide Stasio $
    $Notice: (C) Copyright 2014 by Davide Stasio. All Rights Reserved. $
    ======================================================================== */
+#include "windy_renderer_d3d11.cpp"
 #include "windy_platform.h"
 #define STB_TRUETYPE_IMPLEMENTATION 1
 #include "stb_truetype.h"
@@ -86,10 +87,6 @@ struct Dir_Light
  
 struct Game_State
 {
-    ID3D11DepthStencilState *depth_nostencil_state;
-    ID3D11DepthStencilState *nodepth_nostencil_state;
-    ID3D11RenderTargetView  *render_target_rgb;
-    ID3D11DepthStencilView  *render_target_depth;
     ID3D11Buffer *matrix_buff;
     ID3D11Buffer *light_buff;
 

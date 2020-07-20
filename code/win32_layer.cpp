@@ -293,9 +293,7 @@ WinMain(
 
         Win32_Game_Code windy = load_windy();
 
-        ID3D11Device        *RenderingDevice = 0;
-        ID3D11DeviceContext *RenderingContext = 0;
-        IDXGISwapChain      *SwapChain = 0;
+        Renderer renderer = {};
 
         DXGI_MODE_DESC DisplayModeDescriptor = {};
         //DisplayModeDescriptor.Width = WIDTH;
@@ -324,14 +322,13 @@ WinMain(
             0,
             D3D11_SDK_VERSION,
             &SwapChainDescriptor,
-            &SwapChain,
-            &RenderingDevice,
+            &renderer.swap_chain,
+            &renderer.device,
             0,
-            &RenderingContext
+            &renderer.context
         );
 
-        ID3D11Texture2D *rendering_backbuffer = 0;
-        SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&rendering_backbuffer);
+        renderer.swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&renderer.backbuffer);
 
         Input input = {};
         MSG Message = {};
@@ -454,12 +451,12 @@ WinMain(
 
             if(windy.game_update_and_render)
             {
-                windy.game_update_and_render(&input, dtime, RenderingDevice, RenderingContext, rendering_backbuffer, &GameMemory);
+                windy.game_update_and_render(&input, dtime, &renderer, &GameMemory);
             }
             last_performance_counter = current_performance_counter;
             inform("Frametime: %f     FPS:%d\n", dtime, (u32)(1/dtime));
 
-            SwapChain->Present(0, 0);
+            renderer.swap_chain->Present(0, 0);
         }
     }
     else
