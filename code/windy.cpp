@@ -13,6 +13,12 @@
 
 inline u16 truncate_to_u16(u32 v) {assert(v <= 0xFFFF); return (u16)v; };
 
+struct Renderer
+{
+    ID3D11Device        *device;
+    ID3D11DeviceContext *context;
+};
+
 inline void
 cat(char *src0, char *src1, char *dest)
 {
@@ -21,7 +27,7 @@ cat(char *src0, char *src1, char *dest)
     *dest = '\0';
 }
 
-Mesh make_square_mesh(ID3D11Device *dev, Shader_Pack *shader)
+Mesh make_square_mesh(Renderer *renderer, Shader_Pack *shader)
 {
     Mesh mesh = {};
     r32 square[] = {
@@ -47,7 +53,7 @@ Mesh make_square_mesh(ID3D11Device *dev, Shader_Pack *shader)
     vert_buff_desc.Usage                 = D3D11_USAGE_IMMUTABLE;
     vert_buff_desc.BindFlags             = D3D11_BIND_VERTEX_BUFFER;
     vert_buff_desc.StructureByteStride   = mesh.vert_stride;
-    dev->CreateBuffer(&vert_buff_desc, &raw_vert_data, &mesh.vbuff);
+    renderer->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, &mesh.vbuff);
 
     //
     // input layout description
@@ -56,13 +62,13 @@ Mesh make_square_mesh(ID3D11Device *dev, Shader_Pack *shader)
         {"POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
         {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0},
     };
-    dev->CreateInputLayout(in_desc, 2, shader->vertex_file.data, shader->vertex_file.size, &mesh.in_layout);
+    renderer->device->CreateInputLayout(in_desc, 2, shader->vertex_file.data, shader->vertex_file.size, &mesh.in_layout);
 
     return mesh;
 }
 
 internal Mesh
-load_wexp(ID3D11Device *dev, Platform_Read_File *read_file, char *path, Shader_Pack *shader)
+load_wexp(Renderer *renderer, Platform_Read_File *read_file, char *path, Shader_Pack *shader)
 {
     Mesh mesh = {};
     Wexp_Header *wexp = (Wexp_Header *)read_file(path).data;
@@ -82,7 +88,7 @@ load_wexp(ID3D11Device *dev, Platform_Read_File *read_file, char *path, Shader_P
     vert_buff_desc.Usage                 = D3D11_USAGE_IMMUTABLE;
     vert_buff_desc.BindFlags             = D3D11_BIND_VERTEX_BUFFER;
     vert_buff_desc.StructureByteStride   = mesh.vert_stride;
-    dev->CreateBuffer(&vert_buff_desc, &raw_vert_data, &mesh.vbuff);
+    renderer->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, &mesh.vbuff);
 
     //
     // input layout description
@@ -92,7 +98,7 @@ load_wexp(ID3D11Device *dev, Platform_Read_File *read_file, char *path, Shader_P
         {"NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
         {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0}
     };
-    dev->CreateInputLayout(in_desc, 3, shader->vertex_file.data, shader->vertex_file.size, &mesh.in_layout);
+    renderer->device->CreateInputLayout(in_desc, 3, shader->vertex_file.data, shader->vertex_file.size, &mesh.in_layout);
 
     //
     // index buffer
@@ -102,7 +108,7 @@ load_wexp(ID3D11Device *dev, Platform_Read_File *read_file, char *path, Shader_P
     index_buff_desc.ByteWidth         = indices_size;
     index_buff_desc.Usage             = D3D11_USAGE_IMMUTABLE;
     index_buff_desc.BindFlags         = D3D11_BIND_INDEX_BUFFER;
-    dev->CreateBuffer(&index_buff_desc, &index_data, &mesh.ibuff);
+    renderer->device->CreateBuffer(&index_buff_desc, &index_data, &mesh.ibuff);
 
     return mesh;
 }
@@ -142,7 +148,7 @@ load_bitmap(Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
 }
 
 internal Texture
-load_texture(ID3D11Device *dev, ID3D11DeviceContext *context, Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
+load_texture(Renderer *renderer, Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
 {
     Texture texture = load_bitmap(mempool, read_file, path);
     D3D11_TEXTURE2D_DESC tex_desc = {};
@@ -157,10 +163,10 @@ load_texture(ID3D11Device *dev, ID3D11DeviceContext *context, Memory_Pool *mempo
     tex_desc.BindFlags          = D3D11_BIND_SHADER_RESOURCE|D3D11_BIND_RENDER_TARGET;
     tex_desc.MiscFlags          = D3D11_RESOURCE_MISC_GENERATE_MIPS;
 
-    dev->CreateTexture2D(&tex_desc, 0, &texture.handle);
-    dev->CreateShaderResourceView(texture.handle, 0, &texture.view);
-    context->UpdateSubresource(texture.handle, 0, 0, texture.data, texture.width*4, 0);
-    context->GenerateMips(texture.view);
+    renderer->device->CreateTexture2D(&tex_desc, 0, &texture.handle);
+    renderer->device->CreateShaderResourceView(texture.handle, 0, &texture.view);
+    renderer->context->UpdateSubresource(texture.handle, 0, 0, texture.data, texture.width*4, 0);
+    renderer->context->GenerateMips(texture.view);
     
     return texture;
 }
@@ -176,7 +182,7 @@ load_font(Font *font, Platform_Read_File *read_file, char *path, r32 height)
 }
 
 internal Shader_Pack *
-reload_shader(Shader_Pack *shader, ID3D11Device *dev, char *name, Platform_Reload_Changed_File *reload_if_changed)
+reload_shader(Shader_Pack *shader, Renderer *renderer, char *name, Platform_Reload_Changed_File *reload_if_changed)
 {
     char vertex_path[MAX_PATH] = {};
     char  pixel_path[MAX_PATH] = {};
@@ -188,45 +194,45 @@ reload_shader(Shader_Pack *shader, ID3D11Device *dev, char *name, Platform_Reloa
     shader->pixel_file.path  =  pixel_path;
 
     if(reload_if_changed(&shader->vertex_file))
-        dev->CreateVertexShader(shader->vertex_file.data, shader->vertex_file.size, 0, &shader->vertex);
+        renderer->device->CreateVertexShader(shader->vertex_file.data, shader->vertex_file.size, 0, &shader->vertex);
 
     if(reload_if_changed(&shader->pixel_file))
-        dev->CreatePixelShader(shader->pixel_file.data, shader->pixel_file.size, 0, &shader->pixel);
+        renderer->device->CreatePixelShader(shader->pixel_file.data, shader->pixel_file.size, 0, &shader->pixel);
 
     return shader;
 }
 
 inline void
-set_active_mesh(ID3D11DeviceContext *context, Mesh *mesh)
+set_active_mesh(Renderer *renderer, Mesh *mesh)
 {
     u32 offsets = 0;
     u32 stride = mesh->vert_stride;
-    context->IASetVertexBuffers(0, 1, &mesh->vbuff, &stride, &offsets);
-    context->IASetInputLayout(mesh->in_layout);
-    if(mesh->ibuff)  context->IASetIndexBuffer(mesh->ibuff, DXGI_FORMAT_R16_UINT, 0);
-    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    renderer->context->IASetVertexBuffers(0, 1, &mesh->vbuff, &stride, &offsets);
+    renderer->context->IASetInputLayout(mesh->in_layout);
+    if(mesh->ibuff)  renderer->context->IASetIndexBuffer(mesh->ibuff, DXGI_FORMAT_R16_UINT, 0);
+    renderer->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
 inline void
-set_active_texture(ID3D11DeviceContext *context, Texture *texture)
+set_active_texture(Renderer *renderer, Texture *texture)
 {
-    context->PSSetShaderResources(0, 1, &texture->view); 
+    renderer->context->PSSetShaderResources(0, 1, &texture->view); 
 }
 
 inline void
-set_active_shader(ID3D11DeviceContext *context, Shader_Pack *shader)
+set_active_shader(Renderer *renderer, Shader_Pack *shader)
 {
-    context->VSSetShader(shader->vertex, 0, 0);
-    context->PSSetShader(shader->pixel,  0, 0);
+    renderer->context->VSSetShader(shader->vertex, 0, 0);
+    renderer->context->PSSetShader(shader->pixel,  0, 0);
 }
 
 // (0,0) = Top-Left; (WIDTH,HEIGHT) = Bottom-Right
 // @todo: test sub-pixel placement with AA.
 inline void
-draw_rect(ID3D11DeviceContext *context, Shader_Pack *shader, Game_State *state, v2 size, v2 pos)
+draw_rect(Renderer *renderer, Shader_Pack *shader, Game_State *state, v2 size, v2 pos)
 {
     D3D11_MAPPED_SUBRESOURCE matrices_map = {};
-    context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+    renderer->context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
 
     m4 *matrix_buffer = (m4 *)matrices_map.pData;
 
@@ -238,18 +244,18 @@ draw_rect(ID3D11DeviceContext *context, Shader_Pack *shader, Game_State *state, 
     pos.y   = -(pos.y*2.f - 1.f);
 
     matrix_buffer[0] = Translation_m4(pos.x, pos.y, 0)*Scale_m4(size*2.f);
-    context->Unmap(state->matrix_buff, 0);
+    renderer->context->Unmap(state->matrix_buff, 0);
 
-    context->OMSetDepthStencilState(state->nodepth_nostencil_state, 1);
-    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    set_active_mesh(context, &state->square);
-    context->Draw(6, 0);
+    renderer->context->OMSetDepthStencilState(state->nodepth_nostencil_state, 1);
+    renderer->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    set_active_mesh(renderer, &state->square);
+    renderer->context->Draw(6, 0);
 }
 
 internal r32
-draw_char(ID3D11Device *dev, ID3D11DeviceContext *context, Game_State *state, Font *font, char character, v2 pos)
+draw_char(Renderer *renderer, Game_State *state, Font *font, char character, v2 pos)
 {
-    set_active_shader(context, state->font_shader);
+    set_active_shader(renderer, state->font_shader);
 
     Assert(character >= first_nonwhite_char);
     Assert(character <=  last_nonwhite_char);
@@ -285,19 +291,19 @@ draw_char(ID3D11Device *dev, ID3D11DeviceContext *context, Game_State *state, Fo
         tex_desc.BindFlags          = D3D11_BIND_SHADER_RESOURCE;
 
         D3D11_SUBRESOURCE_DATA subres = {texture_data, texture->width*4};
-        dev->CreateTexture2D(&tex_desc, &subres, &texture->handle);
-        dev->CreateShaderResourceView(texture->handle, 0, &texture->view);
+        renderer->device->CreateTexture2D(&tex_desc, &subres, &texture->handle);
+        renderer->device->CreateShaderResourceView(texture->handle, 0, &texture->view);
     }
 
-    set_active_texture(context, texture);
+    set_active_texture(renderer, texture);
     v2 size = {(r32)texture->width, (r32)texture->height};
     //size *= 32.f/(r32)texture->height;
-    draw_rect(context, state->font_shader, state, size, pos);
+    draw_rect(renderer, state->font_shader, state, size, pos);
     return size.x;
 }
 
 inline void
-draw_text(ID3D11Device *dev, ID3D11DeviceContext *context, Game_State *state, Font *font, char *text, v2 pivot)
+draw_text(Renderer *renderer, Game_State *state, Font *font, char *text, v2 pivot)
 {
     i32 ascent, descent, line_gap;
     stbtt_GetFontVMetrics(&font->info, &ascent, &descent, &line_gap);
@@ -321,7 +327,7 @@ draw_text(ID3D11Device *dev, ID3D11DeviceContext *context, Game_State *state, Fo
             stbtt_GetCodepointBox(&font->info, *c, &min_x, &min_y, &max_x, &max_y);
             v2 min = make_v2((r32)min_x, (r32)min_y)*font->scale;
             v2 max = make_v2((r32)max_x, (r32)max_y)*font->scale;
-            draw_char(dev, context, state, font, *c,
+            draw_char(renderer, state, font, *c,
                       make_v2(pos.x + min.x - font_min.x, pos.y + font_max.y - max.y));
             pos.x += font_max.x;
         }
@@ -340,6 +346,9 @@ struct Light_Buffer
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
     Game_State *state = (Game_State *)memory->storage;
+    Renderer renderer = {};
+    renderer.device = device;
+    renderer.context = context;
     if(!memory->is_initialized)
     {
         Memory_Pool mempool = {};
@@ -362,8 +371,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         // @todo: remove need for pre-allocation
         state->phong_shader = push_struct(&mempool, Shader_Pack);
         state->font_shader  = push_struct(&mempool, Shader_Pack);
-        reload_shader(state->phong_shader, device, "phong", memory->reload_if_changed);
-        reload_shader(state->font_shader,  device, "fonts", memory->reload_if_changed);
+        reload_shader(state->phong_shader, &renderer, "phong", memory->reload_if_changed);
+        reload_shader(state->font_shader, &renderer, "fonts", memory->reload_if_changed);
         
         //
         // allocating rgb and depth buffers
@@ -409,9 +418,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         ID3D11SamplerState *sampler;
         D3D11_SAMPLER_DESC sampler_desc = {};
         sampler_desc.Filter = D3D11_FILTER_ANISOTROPIC;//D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-        sampler_desc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-        sampler_desc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-        sampler_desc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+        sampler_desc.AddressU = D3D11_TEXTURE_ADDRESS_MIRROR;
+        sampler_desc.AddressV = D3D11_TEXTURE_ADDRESS_MIRROR;
+        sampler_desc.AddressW = D3D11_TEXTURE_ADDRESS_MIRROR;
         sampler_desc.MipLODBias = -1;
         sampler_desc.MaxAnisotropy = 16;
         sampler_desc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
@@ -481,11 +490,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         device->CreateBlendState(&blend_state_desc, &blend_state);
         context->OMSetBlendState(blend_state, 0, 0xFFFFFFFF);
 
-        state->environment = load_wexp(device, memory->read_file, "assets/environment.wexp", state->phong_shader);
-        state->player      = load_wexp(device, memory->read_file, "assets/sphere.wexp",      state->phong_shader);
-        state->tex_white   = load_texture(device, context, &mempool, memory->read_file, "assets/blockout_white.bmp");
-        state->tex_yellow  = load_texture(device, context, &mempool, memory->read_file, "assets/blockout_yellow.bmp");
-        state->square      = make_square_mesh(device, state->font_shader);
+        state->environment = load_wexp(&renderer, memory->read_file, "assets/environment.wexp", state->phong_shader);
+        state->player      = load_wexp(&renderer, memory->read_file, "assets/sphere.wexp",      state->phong_shader);
+        state->tex_white   = load_texture(&renderer, &mempool, memory->read_file, "assets/blockout_white.bmp");
+        state->tex_yellow  = load_texture(&renderer, &mempool, memory->read_file, "assets/blockout_yellow.bmp");
+        state->square      = make_square_mesh(&renderer, state->font_shader);
 
         load_font(&state->inconsolata, memory->read_file, "assets/Inconsolata.ttf", 32);
 
@@ -539,10 +548,10 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     }
 
 #if WINDY_INTERNAL
-    reload_shader(state->phong_shader, device, "phong", memory->reload_if_changed);
-    reload_shader(state->font_shader,  device, "fonts", memory->reload_if_changed);
+    reload_shader(state->phong_shader, &renderer, "phong", memory->reload_if_changed);
+    reload_shader(state->font_shader,  &renderer, "fonts", memory->reload_if_changed);
 #endif
-    set_active_shader(context, state->phong_shader);
+    set_active_shader(&renderer, state->phong_shader);
     context->OMSetRenderTargets(1, &state->render_target_rgb, state->render_target_depth);
 
     r32 ClearColor[] = {0.06f, 0.5f, 0.8f, 1.f};
@@ -550,8 +559,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     context->ClearDepthStencilView(state->render_target_depth, D3D11_CLEAR_DEPTH, 1.f, 1);
 
 
-    set_active_mesh(context, &state->environment);
-    set_active_texture(context, &state->tex_white);
+    set_active_mesh(&renderer, &state->environment);
+    set_active_texture(&renderer, &state->tex_white);
     //set_active_shader(context, phong_shader);
 
     context->OMSetDepthStencilState(state->depth_nostencil_state, 1);
@@ -576,7 +585,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     }
 
     { // player ------------------------------------------------------
-        set_active_mesh(context, &state->player);
+        set_active_mesh(&renderer, &state->player);
         D3D11_MAPPED_SUBRESOURCE matrices_map = {};
         D3D11_MAPPED_SUBRESOURCE lights_map = {};
 
@@ -589,7 +598,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
         context->DrawIndexed(2880, 0, 0);
 
-        set_active_texture(context, &state->tex_yellow);
+        set_active_texture(&renderer, &state->tex_yellow);
 
         context->Map(state->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
         Light_Buffer *lights_mapped = (Light_Buffer *)lights_map.pData;
@@ -609,5 +618,5 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     }
 
     char *text = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\n0123456789 ?!\"'.,;<>[]{}()-_+=*&^%$#@/\\~`";
-    draw_text(device, context, state, &state->inconsolata, text, make_v2(0, 0));
+    draw_text(&renderer, state, &state->inconsolata, text, make_v2(0, 0));
 }
