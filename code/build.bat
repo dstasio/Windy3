@@ -16,7 +16,7 @@ REM cl %CommonCompilerFlags% ..\code\win32_handmade.cpp /link -subsystem:windows
 REM 64-bit build
 del *.pdb > NUL 2> NUL
 cl %CommonCompilerFlags% ..\code\windy.cpp -Fmwindy.map -LD /link -incremental:no /PDB:windy_%random%.pdb -EXPORT:WindyUpdateAndRender
-cl %CommonCompilerFlags% ..\code\win32_layer.cpp -Fmwin32_windy.map /link %CommonLinkerFlags%
+cl %CommonCompilerFlags% ..\code\win32_layer.cpp -Fmwin32_windy.map /link %CommonLinkerFlags% -EXPORT:win32_load_d3d11 -EXPORT:d3d11_reload_shader
 popd
 
 pushd ..\rundata\assets

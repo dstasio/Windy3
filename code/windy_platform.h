@@ -25,6 +25,30 @@ typedef PLATFORM_READ_FILE(Platform_Read_File);
 #define PLATFORM_RELOAD_CHANGED_FILE(name) b32 name(Input_File *file)
 typedef PLATFORM_RELOAD_CHANGED_FILE(Platform_Reload_Changed_File);
 
+struct Platform_Renderer;
+struct Platform_Shader
+{
+    void *vertex;
+    void *pixel;
+
+    Input_File vertex_file;
+    Input_File  pixel_file;
+};
+
+#define PLATFORM_LOAD_RENDERER(name) void name(Platform_Renderer *renderer)
+typedef PLATFORM_LOAD_RENDERER(Platform_Load_Renderer);
+
+#define PLATFORM_RELOAD_SHADER(func) void func(Platform_Shader *shader, Platform_Renderer *renderer, char *name)
+typedef PLATFORM_RELOAD_SHADER(Platform_Reload_Shader);
+
+struct Platform_Renderer
+{
+    Platform_Load_Renderer *load_renderer;
+    Platform_Reload_Shader *reload_shader;
+
+    void *platform;
+};
+
 struct Input_Keyboard
 {
     u32 up;
@@ -66,7 +90,7 @@ typedef struct Game_Memory
     Platform_Reload_Changed_File *reload_if_changed;
 } game_memory;
 
-#define GAME_UPDATE_AND_RENDER(name) void name(Input *input, r32 dtime, Renderer *renderer, Game_Memory *memory)
+#define GAME_UPDATE_AND_RENDER(name) void name(Input *input, r32 dtime, Platform_Renderer *renderer, Game_Memory *memory)
 typedef GAME_UPDATE_AND_RENDER(Game_Update_And_Render);
 
 #define WINDY_PLATFORM_H

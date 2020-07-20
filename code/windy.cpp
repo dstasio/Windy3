@@ -8,21 +8,15 @@
 #include <d3d11.h>
 #include "windy.h"
 #include <string.h>
+#include "win32_renderer_d3d11.h"
 
 #define byte_offset(base, offset) ((u8*)(base) + (offset))
 
 inline u16 truncate_to_u16(u32 v) {assert(v <= 0xFFFF); return (u16)v; };
 
-inline void
-cat(char *src0, char *src1, char *dest)
+Mesh make_square_mesh(Platform_Renderer *renderer, Platform_Shader *shader)
 {
-    while (*src0)  *(dest++) = *(src0++);
-    while (*src1)  *(dest++) = *(src1++);
-    *dest = '\0';
-}
-
-Mesh make_square_mesh(Renderer *renderer, Shader_Pack *shader)
-{
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
     Mesh mesh = {};
     r32 square[] = {
         0.f, -1.f,  0.f, 1.f,
@@ -47,7 +41,7 @@ Mesh make_square_mesh(Renderer *renderer, Shader_Pack *shader)
     vert_buff_desc.Usage                 = D3D11_USAGE_IMMUTABLE;
     vert_buff_desc.BindFlags             = D3D11_BIND_VERTEX_BUFFER;
     vert_buff_desc.StructureByteStride   = mesh.vert_stride;
-    renderer->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, &mesh.vbuff);
+    d11->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, &mesh.vbuff);
 
     //
     // input layout description
@@ -56,14 +50,15 @@ Mesh make_square_mesh(Renderer *renderer, Shader_Pack *shader)
         {"POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
         {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0},
     };
-    renderer->device->CreateInputLayout(in_desc, 2, shader->vertex_file.data, shader->vertex_file.size, &mesh.in_layout);
+    d11->device->CreateInputLayout(in_desc, 2, shader->vertex_file.data, shader->vertex_file.size, &mesh.in_layout);
 
     return mesh;
 }
 
 internal Mesh
-load_wexp(Renderer *renderer, Platform_Read_File *read_file, char *path, Shader_Pack *shader)
+load_wexp(Platform_Renderer *renderer, Platform_Read_File *read_file, char *path, Platform_Shader *shader)
 {
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
     Mesh mesh = {};
     Wexp_Header *wexp = (Wexp_Header *)read_file(path).data;
     assert(wexp->signature == 0x7877);
@@ -82,7 +77,7 @@ load_wexp(Renderer *renderer, Platform_Read_File *read_file, char *path, Shader_
     vert_buff_desc.Usage                 = D3D11_USAGE_IMMUTABLE;
     vert_buff_desc.BindFlags             = D3D11_BIND_VERTEX_BUFFER;
     vert_buff_desc.StructureByteStride   = mesh.vert_stride;
-    renderer->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, &mesh.vbuff);
+    d11->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, &mesh.vbuff);
 
     //
     // input layout description
@@ -92,7 +87,7 @@ load_wexp(Renderer *renderer, Platform_Read_File *read_file, char *path, Shader_
         {"NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
         {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0}
     };
-    renderer->device->CreateInputLayout(in_desc, 3, shader->vertex_file.data, shader->vertex_file.size, &mesh.in_layout);
+    d11->device->CreateInputLayout(in_desc, 3, shader->vertex_file.data, shader->vertex_file.size, &mesh.in_layout);
 
     //
     // index buffer
@@ -102,7 +97,7 @@ load_wexp(Renderer *renderer, Platform_Read_File *read_file, char *path, Shader_
     index_buff_desc.ByteWidth         = indices_size;
     index_buff_desc.Usage             = D3D11_USAGE_IMMUTABLE;
     index_buff_desc.BindFlags         = D3D11_BIND_INDEX_BUFFER;
-    renderer->device->CreateBuffer(&index_buff_desc, &index_data, &mesh.ibuff);
+    d11->device->CreateBuffer(&index_buff_desc, &index_data, &mesh.ibuff);
 
     return mesh;
 }
@@ -142,8 +137,9 @@ load_bitmap(Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
 }
 
 internal Texture
-load_texture(Renderer *renderer, Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
+load_texture(Platform_Renderer *renderer, Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
 {
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
     Texture texture = load_bitmap(mempool, read_file, path);
     D3D11_TEXTURE2D_DESC tex_desc = {};
     tex_desc.Width              = texture.width;
@@ -157,10 +153,10 @@ load_texture(Renderer *renderer, Memory_Pool *mempool, Platform_Read_File *read_
     tex_desc.BindFlags          = D3D11_BIND_SHADER_RESOURCE|D3D11_BIND_RENDER_TARGET;
     tex_desc.MiscFlags          = D3D11_RESOURCE_MISC_GENERATE_MIPS;
 
-    renderer->device->CreateTexture2D(&tex_desc, 0, &texture.handle);
-    renderer->device->CreateShaderResourceView(texture.handle, 0, &texture.view);
-    renderer->context->UpdateSubresource(texture.handle, 0, 0, texture.data, texture.width*4, 0);
-    renderer->context->GenerateMips(texture.view);
+    d11->device->CreateTexture2D(&tex_desc, 0, &texture.handle);
+    d11->device->CreateShaderResourceView(texture.handle, 0, &texture.view);
+    d11->context->UpdateSubresource(texture.handle, 0, 0, texture.data, texture.width*4, 0);
+    d11->context->GenerateMips(texture.view);
     
     return texture;
 }
@@ -175,58 +171,41 @@ load_font(Font *font, Platform_Read_File *read_file, char *path, r32 height)
     return font;
 }
 
-internal Shader_Pack *
-reload_shader(Shader_Pack *shader, Renderer *renderer, char *name, Platform_Reload_Changed_File *reload_if_changed)
-{
-    char vertex_path[MAX_PATH] = {};
-    char  pixel_path[MAX_PATH] = {};
-    cat("assets\\",    name, vertex_path);
-    cat(vertex_path, ".vsh", vertex_path);
-    cat("assets\\",    name,  pixel_path);
-    cat( pixel_path, ".psh",  pixel_path);
-    shader->vertex_file.path = vertex_path;
-    shader->pixel_file.path  =  pixel_path;
-
-    if(reload_if_changed(&shader->vertex_file))
-        renderer->device->CreateVertexShader(shader->vertex_file.data, shader->vertex_file.size, 0, &shader->vertex);
-
-    if(reload_if_changed(&shader->pixel_file))
-        renderer->device->CreatePixelShader(shader->pixel_file.data, shader->pixel_file.size, 0, &shader->pixel);
-
-    return shader;
-}
-
 inline void
-set_active_mesh(Renderer *renderer, Mesh *mesh)
+set_active_mesh(Platform_Renderer *renderer, Mesh *mesh)
 {
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
     u32 offsets = 0;
     u32 stride = mesh->vert_stride;
-    renderer->context->IASetVertexBuffers(0, 1, &mesh->vbuff, &stride, &offsets);
-    renderer->context->IASetInputLayout(mesh->in_layout);
-    if(mesh->ibuff)  renderer->context->IASetIndexBuffer(mesh->ibuff, DXGI_FORMAT_R16_UINT, 0);
-    renderer->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    d11->context->IASetVertexBuffers(0, 1, &mesh->vbuff, &stride, &offsets);
+    d11->context->IASetInputLayout(mesh->in_layout);
+    if(mesh->ibuff)  d11->context->IASetIndexBuffer(mesh->ibuff, DXGI_FORMAT_R16_UINT, 0);
+    d11->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
 inline void
-set_active_texture(Renderer *renderer, Texture *texture)
+set_active_texture(Platform_Renderer *renderer, Texture *texture)
 {
-    renderer->context->PSSetShaderResources(0, 1, &texture->view); 
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
+    d11->context->PSSetShaderResources(0, 1, &texture->view); 
 }
 
 inline void
-set_active_shader(Renderer *renderer, Shader_Pack *shader)
+set_active_shader(Platform_Renderer *renderer, Platform_Shader *shader)
 {
-    renderer->context->VSSetShader(shader->vertex, 0, 0);
-    renderer->context->PSSetShader(shader->pixel,  0, 0);
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
+    d11->context->VSSetShader((ID3D11VertexShader *)shader->vertex, 0, 0);
+    d11->context->PSSetShader((ID3D11PixelShader  *)shader->pixel,  0, 0);
 }
 
 // (0,0) = Top-Left; (WIDTH,HEIGHT) = Bottom-Right
 // @todo: test sub-pixel placement with AA.
 inline void
-draw_rect(Renderer *renderer, Shader_Pack *shader, Game_State *state, v2 size, v2 pos)
+draw_rect(Platform_Renderer *renderer, Platform_Shader *shader, Game_State *state, v2 size, v2 pos)
 {
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
     D3D11_MAPPED_SUBRESOURCE matrices_map = {};
-    renderer->context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+    d11->context->Map(d11->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
 
     m4 *matrix_buffer = (m4 *)matrices_map.pData;
 
@@ -238,17 +217,18 @@ draw_rect(Renderer *renderer, Shader_Pack *shader, Game_State *state, v2 size, v
     pos.y   = -(pos.y*2.f - 1.f);
 
     matrix_buffer[0] = Translation_m4(pos.x, pos.y, 0)*Scale_m4(size*2.f);
-    renderer->context->Unmap(state->matrix_buff, 0);
+    d11->context->Unmap(d11->matrix_buff, 0);
 
-    renderer->context->OMSetDepthStencilState(renderer->nodepth_nostencil_state, 1);
-    renderer->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    d11->context->OMSetDepthStencilState(d11->nodepth_nostencil_state, 1);
+    d11->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     set_active_mesh(renderer, &state->square);
-    renderer->context->Draw(6, 0);
+    d11->context->Draw(6, 0);
 }
 
 internal r32
-draw_char(Renderer *renderer, Game_State *state, Font *font, char character, v2 pos)
+draw_char(Platform_Renderer *renderer, Game_State *state, Font *font, char character, v2 pos)
 {
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
     set_active_shader(renderer, state->font_shader);
 
     Assert(character >= first_nonwhite_char);
@@ -285,8 +265,8 @@ draw_char(Renderer *renderer, Game_State *state, Font *font, char character, v2 
         tex_desc.BindFlags          = D3D11_BIND_SHADER_RESOURCE;
 
         D3D11_SUBRESOURCE_DATA subres = {texture_data, texture->width*4};
-        renderer->device->CreateTexture2D(&tex_desc, &subres, &texture->handle);
-        renderer->device->CreateShaderResourceView(texture->handle, 0, &texture->view);
+        d11->device->CreateTexture2D(&tex_desc, &subres, &texture->handle);
+        d11->device->CreateShaderResourceView(texture->handle, 0, &texture->view);
     }
 
     set_active_texture(renderer, texture);
@@ -297,8 +277,9 @@ draw_char(Renderer *renderer, Game_State *state, Font *font, char character, v2 
 }
 
 inline void
-draw_text(Renderer *renderer, Game_State *state, Font *font, char *text, v2 pivot)
+draw_text(Platform_Renderer *renderer, Game_State *state, Font *font, char *text, v2 pivot)
 {
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
     i32 ascent, descent, line_gap;
     stbtt_GetFontVMetrics(&font->info, &ascent, &descent, &line_gap);
     ascent   = (i32)((r32)ascent   * font->scale);
@@ -340,6 +321,7 @@ struct Light_Buffer
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
     Game_State *state = (Game_State *)memory->storage;
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
     if(!memory->is_initialized)
     {
         Memory_Pool mempool = {};
@@ -347,139 +329,17 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         mempool.size = memory->storage_size;
         mempool.used = sizeof(Game_State);
 
-        D3D11_VIEWPORT Viewport = {};
-        Viewport.TopLeftX = 0;
-        Viewport.TopLeftY = 0;
-        Viewport.Width = WIDTH;
-        Viewport.Height = HEIGHT;
-        Viewport.MinDepth = 0.f;
-        Viewport.MaxDepth = 1.f;
-        renderer->context->RSSetViewports(1, &Viewport);
+        renderer->load_renderer(renderer);
 
         //
         // Shaders
         //
         // @todo: remove need for pre-allocation
-        state->phong_shader = push_struct(&mempool, Shader_Pack);
-        state->font_shader  = push_struct(&mempool, Shader_Pack);
-        reload_shader(state->phong_shader, renderer, "phong", memory->reload_if_changed);
-        reload_shader(state->font_shader, renderer, "fonts", memory->reload_if_changed);
+        state->phong_shader = push_struct(&mempool, Platform_Shader);
+        state->font_shader  = push_struct(&mempool, Platform_Shader);
+        renderer->reload_shader(state->phong_shader, renderer, "phong");
+        renderer->reload_shader(state->font_shader, renderer, "fonts");
         
-        //
-        // allocating rgb and depth buffers
-        //
-        D3D11_TEXTURE2D_DESC depth_buffer_desc = {};
-        depth_buffer_desc.Width = WIDTH;
-        depth_buffer_desc.Height = HEIGHT;
-        depth_buffer_desc.MipLevels = 1;
-        depth_buffer_desc.ArraySize = 1;
-        depth_buffer_desc.Format = DXGI_FORMAT_D32_FLOAT;
-        depth_buffer_desc.SampleDesc.Count = 1;
-        depth_buffer_desc.SampleDesc.Quality = 0;
-        depth_buffer_desc.Usage = D3D11_USAGE_DEFAULT;
-        depth_buffer_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-        depth_buffer_desc.MiscFlags = 0;
-
-        ID3D11Texture2D *depth_texture;
-        renderer->device->CreateTexture2D(&depth_buffer_desc, 0, &depth_texture);
-
-        { // Depth states.
-            D3D11_DEPTH_STENCIL_VIEW_DESC depth_view_desc = {DXGI_FORMAT_D32_FLOAT, D3D11_DSV_DIMENSION_TEXTURE2D};
-            renderer->device->CreateRenderTargetView(renderer->backbuffer, 0, &renderer->render_target_rgb);
-            renderer->device->CreateDepthStencilView(depth_texture, &depth_view_desc, &renderer->render_target_depth);
-
-            D3D11_DEPTH_STENCIL_DESC depth_stencil_settings;
-            depth_stencil_settings.DepthEnable    = 1;
-            depth_stencil_settings.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-            depth_stencil_settings.DepthFunc      = D3D11_COMPARISON_LESS;
-            depth_stencil_settings.StencilEnable  = 0;
-            depth_stencil_settings.StencilReadMask;
-            depth_stencil_settings.StencilWriteMask;
-            depth_stencil_settings.FrontFace      = {D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_COMPARISON_ALWAYS};
-            depth_stencil_settings.BackFace       = {D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_COMPARISON_ALWAYS};
-
-            renderer->device->CreateDepthStencilState(&depth_stencil_settings, &renderer->depth_nostencil_state);
-
-            depth_stencil_settings.DepthEnable    = 0;
-            depth_stencil_settings.DepthFunc      = D3D11_COMPARISON_ALWAYS;
-
-            renderer->device->CreateDepthStencilState(&depth_stencil_settings, &renderer->nodepth_nostencil_state);
-        }
-
-        ID3D11SamplerState *sampler;
-        D3D11_SAMPLER_DESC sampler_desc = {};
-        sampler_desc.Filter = D3D11_FILTER_ANISOTROPIC;//D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-        sampler_desc.AddressU = D3D11_TEXTURE_ADDRESS_MIRROR;
-        sampler_desc.AddressV = D3D11_TEXTURE_ADDRESS_MIRROR;
-        sampler_desc.AddressW = D3D11_TEXTURE_ADDRESS_MIRROR;
-        sampler_desc.MipLODBias = -1;
-        sampler_desc.MaxAnisotropy = 16;
-        sampler_desc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
-        sampler_desc.MinLOD = 0;
-        sampler_desc.MaxLOD = 100;
-        renderer->device->CreateSamplerState(&sampler_desc, &sampler);
-        renderer->context->PSSetSamplers(0, 1, &sampler);
-
-        //
-        // constant buffer setup
-        //
-        D3D11_BUFFER_DESC MatrixBufferDesc = {};
-        MatrixBufferDesc.ByteWidth = 3*sizeof(m4);
-        MatrixBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-        MatrixBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-        MatrixBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-        MatrixBufferDesc.MiscFlags = 0;
-        MatrixBufferDesc.StructureByteStride = sizeof(m4);
-        renderer->device->CreateBuffer(&MatrixBufferDesc, 0, &state->matrix_buff);
-        renderer->context->VSSetConstantBuffers(0, 1, &state->matrix_buff);
-
-        D3D11_BUFFER_DESC light_buff_desc = {};
-        light_buff_desc.ByteWidth = 16*3;
-        light_buff_desc.Usage = D3D11_USAGE_DYNAMIC;
-        light_buff_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-        light_buff_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-        light_buff_desc.MiscFlags = 0;
-        light_buff_desc.StructureByteStride = sizeof(v3);
-        renderer->device->CreateBuffer(&light_buff_desc, 0, &state->light_buff);
-        renderer->context->PSSetConstantBuffers(0, 1, &state->light_buff);
-
-        //
-        // rasterizer set-up
-        //
-        D3D11_RASTERIZER_DESC raster_settings = {};
-        raster_settings.FillMode = D3D11_FILL_SOLID;
-        raster_settings.CullMode = D3D11_CULL_BACK;
-        raster_settings.FrontCounterClockwise = 1;
-        raster_settings.DepthBias = 0;
-        raster_settings.DepthBiasClamp = 0;
-        raster_settings.SlopeScaledDepthBias = 0;
-        raster_settings.DepthClipEnable = 1;
-        raster_settings.ScissorEnable = 0;
-        raster_settings.MultisampleEnable = 0;
-        raster_settings.AntialiasedLineEnable = 0;
-
-        ID3D11RasterizerState *raster_state = 0;
-        renderer->device->CreateRasterizerState(&raster_settings, &raster_state);
-        renderer->context->RSSetState(raster_state);
-
-        //
-        // Alpha blending.
-        //
-        CD3D11_BLEND_DESC blend_state_desc = {};
-        blend_state_desc.RenderTarget[0].BlendEnable = 1;
-        //blend_state_desc.RenderTarget[0].LogicOpEnable = 0;
-        blend_state_desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-        blend_state_desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-        blend_state_desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-        blend_state_desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-        blend_state_desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
-        blend_state_desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-        //blend_state_desc.RenderTarget[0].LogicOp;
-        blend_state_desc.RenderTarget[0].RenderTargetWriteMask = 0x0F;
-
-        ID3D11BlendState *blend_state = 0;
-        renderer->device->CreateBlendState(&blend_state_desc, &blend_state);
-        renderer->context->OMSetBlendState(blend_state, 0, 0xFFFFFFFF);
 
         state->environment = load_wexp(renderer, memory->read_file, "assets/environment.wexp", state->phong_shader);
         state->player      = load_wexp(renderer, memory->read_file, "assets/sphere.wexp",      state->phong_shader);
@@ -539,40 +399,40 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     }
 
 #if WINDY_INTERNAL
-    reload_shader(state->phong_shader, renderer, "phong", memory->reload_if_changed);
-    reload_shader(state->font_shader,  renderer, "fonts", memory->reload_if_changed);
+    renderer->reload_shader(state->phong_shader, renderer, "phong");
+    renderer->reload_shader(state->font_shader,  renderer, "fonts");
 #endif
     set_active_shader(renderer, state->phong_shader);
-    renderer->context->OMSetRenderTargets(1, &renderer->render_target_rgb, renderer->render_target_depth);
+    d11->context->OMSetRenderTargets(1, &d11->render_target_rgb, d11->render_target_depth);
 
     r32 ClearColor[] = {0.06f, 0.5f, 0.8f, 1.f};
-    renderer->context->ClearRenderTargetView(renderer->render_target_rgb, ClearColor);
-    renderer->context->ClearDepthStencilView(renderer->render_target_depth, D3D11_CLEAR_DEPTH, 1.f, 1);
+    d11->context->ClearRenderTargetView(d11->render_target_rgb, ClearColor);
+    d11->context->ClearDepthStencilView(d11->render_target_depth, D3D11_CLEAR_DEPTH, 1.f, 1);
 
 
     set_active_mesh(renderer, &state->environment);
     set_active_texture(renderer, &state->tex_white);
     //set_active_shader(context, phong_shader);
 
-    renderer->context->OMSetDepthStencilState(renderer->depth_nostencil_state, 1);
+    d11->context->OMSetDepthStencilState(d11->depth_nostencil_state, 1);
     { // environment -------------------------------------------------
         D3D11_MAPPED_SUBRESOURCE matrices_map = {};
         D3D11_MAPPED_SUBRESOURCE lights_map = {};
-        renderer->context->Map(state->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
+        d11->context->Map(d11->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
         Light_Buffer *lights_mapped = (Light_Buffer *)lights_map.pData;
         lights_mapped->color = state->lamp.color;
         lights_mapped->p     = state->lamp.p;
         lights_mapped->eye   = state->main_cam.pos;
-        renderer->context->Unmap(state->light_buff, 0);
+        d11->context->Unmap(d11->light_buff, 0);
 
-        renderer->context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+        d11->context->Map(d11->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
         m4 *matrix_buffer = (m4 *)matrices_map.pData;
         matrix_buffer[0] = state->environment.transform;
         matrix_buffer[1] = Camera_m4(state->main_cam.pos, state->main_cam.target, state->main_cam.up);
         matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
-        renderer->context->Unmap(state->matrix_buff, 0);
+        d11->context->Unmap(d11->matrix_buff, 0);
 
-        renderer->context->DrawIndexed(204, 0, 0);
+        d11->context->DrawIndexed(204, 0, 0);
     }
 
     { // player ------------------------------------------------------
@@ -580,32 +440,32 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         D3D11_MAPPED_SUBRESOURCE matrices_map = {};
         D3D11_MAPPED_SUBRESOURCE lights_map = {};
 
-        renderer->context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+        d11->context->Map(d11->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
         m4 *matrix_buffer = (m4 *)matrices_map.pData;
         matrix_buffer[0] = Transform_m4(state->lamp.p, make_v3(0.f), make_v3(0.1f));
         matrix_buffer[1] = Camera_m4(state->main_cam.pos, state->main_cam.target, state->main_cam.up);
         matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
-        renderer->context->Unmap(state->matrix_buff, 0);
+        d11->context->Unmap(d11->matrix_buff, 0);
 
-        renderer->context->DrawIndexed(2880, 0, 0);
+        d11->context->DrawIndexed(2880, 0, 0);
 
         set_active_texture(renderer, &state->tex_yellow);
 
-        renderer->context->Map(state->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
+        d11->context->Map(d11->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
         Light_Buffer *lights_mapped = (Light_Buffer *)lights_map.pData;
         lights_mapped->color = state->lamp.color;
         lights_mapped->p     = state->lamp.p-state->player.p;
         lights_mapped->eye   = state->main_cam.pos;
-        renderer->context->Unmap(state->light_buff, 0);
+        d11->context->Unmap(d11->light_buff, 0);
 
-        renderer->context->Map(state->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+        d11->context->Map(d11->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
         matrix_buffer = (m4 *)matrices_map.pData;
         matrix_buffer[0] = Translation_m4(state->player.p);
         matrix_buffer[1] = Camera_m4(state->main_cam.pos, state->main_cam.target, state->main_cam.up);
         matrix_buffer[2] = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
-        renderer->context->Unmap(state->matrix_buff, 0);
+        d11->context->Unmap(d11->matrix_buff, 0);
 
-        renderer->context->DrawIndexed(2880, 0, 0);
+        d11->context->DrawIndexed(2880, 0, 0);
     }
 
     char *text = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\n0123456789 ?!\"'.,;<>[]{}()-_+=*&^%$#@/\\~`";

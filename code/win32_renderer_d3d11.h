@@ -7,7 +7,7 @@
    $Notice: (C) Copyright 2020 by Davide Stasio. All Rights Reserved. $
    ======================================================================== */
 
-struct Renderer
+struct D11_Renderer
 {
     ID3D11Device        *device;
     ID3D11DeviceContext *context;
@@ -18,6 +18,9 @@ struct Renderer
     ID3D11DepthStencilState *nodepth_nostencil_state;
     ID3D11RenderTargetView  *render_target_rgb;
     ID3D11DepthStencilView  *render_target_depth;
+
+    ID3D11Buffer *matrix_buff;
+    ID3D11Buffer *light_buff;
 };
 
 #define WINDY_RENDERER_D3D11_H

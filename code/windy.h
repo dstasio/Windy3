@@ -6,7 +6,6 @@
    $Creator: Davide Stasio $
    $Notice: (C) Copyright 2014 by Davide Stasio. All Rights Reserved. $
    ======================================================================== */
-#include "windy_renderer_d3d11.cpp"
 #include "windy_platform.h"
 #define STB_TRUETYPE_IMPLEMENTATION 1
 #include "stb_truetype.h"
@@ -20,15 +19,6 @@
 #define Assert(expr)
 #endif
 #include "windy_math.h"
-
-struct Shader_Pack
-{
-    ID3D11VertexShader *vertex;
-    ID3D11PixelShader  *pixel;
-
-    Input_File vertex_file;
-    Input_File  pixel_file;
-};
 
 struct Texture
 {
@@ -87,11 +77,8 @@ struct Dir_Light
  
 struct Game_State
 {
-    ID3D11Buffer *matrix_buff;
-    ID3D11Buffer *light_buff;
-
-    Shader_Pack  *phong_shader;
-    Shader_Pack  *font_shader;
+    Platform_Shader  *phong_shader;
+    Platform_Shader  *font_shader;
 
     Mesh     environment;
     Mesh     player;

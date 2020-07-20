@@ -196,6 +196,8 @@ PLATFORM_RELOAD_CHANGED_FILE(win32_reload_file_if_changed)
     return(has_changed);
 }
 
+#include "win32_renderer_d3d11.cpp"
+
 LRESULT CALLBACK WindyProc(
     HWND   WindowHandle,
     UINT   Message,
@@ -293,25 +295,29 @@ WinMain(
 
         Win32_Game_Code windy = load_windy();
 
-        Renderer renderer = {};
+        Platform_Renderer renderer = {};
+        D11_Renderer d11 = {};
+        renderer.load_renderer = win32_load_d3d11;
+        renderer.reload_shader = d3d11_reload_shader;
+        renderer.platform = (void *)&d11;
 
-        DXGI_MODE_DESC DisplayModeDescriptor = {};
+        DXGI_MODE_DESC display_mode_desc = {};
         //DisplayModeDescriptor.Width = WIDTH;
         //DisplayModeDescriptor.Height = HEIGHT;
-        DisplayModeDescriptor.RefreshRate = {60, 1};
-        DisplayModeDescriptor.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        DisplayModeDescriptor.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_PROGRESSIVE;
-        DisplayModeDescriptor.Scaling = DXGI_MODE_SCALING_CENTERED;
+        display_mode_desc.RefreshRate = {60, 1};
+        display_mode_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        display_mode_desc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_PROGRESSIVE;
+        display_mode_desc.Scaling = DXGI_MODE_SCALING_CENTERED;
 
-        DXGI_SWAP_CHAIN_DESC SwapChainDescriptor = {};
-        SwapChainDescriptor.BufferDesc = DisplayModeDescriptor;
-        SwapChainDescriptor.SampleDesc = {1, 0};
-        SwapChainDescriptor.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-        SwapChainDescriptor.BufferCount = 2;
-        SwapChainDescriptor.OutputWindow = MainWindow;
-        SwapChainDescriptor.Windowed = true;
-        SwapChainDescriptor.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-        SwapChainDescriptor.Flags;
+        DXGI_SWAP_CHAIN_DESC swap_chain_desc = {};
+        swap_chain_desc.BufferDesc = display_mode_desc;
+        swap_chain_desc.SampleDesc = {1, 0};
+        swap_chain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        swap_chain_desc.BufferCount = 2;
+        swap_chain_desc.OutputWindow = MainWindow;
+        swap_chain_desc.Windowed = true;
+        swap_chain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+        swap_chain_desc.Flags;
 
         D3D11CreateDeviceAndSwapChain(
             0,
@@ -321,14 +327,14 @@ WinMain(
             0,
             0,
             D3D11_SDK_VERSION,
-            &SwapChainDescriptor,
-            &renderer.swap_chain,
-            &renderer.device,
+            &swap_chain_desc,
+            &d11.swap_chain,
+            &d11.device,
             0,
-            &renderer.context
+            &d11.context
         );
 
-        renderer.swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&renderer.backbuffer);
+        d11.swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&d11.backbuffer);
 
         Input input = {};
         MSG Message = {};
@@ -456,7 +462,7 @@ WinMain(
             last_performance_counter = current_performance_counter;
             inform("Frametime: %f     FPS:%d\n", dtime, (u32)(1/dtime));
 
-            renderer.swap_chain->Present(0, 0);
+            d11.swap_chain->Present(0, 0);
         }
     }
     else
