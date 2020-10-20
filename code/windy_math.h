@@ -151,12 +151,6 @@ Dot(v4 a, v4 b)
 //
 // @todo: maybe add m4t (matrix4 transposed)?
 
-union m4
-{
-    r32 m[4][4];
-    v4  col [4];
-};
-
 inline m4
 Transpose(m4 a)
 {

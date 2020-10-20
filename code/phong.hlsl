@@ -27,12 +27,12 @@ VS_OUTPUT
 main(VS_INPUT input)
 {
     VS_OUTPUT output;
-    float4x4 camera_space = mul(projection, mul(camera, model));
-    output.proj_pos = mul(camera_space, float4(input.pos, 1.f));
+    output.world_pos = mul(model, float4(input.pos, 1.f));
+    float4x4 screen_space = mul(projection, camera);
+    output.proj_pos = mul(screen_space, float4(output.world_pos, 1.f));
     //output.txc = input.txc;
     output.txc = input.pos.xy;
     output.normal = input.normal;
-    output.world_pos = input.pos;
 
     return(output);
 }

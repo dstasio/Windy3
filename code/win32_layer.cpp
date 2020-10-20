@@ -295,10 +295,23 @@ WinMain(
 
         Win32_Game_Code windy = load_windy();
 
+        // @todo: probably a global variable is a good idea?
         Platform_Renderer renderer = {};
         D11_Renderer d11 = {};
-        renderer.load_renderer = win32_load_d3d11;
-        renderer.reload_shader = d3d11_reload_shader;
+        renderer.load_renderer    = win32_load_d3d11;
+        renderer.reload_shader    = d3d11_reload_shader;
+        renderer.init_texture     = d3d11_init_texture;
+        renderer.load_wexp        = d3d11_load_wexp;
+        renderer.init_square_mesh = d3d11_init_square_mesh; // @todo: this is to be removed; called in a general init function for the renderer
+        renderer.clear               = d3d11_clear;
+        renderer.set_active_mesh     = d3d11_set_active_mesh;
+        renderer.set_active_texture  = d3d11_set_active_texture;
+        renderer.set_active_shader   = d3d11_set_active_shader;
+        renderer.set_render_targets  = d3d11_set_default_render_targets;
+        renderer.set_depth_stencil   = d3d11_set_depth_stencil;
+        renderer.draw_rect = d3d11_draw_rect;
+        renderer.draw_text = d3d11_draw_text;
+        renderer.draw_mesh = d3d11_draw_mesh;
         renderer.platform = (void *)&d11;
 
         DXGI_MODE_DESC display_mode_desc = {};

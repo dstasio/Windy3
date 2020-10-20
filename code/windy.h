@@ -4,11 +4,9 @@
    $Date: $
    $Revision: $
    $Creator: Davide Stasio $
-   $Notice: (C) Copyright 2014 by Davide Stasio. All Rights Reserved. $
+   $Notice: (C) Copyright 2020 by Davide Stasio. All Rights Reserved. $
    ======================================================================== */
 #include "windy_platform.h"
-#define STB_TRUETYPE_IMPLEMENTATION 1
-#include "stb_truetype.h"
 
 #define WIDTH 1024
 #define HEIGHT 720
@@ -20,26 +18,8 @@
 #endif
 #include "windy_math.h"
 
-struct Texture
-{
-    ID3D11ShaderResourceView *view;
-    ID3D11Texture2D          *handle;
-
-    u32   width;
-    u32   height;
-    u32   size;
-    void *data;
-};
-
-#define first_nonwhite_char '!'
-#define last_nonwhite_char  '~'
-#define n_supported_characters (1+last_nonwhite_char-first_nonwhite_char)
-struct Font
-{
-    stbtt_fontinfo info;
-    r32 height, scale;
-    Texture chars[n_supported_characters];
-};
+#define byte_offset(base, offset) ((u8*)(base) + (offset))
+inline u16 truncate_to_u16(u32 v) {assert(v <= 0xFFFF); return (u16)v; };
 
 struct Camera
 {
@@ -50,12 +30,7 @@ struct Camera
 
 struct Mesh
 {
-    ID3D11InputLayout *in_layout;
-    ID3D11Buffer      *vbuff;
-    ID3D11Buffer      *ibuff;
-
-    u16 index_count;
-    u8  vert_stride;
+    Platform_Mesh_Buffers buffers;
 
     m4 transform;
     v3 p;
@@ -82,10 +57,9 @@ struct Game_State
 
     Mesh     environment;
     Mesh     player;
-    Mesh     square;
-    Texture  tex_white;
-    Texture  tex_yellow;
-    Font     inconsolata;
+    Platform_Texture  tex_white;
+    Platform_Texture  tex_yellow;
+    Platform_Font     inconsolata;
 
     m4      cam_matrix;
     m4      proj_matrix;
@@ -117,35 +91,6 @@ push_size_(Memory_Pool *pool, memory_index size)
     pool->used += size;
     return(result);
 }
-
-#pragma pack(push, 1)
-struct Bitmap_Header
-{
-    u16 Signature;
-    u32 FileSize;
-    u32 Reserved;
-    u32 DataOffset;
-    u32 InfoHeaderSize;
-    u32 Width;
-    u32 Height;
-    u16 Planes;
-    u16 BitsPerPixel;
-    u32 Compression;
-    u32 ImageSize;
-    u32 XPixelsPerMeter;
-    u32 YPixelsPerMeter;
-    u32 ColorsUsed;
-    u32 ImportantColors;
-};
-
-struct Wexp_Header
-{
-    u16 signature;
-    u16 vert_offset;
-    u32 indices_offset;
-    u32 eof_offset;
-};
-#pragma pack(pop)
 
 #define WINDY_H
 #endif

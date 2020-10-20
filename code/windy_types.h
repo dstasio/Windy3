@@ -64,5 +64,11 @@ union v4
     r32    row[4];
 };
 
+union m4
+{
+    r32 m[4][4];
+    v4  col [4];
+};
+
 #define WINDY_TYPES_H
 #endif

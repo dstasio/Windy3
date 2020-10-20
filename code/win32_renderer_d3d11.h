@@ -1,4 +1,4 @@
-#if !defined(WINDY_RENDERER_D3D11_H)
+#if !defined(WIN32_RENDERER_D3D11_H)
 /* ========================================================================
    $File: $
    $Date: $
@@ -23,5 +23,5 @@ struct D11_Renderer
     ID3D11Buffer *light_buff;
 };
 
-#define WINDY_RENDERER_D3D11_H
+#define WIN32_RENDERER_D3D11_H
 #endif
