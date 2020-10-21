@@ -111,7 +111,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         
 
         state->environment = load_mesh(renderer, memory->read_file, "assets/environment.wexp", state->phong_shader);
-        state->player      = load_mesh(renderer, memory->read_file, "assets/sphere.wexp",      state->phong_shader);
+        state->player      = load_mesh(renderer, memory->read_file, "assets/player.wexp",      state->phong_shader);
         state->tex_white   = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_white.bmp");
         state->tex_yellow  = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_yellow.bmp");
         renderer->init_square_mesh(renderer, state->font_shader);
@@ -165,7 +165,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->main_cam.pos.y  = Sin(state->cam_htheta) * Cos(state->cam_vtheta);
         state->main_cam.pos    = Normalize(state->main_cam.pos)*state->cam_radius;
         state->main_cam.pos   += state->player.p;
-        state->main_cam.target = state->player.p;
+        state->main_cam.target = state->player.p + make_v3(0.f, 0.f, 1.3f);
     }
 
 #if WINDY_INTERNAL
