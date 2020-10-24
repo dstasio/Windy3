@@ -108,7 +108,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->font_shader  = push_struct(&mempool, Platform_Shader);
         renderer->reload_shader(state->phong_shader, renderer, "phong");
         renderer->reload_shader(state->font_shader, renderer, "fonts");
-        
 
         state->environment = load_mesh(renderer, memory->read_file, "assets/environment.wexp", state->phong_shader);
         state->player      = load_mesh(renderer, memory->read_file, "assets/player.wexp",      state->phong_shader);
@@ -182,20 +181,27 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         m4 camera = Camera_m4(state->main_cam.pos, state->main_cam.target, state->main_cam.up);
         m4 screen = Perspective_m4(DegToRad*60.f, (r32)width/(r32)height, 0.01f, 100.f);
         m4 model  = state->environment.transform;
+        Platform_Phong_Settings settings = {};
 
-        renderer->draw_mesh(&state->environment.buffers, state->phong_shader,
+        renderer->draw_mesh(&state->environment.buffers, state->phong_shader, &settings,
                             &model, &camera, &screen,
                             (v3 *)&state->lamp, &state->main_cam.pos);
     }
 
     { // player ------------------------------------------------------
         m4 model  = Transform_m4(state->lamp.p, make_v3(0.f), make_v3(0.1f));
-        renderer->draw_mesh(&state->player.buffers, state->phong_shader, &model, 0, 0, 0, 0);
+        Platform_Phong_Settings settings = {};
+        settings.flags |= PHONG_FLAG_SOLIDCOLOR;
+        settings.color = make_v3(1.f);
+
+        renderer->draw_mesh(&state->player.buffers, state->phong_shader, &settings, &model, 0, 0, 0, 0);
+
+        settings.color = {0.8f, 0.f, 0.2f};
 
         renderer->set_active_texture(&state->tex_yellow);
         model  = state->player.transform;
 
-        renderer->draw_mesh(&state->player.buffers, state->phong_shader, &model, 0, 0, 0, 0);
+        renderer->draw_mesh(&state->player.buffers, state->phong_shader, &settings, &model, 0, 0, 0, 0);
     }
 
 //    char *text = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\n0123456789 ?!\"'.,;<>[]{}()-_+=*&^%$#@/\\~`";

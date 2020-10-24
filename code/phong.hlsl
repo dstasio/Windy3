@@ -27,7 +27,7 @@ VS_OUTPUT
 main(VS_INPUT input)
 {
     VS_OUTPUT output;
-    output.world_pos = mul(model, float4(input.pos, 1.f));
+    output.world_pos = (float3)mul(model, float4(input.pos, 1.f));
     float4x4 screen_space = mul(projection, camera);
     output.proj_pos = mul(screen_space, float4(output.world_pos, 1.f));
     //output.txc = input.txc;
@@ -38,6 +38,7 @@ main(VS_INPUT input)
 }
 
 #elif PIXEL_HLSL // --------------------------------------------------
+#include "hlsl_defines.h"
 
 SamplerState TextureSamplerState;
 
@@ -53,15 +54,22 @@ cbuffer Lights: register(b0)
     float3 eye;
 }
 
+cbuffer Settings: register(b1)
+{
+    unsigned int flags;
+    float3 solid_color;         // used if FLAG_SOLIDCOLOR is set
+}
+
 Texture2D SampleTexture;
+
 
 float4
 light(float3 color, float3 dir, float3 eyedir, float3 normal)
 {
-    float ambient = 0.1f;
+    float ambient = 0.2f;
     float diffuse = max(dot(dir, normal), 0.f);
     float specular = pow(max(dot(reflect(-dir, normal), eyedir), 0.0f), 128);
-    return float4(color*(ambient+diffuse+specular*0.3), 1.f);
+    return float4(color*(ambient+diffuse+specular), 1.f);
 }
 
 PS_OUTPUT
@@ -71,7 +79,11 @@ main(VS_OUTPUT input)
     float3 normal = normalize(input.normal);
     float3 eyedir = normalize(eye - input.world_pos);
     float3 lightdir = normalize(lightpos - input.world_pos);
-    output.color = light(color, lightdir, eyedir, normal) * SampleTexture.Sample(TextureSamplerState, input.txc);
+    output.color = light(color, lightdir, eyedir, normal);
+    if (flags & PHONG_FLAG_SOLIDCOLOR)
+        output.color *= float4(solid_color, 1.f);
+    else
+        output.color *= SampleTexture.Sample(TextureSamplerState, input.txc);
     return(output);
 }
 

@@ -75,6 +75,15 @@ struct Platform_Font
     Platform_Texture chars[n_supported_characters];
 };
 
+#include "hlsl_defines.h"
+#pragma pack(push, 16)
+    struct Platform_Phong_Settings
+    {
+        u32 flags;
+        v3  color;
+    };
+#pragma pack(pop)
+
 #define PLATFORM_LOAD_RENDERER(name) void name(Platform_Renderer *renderer)
 typedef PLATFORM_LOAD_RENDERER(Platform_Load_Renderer);
 
@@ -124,10 +133,10 @@ typedef PLATFORM_DRAW_RECT(Platform_Draw_Rect);
 #define PLATFORM_DRAW_TEXT(name) void name(Platform_Shader *shader, Platform_Font *font, char *text, v2 pivot)
 typedef PLATFORM_DRAW_TEXT(Platform_Draw_Text);
 
-#define PLATFORM_DRAW_MESH(name) void name(Platform_Mesh_Buffers *mesh, Platform_Shader *shader, m4 *model_transform, m4 *camera_transform, m4 *screen_transform, v3 *light_data, v3 *eye)
+#define PLATFORM_DRAW_MESH(name) void name(Platform_Mesh_Buffers *mesh, Platform_Shader *shader, Platform_Phong_Settings *settings, m4 *model_transform, m4 *camera_transform, m4 *screen_transform, v3 *light_data, v3 *eye)
 typedef PLATFORM_DRAW_MESH(Platform_Draw_Mesh);
 #undef  PLATFORM_DRAW_MESH
-#define PLATFORM_DRAW_MESH(name) void name(Platform_Mesh_Buffers *mesh, Platform_Shader *shader, m4 *model_transform, m4 *camera_transform = 0, m4 *screen_transform = 0, v3 *light_data = 0, v3 *eye = 0)
+#define PLATFORM_DRAW_MESH(name) void name(Platform_Mesh_Buffers *mesh, Platform_Shader *shader, Platform_Phong_Settings *settings, m4 *model_transform, m4 *camera_transform = 0, m4 *screen_transform = 0, v3 *light_data = 0, v3 *eye = 0)
 
 struct Platform_Renderer
 {

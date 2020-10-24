@@ -159,6 +159,16 @@ PLATFORM_LOAD_RENDERER(win32_load_d3d11)
     d11->device->CreateBuffer(&light_buff_desc, 0, &d11->light_buff);
     d11->context->PSSetConstantBuffers(0, 1, &d11->light_buff);
 
+    D3D11_BUFFER_DESC settings_buff_desc = {};
+    settings_buff_desc.ByteWidth = sizeof(Platform_Phong_Settings);
+    settings_buff_desc.Usage = D3D11_USAGE_DYNAMIC;
+    settings_buff_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    settings_buff_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    settings_buff_desc.MiscFlags = 0;
+    settings_buff_desc.StructureByteStride = 0;
+    d11->device->CreateBuffer(&settings_buff_desc, 0, &d11->settings_buff);
+    d11->context->PSSetConstantBuffers(1, 1, &d11->settings_buff);
+
     //
     // rasterizer set-up
     //
@@ -519,6 +529,7 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
     global_renderer->set_active_shader(shader);
     D3D11_MAPPED_SUBRESOURCE matrices_map = {};
     D3D11_MAPPED_SUBRESOURCE lights_map = {};
+    D3D11_MAPPED_SUBRESOURCE settings_map = {};
 
     if (light_data && eye)
     {
@@ -528,6 +539,15 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
         lights_mapped->p     = light_data[1]; // position
         lights_mapped->eye   = *eye;
         d11->context->Unmap(d11->light_buff, 0);
+    }
+
+    if (settings)
+    {
+        d11->context->Map(d11->settings_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &settings_map);
+        Platform_Phong_Settings *gpu = (Platform_Phong_Settings *)settings_map.pData;
+        gpu->flags = settings->flags;
+        gpu->color = settings->color;
+        d11->context->Unmap(d11->settings_buff, 0);
     }
 
     // @todo: D3D11_MAP_WRITE
