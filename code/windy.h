@@ -8,9 +8,6 @@
    ======================================================================== */
 #include "windy_platform.h"
 
-#define WIDTH 1024
-#define HEIGHT 720
-
 #if WINDY_DEBUG
 #define Assert(expr) if(!(expr)) {*(int *)0 = 0;}
 #else
