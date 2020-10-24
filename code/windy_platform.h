@@ -81,14 +81,14 @@ typedef PLATFORM_LOAD_RENDERER(Platform_Load_Renderer);
 #define PLATFORM_RELOAD_SHADER(func) void func(Platform_Shader *shader, Platform_Renderer *renderer, char *name)
 typedef PLATFORM_RELOAD_SHADER(Platform_Reload_Shader);
 
-#define PLATFORM_INIT_TEXTURE(name) void name(Platform_Texture *texture)
+#define PLATFORM_INIT_TEXTURE(name) void name(Platform_Renderer *renderer, Platform_Texture *texture)
 typedef PLATFORM_INIT_TEXTURE(Platform_Init_Texture);
 
 // "shader" is needed for d3d11, can be null otherwise
-#define PLATFORM_LOAD_WEXP(name) void name(Platform_Mesh_Buffers *buffers, Platform_Shader *shader)
+#define PLATFORM_LOAD_WEXP(name) void name(Platform_Renderer *renderer, Platform_Mesh_Buffers *buffers, Platform_Shader *shader)
 typedef PLATFORM_LOAD_WEXP(Platform_Load_Wexp);
 
-#define PLATFORM_INIT_SQUARE_MESH(name) void name(Platform_Shader *shader)
+#define PLATFORM_INIT_SQUARE_MESH(name) void name(Platform_Renderer *renderer, Platform_Shader *shader)
 typedef PLATFORM_INIT_SQUARE_MESH(Platform_Init_Square_Mesh);
 
 
@@ -97,37 +97,37 @@ typedef PLATFORM_INIT_SQUARE_MESH(Platform_Init_Square_Mesh);
 #define CLEAR_DEPTH   0b010
 #define CLEAR_STENCIL 0b100
 #define CLEAR_ALL     CLEAR_COLOR|CLEAR_DEPTH|CLEAR_STENCIL
-#define PLATFORM_CLEAR(name) void name(u32 what, v3 color, r32 depth, u8 stencil)
+#define PLATFORM_CLEAR(name) void name(Platform_Renderer *renderer, u32 what, v3 color, r32 depth, u8 stencil)
 typedef PLATFORM_CLEAR(Platform_Clear);
 
-#define PLATFORM_SET_ACTIVE_MESH(name) void name(Platform_Mesh_Buffers *buffers)
+#define PLATFORM_SET_ACTIVE_MESH(name) void name(Platform_Renderer *renderer, Platform_Mesh_Buffers *buffers)
 typedef PLATFORM_SET_ACTIVE_MESH(Platform_Set_Active_Mesh);
 
-#define PLATFORM_SET_ACTIVE_TEXTURE(name) void name(Platform_Texture *texture)
+#define PLATFORM_SET_ACTIVE_TEXTURE(name) void name(Platform_Renderer *renderer, Platform_Texture *texture)
 typedef PLATFORM_SET_ACTIVE_TEXTURE(Platform_Set_Active_Texture);
 
-#define PLATFORM_SET_ACTIVE_SHADER(name) void name(Platform_Shader *shader)
+#define PLATFORM_SET_ACTIVE_SHADER(name) void name(Platform_Renderer *renderer, Platform_Shader *shader)
 typedef PLATFORM_SET_ACTIVE_SHADER(Platform_Set_Active_Shader);
 
-#define PLATFORM_SET_RENDER_TARGETS(name) void name()
+#define PLATFORM_SET_RENDER_TARGETS(name) void name(Platform_Renderer *renderer)
 typedef PLATFORM_SET_RENDER_TARGETS(Platform_Set_Render_Targets);
 
-#define PLATFORM_SET_DEPTH_STENCIL(name) void name(b32 depth_enable, b32 stencil_enable, u32 stencil_ref_value)
+#define PLATFORM_SET_DEPTH_STENCIL(name) void name(Platform_Renderer *renderer, b32 depth_enable, b32 stencil_enable, u32 stencil_ref_value)
 typedef PLATFORM_SET_DEPTH_STENCIL(Platform_Set_Depth_Stencil);
 
 
-// (0,0) = Top-Left; (global_width,global_height) = Bottom-Right
+// (0,0) = Top-Left; (WIDTH,HEIGHT) = Bottom-Right
 // @todo: test sub-pixel placement with AA.
-#define PLATFORM_DRAW_RECT(name) void name(Platform_Shader *shader, v2 size, v2 pos)
+#define PLATFORM_DRAW_RECT(name) void name(Platform_Renderer *renderer, Platform_Shader *shader, v2 size, v2 pos)
 typedef PLATFORM_DRAW_RECT(Platform_Draw_Rect);
 
-#define PLATFORM_DRAW_TEXT(name) void name(Platform_Shader *shader, Platform_Font *font, char *text, v2 pivot)
+#define PLATFORM_DRAW_TEXT(name) void name(Platform_Renderer *renderer, Platform_Shader *shader, Platform_Font *font, char *text, v2 pivot)
 typedef PLATFORM_DRAW_TEXT(Platform_Draw_Text);
 
-#define PLATFORM_DRAW_MESH(name) void name(Platform_Mesh_Buffers *mesh, Platform_Shader *shader, m4 *model_transform, m4 *camera_transform, m4 *screen_transform, v3 *light_data, v3 *eye)
+#define PLATFORM_DRAW_MESH(name) void name(Platform_Renderer *renderer, Platform_Mesh_Buffers *mesh, Platform_Shader *shader, m4 *model_transform, m4 *camera_transform, m4 *screen_transform, v3 *light_data, v3 *eye)
 typedef PLATFORM_DRAW_MESH(Platform_Draw_Mesh);
 #undef  PLATFORM_DRAW_MESH
-#define PLATFORM_DRAW_MESH(name) void name(Platform_Mesh_Buffers *mesh, Platform_Shader *shader, m4 *model_transform, m4 *camera_transform = 0, m4 *screen_transform = 0, v3 *light_data = 0, v3 *eye = 0)
+#define PLATFORM_DRAW_MESH(name) void name(Platform_Renderer *renderer, Platform_Mesh_Buffers *mesh, Platform_Shader *shader, m4 *model_transform, m4 *camera_transform = 0, m4 *screen_transform = 0, v3 *light_data = 0, v3 *eye = 0)
 
 struct Platform_Renderer
 {
@@ -194,7 +194,7 @@ typedef struct Game_Memory
     Platform_Reload_Changed_File *reload_if_changed;
 } game_memory;
 
-#define GAME_UPDATE_AND_RENDER(name) void name(Input *input, r32 dtime, Platform_Renderer *renderer, Game_Memory *memory, u32 width, u32 height)
+#define GAME_UPDATE_AND_RENDER(name) void name(Input *input, r32 dtime, Platform_Renderer *renderer, Game_Memory *memory)
 typedef GAME_UPDATE_AND_RENDER(Game_Update_And_Render);
 
 #define WINDY_PLATFORM_H

@@ -16,94 +16,166 @@ cat(char *src0, char *src1, char *dest)
     *dest = '\0';
 }
 
-inline void
-d3d11_resize_render_targets()
+inline PLATFORM_INIT_SQUARE_MESH(d3d11_init_square_mesh)
 {
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
-    if (d11->swap_chain && d11->context) {
-        d11->context->OMSetRenderTargets(0, 0, 0);
-        if (d11->render_target_rgb)
-            d11->render_target_rgb->Release();
-        if (d11->render_target_depth)
-            d11->render_target_depth->Release();
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
+    r32 square_verts[] = {
+        0.f, -1.f,  0.f, 1.f,
+        1.f, -1.f,  1.f, 1.f,
+        1.f,  0.f,  1.f, 0.f,
 
-        d11->swap_chain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
+        1.f,  0.f,  1.f, 0.f,
+        0.f,  0.f,  0.f, 0.f,
+        0.f, -1.f,  0.f, 1.f
+    };
 
-        ID3D11Resource  *backbuffer = 0;
-        ID3D11Texture2D *depth_stencil_texture = 0;
+    u32 vertices_size = sizeof(square_verts);
+    renderer->square.vert_stride  = 4*sizeof(r32);
 
-        // @todo: look at multisampling for dsv_dimension, might be useful
-        D3D11_DEPTH_STENCIL_VIEW_DESC depth_view_desc = {DXGI_FORMAT_D32_FLOAT, D3D11_DSV_DIMENSION_TEXTURE2D};
-        D3D11_TEXTURE2D_DESC depth_stencil_desc = {};
-        depth_stencil_desc.Width = global_width;
-        depth_stencil_desc.Height = global_height;
-        depth_stencil_desc.MipLevels = 1;
-        depth_stencil_desc.ArraySize = 1;
-        depth_stencil_desc.Format = DXGI_FORMAT_D32_FLOAT;
-        depth_stencil_desc.SampleDesc.Count = 1;
-        depth_stencil_desc.SampleDesc.Quality = 0;
-        depth_stencil_desc.Usage = D3D11_USAGE_DEFAULT;
-        depth_stencil_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-        depth_stencil_desc.MiscFlags = 0;
-        d11->device->CreateTexture2D(&depth_stencil_desc, 0, &depth_stencil_texture);
+    //
+    // vertex buffer
+    //
+    D3D11_SUBRESOURCE_DATA raw_vert_data = {square_verts};
+    D3D11_BUFFER_DESC vert_buff_desc     = {};
+    vert_buff_desc.ByteWidth             = sizeof(square_verts);
+    vert_buff_desc.Usage                 = D3D11_USAGE_IMMUTABLE;
+    vert_buff_desc.BindFlags             = D3D11_BIND_VERTEX_BUFFER;
+    vert_buff_desc.StructureByteStride   = renderer->square.vert_stride;
+    d11->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, (ID3D11Buffer **)&renderer->square.vert);
 
-        d11->swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&backbuffer);
-        d11->device->CreateRenderTargetView(backbuffer, 0, &d11->render_target_rgb);
+    //
+    // input layout description
+    //
+    D3D11_INPUT_ELEMENT_DESC in_desc[] = {
+        {"POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    };
+    d11->device->CreateInputLayout(in_desc, 2, shader->vertex_file.data, shader->vertex_file.size, (ID3D11InputLayout **)&renderer->square.platform);
+}
 
-        d11->device->CreateDepthStencilView(depth_stencil_texture, &depth_view_desc, &d11->render_target_depth);
-        backbuffer->Release();
-        depth_stencil_texture->Release();
+PLATFORM_RELOAD_SHADER(d3d11_reload_shader)
+{
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
 
-        // ===========================================================
-        // Viewport set-up
-        // ===========================================================
-        D3D11_VIEWPORT viewport = {};
-        viewport.TopLeftX = 0;
-        viewport.TopLeftY = 0;
-        viewport.Width  = (r32)global_width;
-        viewport.Height = (r32)global_height;
-        viewport.MinDepth = 0.f;
-        viewport.MaxDepth = 1.f;
-        d11->context->RSSetViewports(1, &viewport);
-    }
+    char vertex_path[MAX_PATH] = {};
+    char  pixel_path[MAX_PATH] = {};
+    cat("assets\\", name, vertex_path);
+    cat(vertex_path, ".vsh", vertex_path);
+    cat("assets\\", name,  pixel_path);
+    cat( pixel_path, ".psh",  pixel_path);
+    shader->vertex_file.path = vertex_path;
+    shader->pixel_file.path  =  pixel_path;
+
+    if(win32_reload_file_if_changed(&shader->vertex_file))
+        d11->device->CreateVertexShader(shader->vertex_file.data, shader->vertex_file.size, 0, (ID3D11VertexShader **)&shader->vertex);
+
+    if(win32_reload_file_if_changed(&shader->pixel_file))
+        d11->device->CreatePixelShader(shader->pixel_file.data, shader->pixel_file.size, 0, (ID3D11PixelShader **)&shader->pixel);
+}
+
+PLATFORM_INIT_TEXTURE(d3d11_init_texture)
+{
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
+    D3D11_TEXTURE2D_DESC tex_desc = {};
+    tex_desc.Width              = texture->width;
+    tex_desc.Height             = texture->height;
+    tex_desc.MipLevels          = 0;
+    tex_desc.ArraySize          = 1;
+    tex_desc.Format             = DXGI_FORMAT_R8G8B8A8_UNORM;
+    tex_desc.SampleDesc.Count   = 1;
+    tex_desc.SampleDesc.Quality = 0;
+    tex_desc.Usage              = D3D11_USAGE_DEFAULT;
+    tex_desc.BindFlags          = D3D11_BIND_SHADER_RESOURCE|D3D11_BIND_RENDER_TARGET;
+    tex_desc.MiscFlags          = D3D11_RESOURCE_MISC_GENERATE_MIPS;
+
+    ID3D11Texture2D **handle = (ID3D11Texture2D **)&texture->handle;
+    ID3D11ShaderResourceView **view = (ID3D11ShaderResourceView **)&texture->platform;
+    d11->device->CreateTexture2D(&tex_desc, 0, handle);
+    d11->device->CreateShaderResourceView(*handle, 0, view);
+    d11->context->UpdateSubresource(*handle, 0, 0, texture->bytes, texture->width*4, 0);
+    d11->context->GenerateMips(*view);
+}
+
+PLATFORM_LOAD_WEXP(d3d11_load_wexp)
+{
+    Assert(shader);
+    Assert(buffers->wexp);
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
+    Wexp_Header *wexp = buffers->wexp;
+
+    u32 vertices_size = wexp->indices_offset - wexp->vert_offset;
+    u32 indices_size  = wexp->eof_offset - wexp->indices_offset;
+    u16 index_count  = truncate_to_u16(indices_size / 2); // two bytes per index
+    u8  vert_stride  = 8*sizeof(r32);
+
+    //
+    // vertex buffer
+    //
+    D3D11_SUBRESOURCE_DATA raw_vert_data = {byte_offset(wexp, wexp->vert_offset)};
+    D3D11_BUFFER_DESC vert_buff_desc     = {};
+    vert_buff_desc.ByteWidth             = vertices_size;
+    vert_buff_desc.Usage                 = D3D11_USAGE_IMMUTABLE;
+    vert_buff_desc.BindFlags             = D3D11_BIND_VERTEX_BUFFER;
+    vert_buff_desc.StructureByteStride   = vert_stride;
+    d11->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, (ID3D11Buffer **)&buffers->vert);
+
+    //
+    // input layout description
+    //
+    D3D11_INPUT_ELEMENT_DESC in_desc[] = {
+        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0}
+    };
+    d11->device->CreateInputLayout(in_desc, 3, shader->vertex_file.data, shader->vertex_file.size, (ID3D11InputLayout **)&buffers->platform);
+
+    //
+    // index buffer
+    //
+    D3D11_SUBRESOURCE_DATA index_data = {byte_offset(wexp, wexp->indices_offset)};
+    D3D11_BUFFER_DESC index_buff_desc = {};
+    index_buff_desc.ByteWidth         = indices_size;
+    index_buff_desc.Usage             = D3D11_USAGE_IMMUTABLE;
+    index_buff_desc.BindFlags         = D3D11_BIND_INDEX_BUFFER;
+    d11->device->CreateBuffer(&index_buff_desc, &index_data, (ID3D11Buffer **)&buffers->index);
 }
 
 PLATFORM_LOAD_RENDERER(win32_load_d3d11)
 {
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
 
-//    D3D11_VIEWPORT Viewport = {};
-//    Viewport.TopLeftX = 0;
-//    Viewport.TopLeftY = 0;
-//    Viewport.Width = (r32)global_width;
-//    Viewport.Height = (r32)global_height;
-//    Viewport.MinDepth = 0.f;
-//    Viewport.MaxDepth = 1.f;
-//    d11->context->RSSetViewports(1, &Viewport);
+    D3D11_VIEWPORT Viewport = {};
+    Viewport.TopLeftX = 0;
+    Viewport.TopLeftY = 0;
+    Viewport.Width = WIDTH;
+    Viewport.Height = HEIGHT;
+    Viewport.MinDepth = 0.f;
+    Viewport.MaxDepth = 1.f;
+    d11->context->RSSetViewports(1, &Viewport);
 
     //
     // allocating rgb and depth buffers
     //
-//    D3D11_TEXTURE2D_DESC depth_buffer_desc = {};
-//    depth_buffer_desc.Width = global_width;
-//    depth_buffer_desc.Height = global_height;
-//    depth_buffer_desc.MipLevels = 1;
-//    depth_buffer_desc.ArraySize = 1;
-//    depth_buffer_desc.Format = DXGI_FORMAT_D32_FLOAT;
-//    depth_buffer_desc.SampleDesc.Count = 1;
-//    depth_buffer_desc.SampleDesc.Quality = 0;
-//    depth_buffer_desc.Usage = D3D11_USAGE_DEFAULT;
-//    depth_buffer_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-//    depth_buffer_desc.MiscFlags = 0;
+    D3D11_TEXTURE2D_DESC depth_buffer_desc = {};
+    depth_buffer_desc.Width = WIDTH;
+    depth_buffer_desc.Height = HEIGHT;
+    depth_buffer_desc.MipLevels = 1;
+    depth_buffer_desc.ArraySize = 1;
+    depth_buffer_desc.Format = DXGI_FORMAT_D32_FLOAT;
+    depth_buffer_desc.SampleDesc.Count = 1;
+    depth_buffer_desc.SampleDesc.Quality = 0;
+    depth_buffer_desc.Usage = D3D11_USAGE_DEFAULT;
+    depth_buffer_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+    depth_buffer_desc.MiscFlags = 0;
 
-//    ID3D11Texture2D *depth_texture;
-//    d11->device->CreateTexture2D(&depth_buffer_desc, 0, &depth_texture);
-//    D3D11_DEPTH_STENCIL_VIEW_DESC depth_view_desc = {DXGI_FORMAT_D32_FLOAT, D3D11_DSV_DIMENSION_TEXTURE2D};
-//    d11->device->CreateRenderTargetView(d11->backbuffer, 0, &d11->render_target_rgb);
-//    d11->device->CreateDepthStencilView(depth_texture, &depth_view_desc, &d11->render_target_depth);
-    d3d11_resize_render_targets();
+    ID3D11Texture2D *depth_texture;
+    d11->device->CreateTexture2D(&depth_buffer_desc, 0, &depth_texture);
 
     { // Depth states.
+        D3D11_DEPTH_STENCIL_VIEW_DESC depth_view_desc = {DXGI_FORMAT_D32_FLOAT, D3D11_DSV_DIMENSION_TEXTURE2D};
+        d11->device->CreateRenderTargetView(d11->backbuffer, 0, &d11->render_target_rgb);
+        d11->device->CreateDepthStencilView(depth_texture, &depth_view_desc, &d11->render_target_depth);
+
         D3D11_DEPTH_STENCIL_DESC depth_stencil_settings;
         depth_stencil_settings.DepthEnable    = 1;
         depth_stencil_settings.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
@@ -198,134 +270,10 @@ PLATFORM_LOAD_RENDERER(win32_load_d3d11)
     d11->context->OMSetBlendState(blend_state, 0, 0xFFFFFFFF);
 }
 
-inline PLATFORM_INIT_SQUARE_MESH(d3d11_init_square_mesh)
-{
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
-    r32 square_verts[] = {
-        0.f, -1.f,  0.f, 1.f,
-        1.f, -1.f,  1.f, 1.f,
-        1.f,  0.f,  1.f, 0.f,
-
-        1.f,  0.f,  1.f, 0.f,
-        0.f,  0.f,  0.f, 0.f,
-        0.f, -1.f,  0.f, 1.f
-    };
-
-    u32 vertices_size = sizeof(square_verts);
-    global_renderer->square.vert_stride  = 4*sizeof(r32);
-
-    //
-    // vertex buffer
-    //
-    D3D11_SUBRESOURCE_DATA raw_vert_data = {square_verts};
-    D3D11_BUFFER_DESC vert_buff_desc     = {};
-    vert_buff_desc.ByteWidth             = sizeof(square_verts);
-    vert_buff_desc.Usage                 = D3D11_USAGE_IMMUTABLE;
-    vert_buff_desc.BindFlags             = D3D11_BIND_VERTEX_BUFFER;
-    vert_buff_desc.StructureByteStride   = global_renderer->square.vert_stride;
-    d11->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, (ID3D11Buffer **)&global_renderer->square.vert);
-
-    //
-    // input layout description
-    //
-    D3D11_INPUT_ELEMENT_DESC in_desc[] = {
-        {"POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-        {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0},
-    };
-    d11->device->CreateInputLayout(in_desc, 2, shader->vertex_file.data, shader->vertex_file.size, (ID3D11InputLayout **)&global_renderer->square.platform);
-}
-
-PLATFORM_RELOAD_SHADER(d3d11_reload_shader)
-{
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
-
-    char vertex_path[MAX_PATH] = {};
-    char  pixel_path[MAX_PATH] = {};
-    cat("assets\\", name, vertex_path);
-    cat(vertex_path, ".vsh", vertex_path);
-    cat("assets\\", name,  pixel_path);
-    cat( pixel_path, ".psh",  pixel_path);
-    shader->vertex_file.path = vertex_path;
-    shader->pixel_file.path  =  pixel_path;
-
-    if(win32_reload_file_if_changed(&shader->vertex_file))
-        d11->device->CreateVertexShader(shader->vertex_file.data, shader->vertex_file.size, 0, (ID3D11VertexShader **)&shader->vertex);
-
-    if(win32_reload_file_if_changed(&shader->pixel_file))
-        d11->device->CreatePixelShader(shader->pixel_file.data, shader->pixel_file.size, 0, (ID3D11PixelShader **)&shader->pixel);
-}
-
-PLATFORM_INIT_TEXTURE(d3d11_init_texture)
-{
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
-    D3D11_TEXTURE2D_DESC tex_desc = {};
-    tex_desc.Width              = texture->width;
-    tex_desc.Height             = texture->height;
-    tex_desc.MipLevels          = 0;
-    tex_desc.ArraySize          = 1;
-    tex_desc.Format             = DXGI_FORMAT_R8G8B8A8_UNORM;
-    tex_desc.SampleDesc.Count   = 1;
-    tex_desc.SampleDesc.Quality = 0;
-    tex_desc.Usage              = D3D11_USAGE_DEFAULT;
-    tex_desc.BindFlags          = D3D11_BIND_SHADER_RESOURCE|D3D11_BIND_RENDER_TARGET;
-    tex_desc.MiscFlags          = D3D11_RESOURCE_MISC_GENERATE_MIPS;
-
-    ID3D11Texture2D **handle = (ID3D11Texture2D **)&texture->handle;
-    ID3D11ShaderResourceView **view = (ID3D11ShaderResourceView **)&texture->platform;
-    d11->device->CreateTexture2D(&tex_desc, 0, handle);
-    d11->device->CreateShaderResourceView(*handle, 0, view);
-    d11->context->UpdateSubresource(*handle, 0, 0, texture->bytes, texture->width*4, 0);
-    d11->context->GenerateMips(*view);
-}
-
-PLATFORM_LOAD_WEXP(d3d11_load_wexp)
-{
-    Assert(shader);
-    Assert(buffers->wexp);
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
-    Wexp_Header *wexp = buffers->wexp;
-
-    u32 vertices_size = wexp->indices_offset - wexp->vert_offset;
-    u32 indices_size  = wexp->eof_offset - wexp->indices_offset;
-    u16 index_count  = truncate_to_u16(indices_size / 2); // two bytes per index
-    u8  vert_stride  = 8*sizeof(r32);
-
-    //
-    // vertex buffer
-    //
-    D3D11_SUBRESOURCE_DATA raw_vert_data = {byte_offset(wexp, wexp->vert_offset)};
-    D3D11_BUFFER_DESC vert_buff_desc     = {};
-    vert_buff_desc.ByteWidth             = vertices_size;
-    vert_buff_desc.Usage                 = D3D11_USAGE_IMMUTABLE;
-    vert_buff_desc.BindFlags             = D3D11_BIND_VERTEX_BUFFER;
-    vert_buff_desc.StructureByteStride   = vert_stride;
-    d11->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, (ID3D11Buffer **)&buffers->vert);
-
-    //
-    // input layout description
-    //
-    D3D11_INPUT_ELEMENT_DESC in_desc[] = {
-        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-        {"NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
-        {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0}
-    };
-    d11->device->CreateInputLayout(in_desc, 3, shader->vertex_file.data, shader->vertex_file.size, (ID3D11InputLayout **)&buffers->platform);
-
-    //
-    // index buffer
-    //
-    D3D11_SUBRESOURCE_DATA index_data = {byte_offset(wexp, wexp->indices_offset)};
-    D3D11_BUFFER_DESC index_buff_desc = {};
-    index_buff_desc.ByteWidth         = indices_size;
-    index_buff_desc.Usage             = D3D11_USAGE_IMMUTABLE;
-    index_buff_desc.BindFlags         = D3D11_BIND_INDEX_BUFFER;
-    d11->device->CreateBuffer(&index_buff_desc, &index_data, (ID3D11Buffer **)&buffers->index);
-}
-
 
 inline PLATFORM_SET_ACTIVE_MESH(d3d11_set_active_mesh)
 {
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
     ID3D11InputLayout *in_layout = (ID3D11InputLayout *)buffers->platform;
 
     u32 offsets = 0;
@@ -338,30 +286,30 @@ inline PLATFORM_SET_ACTIVE_MESH(d3d11_set_active_mesh)
 
 inline PLATFORM_SET_ACTIVE_TEXTURE(d3d11_set_active_texture)
 {
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
     d11->context->PSSetShaderResources(0, 1, (ID3D11ShaderResourceView **) &texture->platform); 
 }
 
 inline PLATFORM_SET_ACTIVE_SHADER(d3d11_set_active_shader)
 {
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
     d11->context->VSSetShader((ID3D11VertexShader *)shader->vertex, 0, 0);
     d11->context->PSSetShader((ID3D11PixelShader  *)shader->pixel,  0, 0);
 }
 
 inline PLATFORM_DRAW_RECT(d3d11_draw_rect)
 {
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
 
     D3D11_MAPPED_SUBRESOURCE matrices_map = {};
     d11->context->Map(d11->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
 
     m4 *matrix_buffer = (m4 *)matrices_map.pData;
 
-    size.x /= (r32)global_width;
-    size.y /= (r32)global_height;
-    pos.x  /= (r32)global_width;
-    pos.y  /= (r32)global_height;
+    size.x /= (r32)WIDTH;
+    size.y /= (r32)HEIGHT;
+    pos.x  /= (r32)WIDTH;
+    pos.y  /= (r32)HEIGHT;
     pos.x   =  (pos.x*2.f - 1.f);
     pos.y   = -(pos.y*2.f - 1.f);
 
@@ -371,20 +319,20 @@ inline PLATFORM_DRAW_RECT(d3d11_draw_rect)
     d11->context->OMSetDepthStencilState(d11->nodepth_nostencil_state, 1);
     d11->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     Mesh m = {};
-    m.buffers = global_renderer->square;
-    global_renderer->set_active_mesh(&m.buffers);
+    m.buffers = renderer->square;
+    renderer->set_active_mesh(renderer, &m.buffers);
     d11->context->Draw(6, 0);
 }
 
 inline PLATFORM_SET_RENDER_TARGETS(d3d11_set_default_render_targets)
 {
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
     d11->context->OMSetRenderTargets(1, &d11->render_target_rgb, d11->render_target_depth);
 }
 
 inline PLATFORM_SET_DEPTH_STENCIL(d3d11_set_depth_stencil)
 {
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
 
     ID3D11DepthStencilState *state = 0;
     if (depth_enable)
@@ -397,7 +345,7 @@ inline PLATFORM_SET_DEPTH_STENCIL(d3d11_set_depth_stencil)
 
 inline PLATFORM_CLEAR(d3d11_clear)
 {
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
 
     u32 clear_flags = 0;
     r32 rgba[] = {color.x, color.y, color.z, 1.f};
@@ -412,10 +360,10 @@ inline PLATFORM_CLEAR(d3d11_clear)
 
 
 r32
-d3d11_draw_char(Platform_Shader *shader, Platform_Font *font, char character, v2 pos)
+d3d11_draw_char(Platform_Renderer *renderer, Platform_Shader *shader, Platform_Font *font, char character, v2 pos)
 {
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
-    global_renderer->set_active_shader(shader);
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
+    renderer->set_active_shader(renderer, shader);
 
     Assert(character >= first_nonwhite_char);
     Assert(character <=  last_nonwhite_char);
@@ -455,16 +403,16 @@ d3d11_draw_char(Platform_Shader *shader, Platform_Font *font, char character, v2
         d11->device->CreateShaderResourceView((ID3D11Texture2D *)texture->handle, 0, (ID3D11ShaderResourceView **)&texture->platform);
     }
 
-    global_renderer->set_active_texture(texture);
+    renderer->set_active_texture(renderer, texture);
     v2 size = {(r32)texture->width, (r32)texture->height};
     //size *= 32.f/(r32)texture->height;
-    global_renderer->draw_rect(shader, size, pos);
+    renderer->draw_rect(renderer, shader, size, pos);
     return size.x;
 }
 
 PLATFORM_DRAW_TEXT(d3d11_draw_text)
 {
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
     i32 ascent, descent, line_gap;
     stbtt_GetFontVMetrics(&font->info, &ascent, &descent, &line_gap);
     ascent   = (i32)((r32)ascent   * font->scale);
@@ -487,7 +435,7 @@ PLATFORM_DRAW_TEXT(d3d11_draw_text)
             stbtt_GetCodepointBox(&font->info, *c, &min_x, &min_y, &max_x, &max_y);
             v2 min = make_v2((r32)min_x, (r32)min_y)*font->scale;
             v2 max = make_v2((r32)max_x, (r32)max_y)*font->scale;
-            d3d11_draw_char(shader, font, *c,
+            d3d11_draw_char(renderer, shader, font, *c,
                       make_v2(pos.x + min.x - font_min.x, pos.y + font_max.y - max.y));
             pos.x += font_max.x;
         }
@@ -506,7 +454,7 @@ struct TMP_Light_Buffer
 
 PLATFORM_DRAW_MESH(d3d11_draw_mesh)
 {
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+    D11_Renderer *d11 = (D11_Renderer *)renderer->platform;
 
     local_persist m4 camera = Identity_m4();
     local_persist m4 screen = Identity_m4();
@@ -515,8 +463,8 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
     if (screen_transform)
         screen = *screen_transform;
 
-    global_renderer->set_active_mesh(mesh);
-    global_renderer->set_active_shader(shader);
+    renderer->set_active_mesh(renderer, mesh);
+    renderer->set_active_shader(renderer, shader);
     D3D11_MAPPED_SUBRESOURCE matrices_map = {};
     D3D11_MAPPED_SUBRESOURCE lights_map = {};
 

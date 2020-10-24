@@ -37,9 +37,6 @@
 
 global b32 global_running;
 global b32 global_error;
-global u32 global_width = 1280;
-global u32 global_height = 720;
-global Platform_Renderer *global_renderer;
 
 inline u64
 win32_get_last_write_time(char *Path)
@@ -204,8 +201,8 @@ PLATFORM_RELOAD_CHANGED_FILE(win32_reload_file_if_changed)
 LRESULT CALLBACK WindyProc(
     HWND   WindowHandle,
     UINT   Message,
-    WPARAM w,
-    LPARAM l
+    WPARAM wParam,
+    LPARAM lParam
 )
 {
     LRESULT Result = 0;
@@ -222,17 +219,9 @@ LRESULT CALLBACK WindyProc(
             PostQuitMessage(0);
         } break;
 
-        case WM_SIZE:
-        {
-            global_width = LOWORD(l);
-            global_height = HIWORD(l);
-
-            if (global_renderer)  d3d11_resize_render_targets();
-        } break;
-
         default:
         {
-          Result = DefWindowProcA(WindowHandle, Message, w, l);
+          Result = DefWindowProcA(WindowHandle, Message, wParam, lParam);
         } break;
     }
     return(Result);
@@ -262,7 +251,7 @@ WinMain(
     WindyClass.lpszClassName = "WindyClass";
     ATOM Result = RegisterClassA(&WindyClass);
 
-    RECT WindowDimensions = {0, 0, (i32)global_width, (i32)global_height};
+    RECT WindowDimensions = {0, 0, WIDTH, HEIGHT};
     AdjustWindowRect(&WindowDimensions, WS_OVERLAPPEDWINDOW, FALSE);
     WindowDimensions.right -= WindowDimensions.left;
     WindowDimensions.bottom -= WindowDimensions.top;
@@ -324,11 +313,10 @@ WinMain(
         renderer.draw_text = d3d11_draw_text;
         renderer.draw_mesh = d3d11_draw_mesh;
         renderer.platform = (void *)&d11;
-        global_renderer = &renderer;
 
         DXGI_MODE_DESC display_mode_desc = {};
-        //DisplayModeDescriptor.Width = global_width;
-        //DisplayModeDescriptor.Height = global_height;
+        //DisplayModeDescriptor.Width = WIDTH;
+        //DisplayModeDescriptor.Height = HEIGHT;
         display_mode_desc.RefreshRate = {60, 1};
         display_mode_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
         display_mode_desc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_PROGRESSIVE;
@@ -358,6 +346,8 @@ WinMain(
             0,
             &d11.context
         );
+
+        d11.swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void **)&d11.backbuffer);
 
         Input input = {};
         MSG Message = {};
@@ -480,7 +470,7 @@ WinMain(
 
             if(windy.game_update_and_render)
             {
-                windy.game_update_and_render(&input, dtime, &renderer, &GameMemory, global_width, global_height);
+                windy.game_update_and_render(&input, dtime, &renderer, &GameMemory);
             }
             last_performance_counter = current_performance_counter;
             inform("Frametime: %f     FPS:%d\n", dtime, (u32)(1/dtime));

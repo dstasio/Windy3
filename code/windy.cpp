@@ -21,7 +21,7 @@ load_mesh(Platform_Renderer *renderer, Platform_Read_File read_file, char *path,
     mesh.buffers.vert_stride  = 8*sizeof(r32);
     mesh.transform    = Identity_m4();
 
-    renderer->load_wexp(&mesh.buffers, shader);
+    renderer->load_wexp(renderer, &mesh.buffers, shader);
     return mesh;
 }
 
@@ -63,7 +63,7 @@ inline Platform_Texture
 load_texture(Platform_Renderer *renderer, Memory_Pool *mempool, Platform_Read_File *read_file, char *path)
 {
     Platform_Texture texture = load_bitmap(mempool, read_file, path);
-    renderer->init_texture(&texture);
+    renderer->init_texture(renderer, &texture);
     return texture;
 }
 
@@ -114,7 +114,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->player      = load_mesh(renderer, memory->read_file, "assets/player.wexp",      state->phong_shader);
         state->tex_white   = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_white.bmp");
         state->tex_yellow  = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_yellow.bmp");
-        renderer->init_square_mesh(state->font_shader);
+        renderer->init_square_mesh(renderer, state->font_shader);
 
         load_font(&state->inconsolata, memory->read_file, "assets/Inconsolata.ttf", 32);
 
@@ -124,14 +124,14 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->main_cam.pos    = {0.f, -3.f, 2.f};
         state->main_cam.target = {0.f,  0.f, 0.f};
         state->main_cam.up     = {0.f,  0.f, 1.f};
-        state->cam_radius = 2.5f;
-        state->cam_vtheta = 1.f;
-        state->cam_htheta = PI/2.f;
+        state->cam_radius = 11.f;
+        state->cam_vtheta = 0.5f;
+        state->cam_htheta = -PI/2.f;
 
         //state->sun.color = {1.f,  1.f,  1.f};
         //state->sun.dir   = {0.f, -1.f, -1.f};
         state->lamp.color = {1.f,  1.f, 0.9f};
-        state->lamp.p     = {0.f,  3.f, 5.f};
+        state->lamp.p     = {0.f,  0.f, 5.f};
         memory->is_initialized = true;
     }
 
@@ -158,7 +158,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->cam_htheta += input->dmouse.x*dtime;
         state->cam_vtheta -= input->dmouse.y*dtime;
         state->cam_vtheta = Clamp(state->cam_vtheta, -PI/2.1f, PI/2.1f);
-        state->cam_radius -= input->dwheel*0.1f*dtime;
+        state->cam_radius -= input->dwheel*dtime;
 
         state->main_cam.pos.z  = Sin(state->cam_vtheta);
         state->main_cam.pos.x  = Cos(state->cam_htheta) * Cos(state->cam_vtheta);
@@ -172,32 +172,32 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     renderer->reload_shader(state->phong_shader, renderer, "phong");
     renderer->reload_shader(state->font_shader,  renderer, "fonts");
 #endif
-    renderer->set_render_targets();
+    renderer->set_render_targets(renderer);
 
-    renderer->clear(CLEAR_COLOR|CLEAR_DEPTH, {0.06f, 0.1f, 0.15f}, 1.f, 1);
-    renderer->set_depth_stencil(true, false, 1);
+    renderer->clear(renderer, CLEAR_COLOR|CLEAR_DEPTH, {0.06f, 0.5f, 0.8f}, 1.f, 1);
+    renderer->set_depth_stencil(renderer, true, false, 1);
 
-    renderer->set_active_texture(&state->tex_white);
+    renderer->set_active_texture(renderer, &state->tex_white);
     { // environment -------------------------------------------------
         m4 camera = Camera_m4(state->main_cam.pos, state->main_cam.target, state->main_cam.up);
-        m4 screen = Perspective_m4(DegToRad*60.f, (r32)width/(r32)height, 0.01f, 100.f);
+        m4 screen = Perspective_m4(DegToRad*60.f, (r32)WIDTH/(r32)HEIGHT, 0.01f, 100.f);
         m4 model  = state->environment.transform;
 
-        renderer->draw_mesh(&state->environment.buffers, state->phong_shader,
+        renderer->draw_mesh(renderer, &state->environment.buffers, state->phong_shader,
                             &model, &camera, &screen,
                             (v3 *)&state->lamp, &state->main_cam.pos);
     }
 
     { // player ------------------------------------------------------
         m4 model  = Transform_m4(state->lamp.p, make_v3(0.f), make_v3(0.1f));
-        renderer->draw_mesh(&state->player.buffers, state->phong_shader, &model, 0, 0, 0, 0);
+        renderer->draw_mesh(renderer, &state->player.buffers, state->phong_shader, &model, 0, 0, 0, 0);
 
-        renderer->set_active_texture(&state->tex_yellow);
+        renderer->set_active_texture(renderer, &state->tex_yellow);
         model  = state->player.transform;
 
-        renderer->draw_mesh(&state->player.buffers, state->phong_shader, &model, 0, 0, 0, 0);
+        renderer->draw_mesh(renderer, &state->player.buffers, state->phong_shader, &model, 0, 0, 0, 0);
     }
 
-//    char *text = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\n0123456789 ?!\"'.,;<>[]{}()-_+=*&^%$#@/\\~`";
-//    renderer->draw_text(state->font_shader, &state->inconsolata, text, make_v2(0, 0));
+    char *text = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\n0123456789 ?!\"'.,;<>[]{}()-_+=*&^%$#@/\\~`";
+    renderer->draw_text(renderer, state->font_shader, &state->inconsolata, text, make_v2(0, 0));
 }

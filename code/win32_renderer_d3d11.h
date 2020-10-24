@@ -12,6 +12,7 @@ struct D11_Renderer
     ID3D11Device        *device;
     ID3D11DeviceContext *context;
     IDXGISwapChain      *swap_chain;
+    ID3D11Texture2D     *backbuffer;
 
     ID3D11DepthStencilState *depth_nostencil_state;
     ID3D11DepthStencilState *nodepth_nostencil_state;
