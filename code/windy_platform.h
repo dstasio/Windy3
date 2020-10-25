@@ -203,7 +203,14 @@ typedef struct Game_Memory
     Platform_Reload_Changed_File *reload_if_changed;
 } game_memory;
 
-#define GAME_UPDATE_AND_RENDER(name) void name(Input *input, r32 dtime, Platform_Renderer *renderer, Game_Memory *memory, u32 width, u32 height)
+enum Gamemode
+{
+    GAMEMODE_GAME,
+    GAMEMODE_EDITOR,
+    GAMEMODE_MENU
+};
+
+#define GAME_UPDATE_AND_RENDER(name) void name(Input *input, r32 dtime, Platform_Renderer *renderer, Game_Memory *memory, Gamemode *gamemode, u32 width, u32 height)
 typedef GAME_UPDATE_AND_RENDER(Game_Update_And_Render);
 
 #define WINDY_PLATFORM_H

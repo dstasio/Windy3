@@ -23,6 +23,12 @@ struct Camera
     v3 pos;
     v3 target;
     v3 up;
+
+    r32 fov;
+
+    r32 _radius; // Variables used for third person camera
+    r32 _pitch;
+    r32 _yaw;
 };
 
 struct Mesh
@@ -61,10 +67,8 @@ struct Game_State
     m4      cam_matrix;
     m4      proj_matrix;
 
-    Camera  main_cam;
-    r32     cam_radius;
-    r32     cam_vtheta;
-    r32     cam_htheta;
+    Camera  game_camera;
+    Camera  editor_camera;
 
     Dir_Light    sun_;
     Point_Light  lamp;

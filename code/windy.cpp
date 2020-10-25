@@ -77,6 +77,22 @@ load_font(Platform_Font *font, Platform_Read_File *read_file, char *path, r32 he
     return font;
 }
 
+
+void third_person_camera(Input *input, Camera *camera, v3 target, r32 dtime)
+{
+    camera->_yaw += input->dmouse.x*dtime;
+    camera->_pitch -= input->dmouse.y*dtime;
+    camera->_pitch  = Clamp(camera->_pitch, -PI/2.1f, PI/2.1f);
+    camera->_radius -= input->dwheel*0.1f*dtime;
+
+    camera->pos.z  = Sin(camera->_pitch);
+    camera->pos.x  = Cos(camera->_yaw) * Cos(camera->_pitch);
+    camera->pos.y  = Sin(camera->_yaw) * Cos(camera->_pitch);
+    camera->pos    = Normalize(camera->pos)*camera->_radius;
+    camera->pos   += target;
+    camera->target = target + make_v3(0.f, 0.f, 1.3f);
+}
+
 #if 1
 struct Light_Buffer
 {
@@ -120,12 +136,16 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         //
         // camera set-up
         //
-        state->main_cam.pos    = {0.f, -3.f, 2.f};
-        state->main_cam.target = {0.f,  0.f, 0.f};
-        state->main_cam.up     = {0.f,  0.f, 1.f};
-        state->cam_radius = 2.5f;
-        state->cam_vtheta = 1.f;
-        state->cam_htheta = PI/2.f;
+        state->game_camera.pos     = {0.f, -3.f, 2.f};
+        state->game_camera.target  = {0.f,  0.f, 0.f};
+        state->game_camera.up      = {0.f,  0.f, 1.f};
+        state->game_camera._radius = 2.5f;
+        state->game_camera._pitch  = 1.f;
+        state->game_camera._yaw    = PI/2.f;
+
+        state->editor_camera.pos     = {0.f, -3.f, 2.f};
+        state->editor_camera.target  = {0.f,  0.f, 0.f};
+        state->editor_camera.up      = {0.f,  0.f, 1.f};
 
         //state->sun.color = {1.f,  1.f,  1.f};
         //state->sun.dir   = {0.f, -1.f, -1.f};
@@ -141,30 +161,21 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     { // Input Processing.
         r32 speed = input->held.space ? 10.f : 3.f;
         v3  movement = {};
-        v3  cam_forward = Normalize(state->main_cam.target - state->main_cam.pos);
-        v3  cam_right   = Normalize(Cross(cam_forward, state->main_cam.up));
+        v3  cam_forward = Normalize(state->game_camera.target - state->game_camera.pos);
+        v3  cam_right   = Normalize(Cross(cam_forward, state->game_camera.up));
         if (input->held.w)     movement += make_v3(cam_forward.xy);
         if (input->held.s)     movement -= make_v3(cam_forward.xy);
         if (input->held.d)     movement += make_v3(cam_right.xy);
         if (input->held.a)     movement -= make_v3(cam_right.xy);
-        if (input->held.shift) movement += state->main_cam.up;
-        if (input->held.ctrl)  movement -= state->main_cam.up;
+        if (input->held.shift) movement += state->game_camera.up;
+        if (input->held.ctrl)  movement -= state->game_camera.up;
         if (movement)
         {
             state->player.p += Normalize(movement)*speed*dtime;
             state->player.transform = Translation_m4(state->player.p);
         }
-        state->cam_htheta += input->dmouse.x*dtime;
-        state->cam_vtheta -= input->dmouse.y*dtime;
-        state->cam_vtheta = Clamp(state->cam_vtheta, -PI/2.1f, PI/2.1f);
-        state->cam_radius -= input->dwheel*0.1f*dtime;
 
-        state->main_cam.pos.z  = Sin(state->cam_vtheta);
-        state->main_cam.pos.x  = Cos(state->cam_htheta) * Cos(state->cam_vtheta);
-        state->main_cam.pos.y  = Sin(state->cam_htheta) * Cos(state->cam_vtheta);
-        state->main_cam.pos    = Normalize(state->main_cam.pos)*state->cam_radius;
-        state->main_cam.pos   += state->player.p;
-        state->main_cam.target = state->player.p + make_v3(0.f, 0.f, 1.3f);
+        third_person_camera(input, &state->game_camera, state->player.p, dtime);
     }
 
 #if WINDY_INTERNAL
@@ -178,14 +189,14 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
     renderer->set_active_texture(&state->tex_white);
     { // environment -------------------------------------------------
-        m4 camera = Camera_m4(state->main_cam.pos, state->main_cam.target, state->main_cam.up);
+        m4 camera = Camera_m4(state->game_camera.pos, state->game_camera.target, state->game_camera.up);
         m4 screen = Perspective_m4(DegToRad*60.f, (r32)width/(r32)height, 0.01f, 100.f);
         m4 model  = state->environment.transform;
         Platform_Phong_Settings settings = {};
 
         renderer->draw_mesh(&state->environment.buffers, state->phong_shader, &settings,
                             &model, &camera, &screen,
-                            (v3 *)&state->lamp, &state->main_cam.pos);
+                            (v3 *)&state->lamp, &state->game_camera.pos);
     }
 
     { // player ------------------------------------------------------

@@ -363,11 +363,11 @@ WinMain(
         MSG Message = {};
         u32 Count = 0;
 
-        b32 in_menu = false;
         i64 last_performance_counter = 0;
         i64 current_performance_counter = 0;
         Assert(QueryPerformanceCounter((LARGE_INTEGER *)&last_performance_counter));
-        while(global_running && !global_error && !(input.pressed.esc && in_menu && 0))
+        Gamemode gamemode = GAMEMODE_GAME;
+        while(global_running && !global_error)
         {
             input.pressed = {};
             input.dmouse = {};
@@ -419,22 +419,23 @@ WinMain(
 
                         case WM_INPUT:
                         {
-                            if (!in_menu)
+                            RAWINPUT raw_input = {};
+                            u32 raw_size = sizeof(raw_input);
+                            GetRawInputData((HRAWINPUT)Message.lParam, RID_INPUT, &raw_input, &raw_size, sizeof(RAWINPUTHEADER));
+                            RAWMOUSE raw_mouse = raw_input.data.mouse;
+                            if (raw_mouse.usFlags == MOUSE_MOVE_RELATIVE)
                             {
-                                RAWINPUT raw_input = {};
-                                u32 raw_size = sizeof(raw_input);
-                                GetRawInputData((HRAWINPUT)Message.lParam, RID_INPUT, &raw_input, &raw_size, sizeof(RAWINPUTHEADER));
-                                RAWMOUSE raw_mouse = raw_input.data.mouse;
-                                if (raw_mouse.usFlags == MOUSE_MOVE_RELATIVE)
-                                {
-                                    input.dmouse.x = raw_mouse.lLastX;
-                                    input.dmouse.y = raw_mouse.lLastY;
-                                }
+                                input.dmouse.x = raw_mouse.lLastX;
+                                input.dmouse.y = raw_mouse.lLastY;
+                            }
 
-                                if (raw_mouse.usButtonFlags & RI_MOUSE_WHEEL)
-                                {
-                                    input.dwheel = raw_mouse.usButtonData;
-                                }
+                            if (raw_mouse.usButtonFlags & RI_MOUSE_WHEEL)
+                            {
+                                input.dwheel = raw_mouse.usButtonData;
+                            }
+
+                            if (gamemode == GAMEMODE_GAME)
+                            {
                                 SetCursorPos((window_rect.right - window_rect.left)/2, (window_rect.bottom - window_rect.top)/2);
                             }
                         } break;
@@ -459,13 +460,14 @@ WinMain(
                     }
                     if (input.pressed.esc)
                     {
-                        in_menu = !in_menu;
-                        if (in_menu)
+                        if (gamemode == GAMEMODE_GAME)
                         {
+                            gamemode = GAMEMODE_EDITOR;
                             ShowCursor(true);
                         }
-                        else
+                        else if (gamemode == GAMEMODE_EDITOR)
                         {
+                            gamemode = GAMEMODE_GAME;
                             ShowCursor(false);
                         }
                     }
@@ -480,7 +482,12 @@ WinMain(
 
             if(windy.game_update_and_render)
             {
-                windy.game_update_and_render(&input, dtime, &renderer, &GameMemory, global_width, global_height);
+                windy.game_update_and_render(&input, dtime, &renderer, &GameMemory, &gamemode, global_width, global_height);
+            }
+            else
+            {
+                Assert(0);
+                // @todo: report error
             }
             last_performance_counter = current_performance_counter;
             inform("Frametime: %f     FPS:%d\n", dtime, (u32)(1/dtime));
