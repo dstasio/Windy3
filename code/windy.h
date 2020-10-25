@@ -29,6 +29,8 @@ struct Camera
     r32 _radius; // Variables used for third person camera
     r32 _pitch;
     r32 _yaw;
+
+    v3 _pivot;   // Used for editor camera
 };
 
 struct Mesh

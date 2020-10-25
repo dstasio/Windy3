@@ -33,6 +33,9 @@
 #endif
 #define key_down(code, key)    {if(Message.wParam == (code))  input.held.key = 1;}
 #define key_up(code, key)      {if(Message.wParam == (code)) {input.held.key = 0;input.pressed.key = 1;}}
+#define raw_mouse_button(id, key)  {if(raw_mouse.usButtonFlags & RI_MOUSE_BUTTON_ ## id ##_DOWN)  input.held.key = 1; else if (raw_mouse.usButtonFlags & RI_MOUSE_BUTTON_ ## id ##_UP) {input.held.key = 0;input.pressed.key = 1;}}
+#define mouse_down(id, key)    
+#define mouse_up(id, key)      
 #define file_time_to_u64(wt) ((wt).dwLowDateTime | ((u64)((wt).dwHighDateTime) << 32))
 
 global b32 global_running;
@@ -429,6 +432,10 @@ WinMain(
                                 input.dmouse.y = raw_mouse.lLastY;
                             }
 
+                            raw_mouse_button(1, mouse_left);
+                            raw_mouse_button(2, mouse_right);
+                            raw_mouse_button(3, mouse_middle);
+
                             if (raw_mouse.usButtonFlags & RI_MOUSE_WHEEL)
                             {
                                 input.dwheel = raw_mouse.usButtonData;
@@ -440,6 +447,7 @@ WinMain(
                             }
                         } break;
 
+                        // @todo: maybe switch to WM_MOUSEMOVE for editor and menu?
                         //case WM_MOUSEMOVE:
                         //{
                         //    i16 m_x = ((i16*)&Message.lParam)[0];
