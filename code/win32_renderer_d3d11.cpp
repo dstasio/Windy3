@@ -487,7 +487,7 @@ PLATFORM_DRAW_TEXT(d3d11_draw_text)
     v2 font_max = make_v2((r32)max_x, (r32)max_y)*font->scale;
     for(char *c = text; *c != '\0'; ++c) {
         if (*c == '\n') {
-            pos = pivot;
+            pos.x = pivot.x;
             pos.y += ascent - descent + line_gap;
         }
         else if (*c == ' ') {

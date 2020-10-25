@@ -428,8 +428,8 @@ WinMain(
                             RAWMOUSE raw_mouse = raw_input.data.mouse;
                             if (raw_mouse.usFlags == MOUSE_MOVE_RELATIVE)
                             {
-                                input.dmouse.x = raw_mouse.lLastX;
-                                input.dmouse.y = raw_mouse.lLastY;
+                                input.dmouse.x = (r32)raw_mouse.lLastX;
+                                input.dmouse.y = (r32)raw_mouse.lLastY;
                             }
 
                             raw_mouse_button(1, mouse_left);
@@ -498,7 +498,6 @@ WinMain(
                 // @todo: report error
             }
             last_performance_counter = current_performance_counter;
-            inform("Frametime: %f     FPS:%d\n", dtime, (u32)(1/dtime));
 
             d11.swap_chain->Present(0, 0);
         }

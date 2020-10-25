@@ -192,7 +192,7 @@ struct Input
     Input_Keyboard pressed;
     Input_Keyboard held;
 
-    v2i dmouse;
+    v2  dmouse;
     i16 dwheel;
 };
 

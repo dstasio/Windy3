@@ -53,6 +53,7 @@ v3 operator*(v3 a, r32 b)
     v3 result = {a.x*b, a.y*b, a.z*b};
     return result;
 }
+v3 operator*(r32 a, v3 b)  {return b * a;}
 
 v3 operator/(v3 a, r32 b)
 {

@@ -7,6 +7,7 @@
    ======================================================================== */
 #include "windy.h"
 #include <string.h>
+#include <cstdio>
 
 internal Mesh
 load_mesh(Platform_Renderer *renderer, Platform_Read_File read_file, char *path, Platform_Shader *shader = 0)
@@ -93,22 +94,40 @@ void third_person_camera(Input *input, Camera *camera, v3 target, r32 dtime)
     camera->target = target + make_v3(0.f, 0.f, 1.3f);
 }
 
-void editor_camera(Input *input, Camera *camera, v3 target, r32 dtime)
+void editor_camera(Input *input, Camera *camera, r32 dtime)
 {
     if (input->held.mouse_middle)
     {
-        camera->_yaw -= input->dmouse.x*PI*dtime;
-        camera->_pitch += input->dmouse.y*dtime;
-        camera->_pitch  = Clamp(camera->_pitch, -PI/2.1f, PI/2.1f);
-        camera->_radius -= input->dwheel*0.1f*dtime;
+        if (input->held.shift)
+        {
+            v3 forward = Normalize(camera->target - camera->pos);
+            v3 right   = Normalize(Cross(forward, camera->up));
+            v3 up      = Normalize(Cross(right, forward));
+
+            camera->target +=  input->dmouse.y*up*dtime - input->dmouse.x*right*dtime;
+            camera->pos    +=  input->dmouse.y*up*dtime - input->dmouse.x*right*dtime;
+        }
+        else
+        {
+            camera->_yaw -= input->dmouse.x*PI*dtime;
+            camera->_pitch += input->dmouse.y*dtime;
+            camera->_pitch  = Clamp(camera->_pitch, -PI/2.1f, PI/2.1f);
+            camera->_radius -= input->dwheel*0.1f*dtime;
+        }
+    }
+    else
+    {
+        v3 forward = Normalize(camera->target - camera->pos);
+        camera->target += input->dwheel*dtime*forward;
+        camera->pos    += input->dwheel*dtime*forward;
     }
 
     camera->pos.z  = Sin(camera->_pitch);
     camera->pos.x  = Cos(camera->_yaw) * Cos(camera->_pitch);
     camera->pos.y  = Sin(camera->_yaw) * Cos(camera->_pitch);
     camera->pos    = Normalize(camera->pos)*camera->_radius;
-    camera->pos   += target;
-    camera->target = target + make_v3(0.f, 0.f, 1.3f);
+    camera->pos   += camera->target;
+//    camera->target = target + make_v3(0.f, 0.f, 1.3f);
 }
 
 #if 1
@@ -208,7 +227,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         {
             active_camera = &state->editor_camera;
 
-            editor_camera(input, &state->editor_camera, state->player.p, dtime);
+            editor_camera(input, &state->editor_camera, dtime);
         }
         else //if (*gamemode == GAMEMODE_MENU)
         {
@@ -255,6 +274,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         renderer->draw_mesh(&state->player.buffers, state->phong_shader, &settings, &model, 0, 0, 0, 0);
     }
 
+    char debug_text[128] = {};
+    snprintf(debug_text, 128, "Delta mouse:\n%f\n%f\n%d", input->dmouse.x, input->dmouse.y, input->dwheel);
+    renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
+    snprintf(debug_text, 128, "FPS: %f", 1.f/dtime);
+    renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, height-32.f));
 //    char *text = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\n0123456789 ?!\"'.,;<>[]{}()-_+=*&^%$#@/\\~`";
 //    renderer->draw_text(state->font_shader, &state->inconsolata, text, make_v2(0, 0));
 }

@@ -68,8 +68,8 @@ light(float3 color, float3 dir, float3 eyedir, float3 normal)
 {
     float ambient = 0.2f;
     float diffuse = max(dot(dir, normal), 0.f);
-    float specular = pow(max(dot(reflect(-dir, normal), eyedir), 0.0f), 128);
-    return float4(color*(ambient+diffuse+specular), 1.f);
+    float specular = pow(max(dot(reflect(-dir, normal), eyedir), 0.0f), 512);
+    return float4(color*(ambient+diffuse+specular*0.2f), 1.f);
 }
 
 PS_OUTPUT
