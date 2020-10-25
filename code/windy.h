@@ -54,23 +54,36 @@ struct Dir_Light
     v3 color;
     v3 dir;
 };
+
+#define MAX_LEVEL_OBJECTS 20
+// @todo: Mesh struct should keep all the info needed for rendering
+struct Level
+{
+    Mesh objects[MAX_LEVEL_OBJECTS];
+    u32  n_objects;
+
+    Mesh &get(u32 index)  {return objects[index];}
+    Mesh &last() {return this->get(n_objects);};
+};
  
 struct Game_State
 {
     Platform_Shader  *phong_shader;
     Platform_Shader  *font_shader;
 
-    Mesh     environment;
-    Mesh     player;
+    Level current_level;
+    u32 obj_index_env;
+    u32 obj_index_player;
+
     Platform_Texture  tex_white;
     Platform_Texture  tex_yellow;
     Platform_Font     inconsolata;
 
-    m4      cam_matrix;
-    m4      proj_matrix;
+    m4 cam_matrix;
+    m4 proj_matrix;
 
-    Camera  game_camera;
-    Camera  editor_camera;
+    Camera game_camera;
+    Camera editor_camera;
 
     Dir_Light    sun_;
     Point_Light  lamp;

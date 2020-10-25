@@ -9,21 +9,22 @@
 #include <string.h>
 #include <cstdio>
 
-internal Mesh
-load_mesh(Platform_Renderer *renderer, Platform_Read_File read_file, char *path, Platform_Shader *shader = 0)
+internal u32
+load_mesh(Platform_Renderer *renderer, Platform_Read_File read_file, char *path, Level *level, Platform_Shader *shader = 0)
 {
-    Mesh mesh = {};
-    mesh.buffers.wexp = (Wexp_Header *)read_file(path).data;
-    Wexp_Header *wexp = mesh.buffers.wexp;
+    Assert(level->n_objects < (MAX_LEVEL_OBJECTS - 1));
+
+    level->last().buffers.wexp = (Wexp_Header *)read_file(path).data;
+    Wexp_Header *wexp = level->last().buffers.wexp;
     assert(wexp->signature == 0x7877);
     u32 vertices_size = wexp->indices_offset - wexp->vert_offset;
     u32 indices_size  = wexp->eof_offset - wexp->indices_offset;
-    mesh.buffers.index_count  = truncate_to_u16(indices_size / 2); // two bytes per index
-    mesh.buffers.vert_stride  = 8*sizeof(r32);
-    mesh.transform    = Identity_m4();
+    level->last().buffers.index_count  = truncate_to_u16(indices_size / 2); // two bytes per index
+    level->last().buffers.vert_stride  = 8*sizeof(r32);
+    level->last().transform    = Identity_m4();
 
-    renderer->load_wexp(&mesh.buffers, shader);
-    return mesh;
+    renderer->load_wexp(&level->last().buffers, shader);
+    return (level->n_objects)++;
 }
 
 internal Platform_Texture
@@ -162,8 +163,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         renderer->reload_shader(state->phong_shader, renderer, "phong");
         renderer->reload_shader(state->font_shader, renderer, "fonts");
 
-        state->environment = load_mesh(renderer, memory->read_file, "assets/environment.wexp", state->phong_shader);
-        state->player      = load_mesh(renderer, memory->read_file, "assets/player.wexp",      state->phong_shader);
+        state->obj_index_env    = load_mesh(renderer, memory->read_file, "assets/environment.wexp", &state->current_level, state->phong_shader);
+        state->obj_index_player = load_mesh(renderer, memory->read_file, "assets/player.wexp",      &state->current_level, state->phong_shader);
         state->tex_white   = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_white.bmp");
         state->tex_yellow  = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_yellow.bmp");
         renderer->init_square_mesh(state->font_shader);
@@ -186,7 +187,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->editor_camera._radius = 2.5f;
         state->editor_camera._pitch  = 1.f;
         state->editor_camera._yaw    = PI/2.f;
-        state->editor_camera._pivot  = state->player.p;
+        state->editor_camera._pivot  = state->current_level.get(state->obj_index_player).p;
 
         //state->sun.color = {1.f,  1.f,  1.f};
         //state->sun.dir   = {0.f, -1.f, -1.f};
@@ -203,6 +204,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     { // Input Processing.
         if (*gamemode == GAMEMODE_GAME) 
         {
+            Mesh *player = &state->current_level.get(state->obj_index_player);
             active_camera = &state->game_camera;
 
             r32 speed = input->held.space ? 10.f : 3.f;
@@ -217,11 +219,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             if (input->held.ctrl)  movement -= state->game_camera.up;
             if (movement)
             {
-                state->player.p += Normalize(movement)*speed*dtime;
-                state->player.transform = Translation_m4(state->player.p);
+                player->p += Normalize(movement)*speed*dtime;
+                player->transform = Translation_m4(player->p);
             }
 
-            third_person_camera(input, &state->game_camera, state->player.p, dtime);
+            third_person_camera(input, &state->game_camera, player->p, dtime);
         }
         else if (*gamemode == GAMEMODE_EDITOR)
         {
@@ -246,32 +248,34 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
     renderer->set_active_texture(&state->tex_white);
     { // environment -------------------------------------------------
+        Mesh *env = &state->current_level.get(state->obj_index_env);
         m4 camera = Camera_m4(active_camera->pos, active_camera->target, active_camera->up);
         m4 screen = Perspective_m4(DegToRad*60.f, (r32)width/(r32)height, 0.01f, 100.f);
-        m4 model  = state->environment.transform;
+        m4 model  = env->transform;
         Platform_Phong_Settings settings = {};
 
-        renderer->draw_mesh(&state->environment.buffers, state->phong_shader, &settings,
+        renderer->draw_mesh(&env->buffers, state->phong_shader, &settings,
                             &model, &camera, &screen,
                             (v3 *)&state->lamp, &state->game_camera.pos);
     }
 
     { // player ------------------------------------------------------
+        Mesh *player = &state->current_level.get(state->obj_index_player);
         m4 model  = Transform_m4(state->lamp.p, make_v3(0.f), make_v3(0.1f));
         Platform_Phong_Settings settings = {};
         settings.flags |= PHONG_FLAG_SOLIDCOLOR;
         settings.flags |= PHONG_FLAG_UNLIT;
         settings.color = make_v3(1.f);
 
-        renderer->draw_mesh(&state->player.buffers, state->phong_shader, &settings, &model, 0, 0, 0, 0);
+        renderer->draw_mesh(&player->buffers, state->phong_shader, &settings, &model, 0, 0, 0, 0);
 
         settings.flags &= ~PHONG_FLAG_UNLIT;
         settings.color = {0.8f, 0.f, 0.2f};
 
         renderer->set_active_texture(&state->tex_yellow);
-        model  = state->player.transform;
+        model  = player->transform;
 
-        renderer->draw_mesh(&state->player.buffers, state->phong_shader, &settings, &model, 0, 0, 0, 0);
+        renderer->draw_mesh(&player->buffers, state->phong_shader, &settings, &model, 0, 0, 0, 0);
     }
 
     char debug_text[128] = {};
