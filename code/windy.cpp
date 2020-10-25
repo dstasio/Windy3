@@ -241,10 +241,12 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         m4 model  = Transform_m4(state->lamp.p, make_v3(0.f), make_v3(0.1f));
         Platform_Phong_Settings settings = {};
         settings.flags |= PHONG_FLAG_SOLIDCOLOR;
+        settings.flags |= PHONG_FLAG_UNLIT;
         settings.color = make_v3(1.f);
 
         renderer->draw_mesh(&state->player.buffers, state->phong_shader, &settings, &model, 0, 0, 0, 0);
 
+        settings.flags &= ~PHONG_FLAG_UNLIT;
         settings.color = {0.8f, 0.f, 0.2f};
 
         renderer->set_active_texture(&state->tex_yellow);

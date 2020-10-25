@@ -79,7 +79,9 @@ main(VS_OUTPUT input)
     float3 normal = normalize(input.normal);
     float3 eyedir = normalize(eye - input.world_pos);
     float3 lightdir = normalize(lightpos - input.world_pos);
-    output.color = light(color, lightdir, eyedir, normal);
+    output.color = float4(1.f, 1.f, 1.f, 1.f);
+    if (!(flags & PHONG_FLAG_UNLIT))
+        output.color = light(color, lightdir, eyedir, normal);
     if (flags & PHONG_FLAG_SOLIDCOLOR)
         output.color *= float4(solid_color, 1.f);
     else
