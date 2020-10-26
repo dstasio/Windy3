@@ -288,8 +288,10 @@ PLATFORM_INIT_TEXTURE(d3d11_init_texture)
     d11->context->GenerateMips(*view);
 }
 
+// @todo: move most of this to platform-independent code
 PLATFORM_LOAD_WEXP(d3d11_load_wexp)
 {
+    // @todo: I think buffers->wexp is a memory leak
     Assert(shader);
     Assert(buffers->wexp);
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
@@ -298,7 +300,6 @@ PLATFORM_LOAD_WEXP(d3d11_load_wexp)
     u32 vertices_size = wexp->indices_offset - wexp->vert_offset;
     u32 indices_size  = wexp->eof_offset - wexp->indices_offset;
     u16 index_count  = truncate_to_u16(indices_size / 2); // two bytes per index
-    u8  vert_stride  = 8*sizeof(r32);
 
     //
     // vertex buffer
@@ -308,7 +309,7 @@ PLATFORM_LOAD_WEXP(d3d11_load_wexp)
     vert_buff_desc.ByteWidth             = vertices_size;
     vert_buff_desc.Usage                 = D3D11_USAGE_IMMUTABLE;
     vert_buff_desc.BindFlags             = D3D11_BIND_VERTEX_BUFFER;
-    vert_buff_desc.StructureByteStride   = vert_stride;
+    vert_buff_desc.StructureByteStride   = WEXP_VERTEX_SIZE;
     d11->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, (ID3D11Buffer **)&buffers->vert);
 
     //

@@ -27,6 +27,8 @@ struct Bitmap_Header
     u32 ImportantColors;
 };
 
+#define WEXP_VERTEX_SIZE 8*sizeof(r32)
+// indices are u16
 struct Wexp_Header
 {
     u16 signature;

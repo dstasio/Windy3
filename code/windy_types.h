@@ -61,6 +61,7 @@ union v3
 union v4
 {
     struct { r32 x, y, z, w; };
+    struct { v3 xyz; r32 _w; };
     r32    row[4];
 };
 

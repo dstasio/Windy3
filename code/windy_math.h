@@ -149,7 +149,7 @@ Dot(v4 a, v4 b)
 
 //
 // Matrix 4 ----------------------------------------------------------
-//
+// Column Major
 // @todo: maybe add m4t (matrix4 transposed)?
 
 inline m4
@@ -370,6 +370,18 @@ Transform_m4(v3 pos, v3 euler, v3 scale)
     matrix.m[3][0] = pos.x;
     matrix.m[3][1] = pos.y;
     matrix.m[3][2] = pos.z;
+    return matrix;
+}
+
+inline m4
+LocalSpace_m4(v3 u, v3 v, v3 n, v3 origin = {})
+{
+    m4 matrix = {
+             v.x,      u.x,      n.x, 0.f,
+             v.y,      u.y,      n.y, 0.f,
+             v.z,      u.z,      n.z, 0.f,
+        origin.x, origin.y, origin.z, 1.f
+    };
     return matrix;
 }
 
