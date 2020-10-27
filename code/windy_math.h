@@ -17,6 +17,15 @@
 #define COL_W 3
 
 //
+// Scalar ------------------------------------------------------------
+//
+inline r32 Square(r32 x)
+{
+    r32 result = x*x;
+    return result;
+}
+
+//
 // Vector 2 ----------------------------------------------------------
 //
 inline v2 make_v2(r32 x, r32 y) { return {x, y}; }
@@ -76,6 +85,12 @@ v3 operator-(v3 a, r32 b)
 {
     v3 result = {a.x-b, a.y-b, a.z-b};
     return result;
+}
+
+v3 &operator*=(v3 &a, r32 b)
+{
+    a = a * b;
+    return a;
 }
 
 v3 &operator+=(v3 &a, v3 b)
@@ -203,7 +218,7 @@ m4 operator*(m4 a, m4 b)
 
 m4 &operator*=(m4 &a, m4 b)
 {
-    a = b*a;
+    a = a*b;
     return a;
 }
 
@@ -377,12 +392,21 @@ inline m4
 LocalSpace_m4(v3 u, v3 v, v3 n, v3 origin = {})
 {
     m4 matrix = {
-             v.x,      u.x,      n.x, 0.f,
-             v.y,      u.y,      n.y, 0.f,
-             v.z,      u.z,      n.z, 0.f,
-        origin.x, origin.y, origin.z, 1.f
+             u.x, v.x, n.x, 0.f,
+             u.y, v.y, n.y, 0.f,
+             u.z, v.z, n.z, 0.f,
+             0.f, 0.f, 0.f, 1.f
     };
+    matrix *= Translation_m4(-origin);
     return matrix;
+}
+
+inline m4
+NoRotation_m4(m4 a)
+{
+    m4 result = a;
+    result.col[3] = make_v4(0.f, 0.f, 0.f, 1.f);
+    return result;
 }
 
 #define WINDY_MATH_H

@@ -34,7 +34,7 @@ Texture2D font;
 
 float4 main(VS_OUTPUT input) : SV_TARGET
 {
-    float4 color = float4(0.8f, 0.8f, 0.f, 1.f);
+    float4 color = float4(0.2f, 0.7f, 0.5f, 1.f);
     float4 output = color*font.Sample(texture_sampler_state, input.txc);
     return output;
 }

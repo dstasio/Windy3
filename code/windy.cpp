@@ -146,7 +146,7 @@ struct Light_Buffer
 //        ignore back-facing polygons
 //
 internal r32
-raycast(Platform_Mesh_Buffers *buffers, v3 from, v3 dir, r32 max_distance)
+raycast(Platform_Mesh_Buffers *buffers, v3 from, v3 dir, r32 min_distance, r32 max_distance)
 {
     r32 hit_sq = 0.f;
 
@@ -154,36 +154,42 @@ raycast(Platform_Mesh_Buffers *buffers, v3 from, v3 dir, r32 max_distance)
     u16 *indices = (u16 *)byte_offset(buffers->wexp, buffers->wexp->indices_offset);
     for (u32 i = 0; i < buffers->index_count; i += 3)
     {
-        v3 *p1 = (v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i]));
-        v3 *p2 = (v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+1]));
-        v3 *p3 = (v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+2]));
+        v3 p1 = *((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i])));
+        v3 p2 = *((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+1])));
+        v3 p3 = *((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+2])));
 
-        v3 n = Normalize(Cross((*p2 - *p1), (*p3 - *p1)));
-        v3 u = Normalize(Cross(          n, (*p2 - *p1)));
+        v3 n = Normalize(Cross((p2 - p1), (p3 - p1)));
+        v3 u = Normalize(Cross(        n, (p2 - p1)));
         v3 v = Normalize(Cross( u, n));
-        m4 face_local_transform = LocalSpace_m4(u, v, n, *p1);
+        m4 face_local_transform = LocalSpace_m4(u, v, n, p1);
+        p1 = face_local_transform * p1;
+        p2 = face_local_transform * p2;
+        p3 = face_local_transform * p3;
 
         v3 local_start = face_local_transform * from;
-        v3 local_dir   = face_local_transform *  dir;
-        r32 dir_steps  = local_start.z / local_dir.z;
-        v3 incident_point = local_start + dir_steps*local_dir;
-
-        v3 incident_to_p1 = *p1 - incident_point;
-        v3 incident_to_p2 = *p2 - incident_point;
-        v3 incident_to_p3 = *p3 - incident_point;
-
-        if (((Dot(incident_to_p1, incident_to_p2) < 0) ||
-             (Dot(incident_to_p1, incident_to_p3) < 0)) &&
-            ((Dot(incident_to_p2, incident_to_p1) < 0) ||
-             (Dot(incident_to_p2, incident_to_p3) < 0)) &&
-            ((Dot(incident_to_p3, incident_to_p1) < 0) ||
-             (Dot(incident_to_p3, incident_to_p2) < 0)))
+        v3 local_dir   = NoRotation_m4(face_local_transform) *  dir;
+        r32 dir_steps  = - local_start.z / local_dir.z;
+        if (dir_steps >= 0)
         {
-            r32 dist = Length_Sq(local_start - incident_point);
-            if (dist < max_distance*max_distance)
+            v3 incident_point = local_start + dir_steps*local_dir;
+
+            v3 incident_to_p1 = p1 - incident_point;
+            v3 incident_to_p2 = p2 - incident_point;
+            v3 incident_to_p3 = p3 - incident_point;
+
+            if (((Dot(incident_to_p1, incident_to_p2) < 0) ||
+                 (Dot(incident_to_p1, incident_to_p3) < 0)) &&
+                ((Dot(incident_to_p2, incident_to_p1) < 0) ||
+                 (Dot(incident_to_p2, incident_to_p3) < 0)) &&
+                ((Dot(incident_to_p3, incident_to_p1) < 0) ||
+                 (Dot(incident_to_p3, incident_to_p2) < 0)))
             {
-                if (!hit_sq || (dist < hit_sq))
-                    hit_sq = dist;
+                r32 dist = Length_Sq(local_start - incident_point);
+                if ((dist > Square(min_distance)) && (dist < Square(max_distance)))
+                {
+                    if (!hit_sq || (dist < hit_sq))
+                        hit_sq = dist;
+                }
             }
         }
     }
@@ -212,6 +218,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         renderer->reload_shader( state->font_shader, "fonts");
         renderer->reload_shader(&renderer->debug_shader, "debug");
 
+        load_mesh(renderer, memory->read_file, "assets/testpoly.wexp", &state->current_level, state->phong_shader);
         state->obj_index_env    = load_mesh(renderer, memory->read_file, "assets/environment.wexp", &state->current_level, state->phong_shader);
         state->obj_index_player = load_mesh(renderer, memory->read_file, "assets/player.wexp",      &state->current_level, state->phong_shader);
         state->tex_white   = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_white.bmp");
@@ -226,6 +233,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->game_camera.pos     = {0.f, -3.f, 2.f};
         state->game_camera.target  = {0.f,  0.f, 0.f};
         state->game_camera.up      = {0.f,  0.f, 1.f};
+        state->game_camera.fov     = DegToRad*60.f;
+        state->game_camera.min_z   = 0.01f;
+        state->game_camera.max_z   = 100.f;
         state->game_camera._radius = 2.5f;
         state->game_camera._pitch  = 1.f;
         state->game_camera._yaw    = PI/2.f;
@@ -233,6 +243,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->editor_camera.pos     = {0.f, -3.f, 2.f};
         state->editor_camera.target  = {0.f,  0.f, 0.f};
         state->editor_camera.up      = {0.f,  0.f, 1.f};
+        state->editor_camera.fov     = DegToRad*60.f;
+        state->editor_camera.min_z   = 0.01f;
+        state->editor_camera.max_z   = 100.f;
         state->editor_camera._radius = 2.5f;
         state->editor_camera._pitch  = 1.f;
         state->editor_camera._yaw    = PI/2.f;
@@ -249,7 +262,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     // ---------------------------------------------------------------
     //
 
-    i32 last_hit = -1;
+    local_persist i32 last_hit = -1;
     local_persist v3 line[2] = {};
     Camera *active_camera = 0;
     { // Input Processing.
@@ -286,19 +299,21 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 i32 hit_index = -1;
                 r32 least_hit_distance = 0.f;
                 for (u32 obj_index = 0;
-                     (obj_index < state->current_level.n_objects) && (hit_index < 0);
+                     (obj_index < state->current_level.n_objects);
                      ++obj_index)
                 {
-                    r32 hit_distance = raycast(&state->current_level.get(obj_index).buffers, active_camera->pos, forward, 200.f);
-                    if (!least_hit_distance || (hit_distance < least_hit_distance))
+                    r32 hit_distance = raycast(&state->current_level.get(obj_index).buffers, active_camera->pos,
+                                               forward, active_camera->min_z, active_camera->max_z);
+                    if ((hit_distance > 0) && (!least_hit_distance || (hit_distance < least_hit_distance)))
                     {
                         hit_index = obj_index;
+                        least_hit_distance = hit_distance;
                     }
                 }
 
                 line[0] = active_camera->pos;
                 line[1] = active_camera->pos + forward*200.f;
-                if (hit_index > 0)  last_hit = hit_index;
+                last_hit = hit_index;
             }
 
             editor_camera(input, &state->editor_camera, dtime);
@@ -323,7 +338,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     { // environment -------------------------------------------------
         Mesh *env = &state->current_level.get(state->obj_index_env);
         m4 camera = Camera_m4(active_camera->pos, active_camera->target, active_camera->up);
-        m4 screen = Perspective_m4(DegToRad*60.f, (r32)width/(r32)height, 0.01f, 100.f);
+        m4 screen = Perspective_m4(active_camera->fov, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
         m4 model  = env->transform;
         Platform_Phong_Settings settings = {};
 
@@ -345,10 +360,18 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         settings.flags &= ~PHONG_FLAG_UNLIT;
         settings.color = {0.8f, 0.f, 0.2f};
 
-        renderer->set_active_texture(&state->tex_yellow);
         model  = player->transform;
-
         renderer->draw_mesh(&player->buffers, state->phong_shader, &settings, &model, 0, 0, 0, 0);
+    }
+
+    { // testpoly ------------------------------------------------------
+        Mesh *testpoly = &state->current_level.get(0);
+        Platform_Phong_Settings settings = {};
+        settings.flags |= PHONG_FLAG_SOLIDCOLOR;
+        settings.color = {0.2f, 0.3f, 0.6f};
+
+        m4 model = Identity_m4();
+        renderer->draw_mesh(&testpoly->buffers, state->phong_shader, &settings, &model, 0, 0, 0, 0);
     }
 
     char debug_text[128] = {};
@@ -357,12 +380,15 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     snprintf(debug_text, 128, "FPS: %f", 1.f/dtime);
     renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, height-32.f));
 
+    printf("Hit: %d", last_hit);
     snprintf(debug_text, 128, "Hit: %d", last_hit);
     renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, height-64.f));
 
+    renderer->draw_text(state->font_shader, &state->inconsolata, "+", make_v2(width/2.f - 16.f, height/2.f - 16.f));
+
     {
         m4 camera = Camera_m4(active_camera->pos, active_camera->target, active_camera->up);
-        m4 screen = Perspective_m4(DegToRad*60.f, (r32)width/(r32)height, 0.01f, 100.f);
+        m4 screen = Perspective_m4(active_camera->fov, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
         renderer->draw_line(line[0], line[1], {1.f, 0.5f, 0.9f, 1.f},
                             &camera, &screen);
     }
