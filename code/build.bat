@@ -22,14 +22,20 @@ popd
 
 pushd ..\rundata\assets
 set name=phong
-fxc -nologo -Tvs_5_0 -DVERTEX_HLSL=1 -DPIXEL_HLSL=0 ..\..\code\phong.hlsl -Fo%name%v.tmp
-fxc -nologo -Tps_5_0 -DVERTEX_HLSL=0 -DPIXEL_HLSL=1 ..\..\code\phong.hlsl -Fo%name%p.tmp
+fxc -nologo -Tvs_5_0 -DVERTEX_HLSL=1 -DPIXEL_HLSL=0 ..\..\code\%name%.hlsl -Fo%name%v.tmp
+fxc -nologo -Tps_5_0 -DVERTEX_HLSL=0 -DPIXEL_HLSL=1 ..\..\code\%name%.hlsl -Fo%name%p.tmp
 move /Y %name%v.tmp %name%.vsh
 move /Y %name%p.tmp %name%.psh
 
 set name=fonts
-fxc -nologo -Tvs_5_0 -DVERTEX_HLSL=1 -DPIXEL_HLSL=0 ..\..\code\fonts.hlsl -Fo%name%v.tmp
-fxc -nologo -Tps_5_0 -DVERTEX_HLSL=0 -DPIXEL_HLSL=1 ..\..\code\fonts.hlsl -Fo%name%p.tmp
+fxc -nologo -Tvs_5_0 -DVERTEX_HLSL=1 -DPIXEL_HLSL=0 ..\..\code\%name%.hlsl -Fo%name%v.tmp
+fxc -nologo -Tps_5_0 -DVERTEX_HLSL=0 -DPIXEL_HLSL=1 ..\..\code\%name%.hlsl -Fo%name%p.tmp
+move /Y %name%v.tmp %name%.vsh
+move /Y %name%p.tmp %name%.psh
+
+set name=debug
+fxc -nologo -Tvs_5_0 -DVERTEX_HLSL=1 -DPIXEL_HLSL=0 ..\..\code\%name%.hlsl -Fo%name%v.tmp
+fxc -nologo -Tps_5_0 -DVERTEX_HLSL=0 -DPIXEL_HLSL=1 ..\..\code\%name%.hlsl -Fo%name%p.tmp
 move /Y %name%v.tmp %name%.vsh
 move /Y %name%p.tmp %name%.psh
 popd

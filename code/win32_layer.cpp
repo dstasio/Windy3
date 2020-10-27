@@ -326,6 +326,7 @@ WinMain(
         renderer.draw_rect = d3d11_draw_rect;
         renderer.draw_text = d3d11_draw_text;
         renderer.draw_mesh = d3d11_draw_mesh;
+        renderer.draw_line = d3d11_draw_line;
         renderer.platform = (void *)&d11;
         global_renderer = &renderer;
 

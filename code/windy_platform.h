@@ -18,6 +18,8 @@
 #define MAX_PATH 100
 #endif
 
+#define next_multiple_of_16(x) (16*(((i32)(x / 16))+1))
+
 struct Input_File
 {
     char *path;
@@ -77,17 +79,26 @@ struct Platform_Font
 
 #include "hlsl_defines.h"
 #pragma pack(push, 16)
-    struct Platform_Phong_Settings
-    {
-        u32 flags;
-        v3  color;
-    };
+struct Platform_Phong_Settings
+{
+    u32 flags;
+    v3  color;
+};
+#pragma pack(pop)
+
+#pragma pack(push, 16)
+struct Platform_Debug_Shader_Settings
+{
+    v4  color;
+    u32 type;
+    v3  positions[4];
+};
 #pragma pack(pop)
 
 #define PLATFORM_LOAD_RENDERER(name) void name(Platform_Renderer *renderer)
 typedef PLATFORM_LOAD_RENDERER(Platform_Load_Renderer);
 
-#define PLATFORM_RELOAD_SHADER(func) void func(Platform_Shader *shader, Platform_Renderer *renderer, char *name)
+#define PLATFORM_RELOAD_SHADER(func) void func(Platform_Shader *shader, char *name)
 typedef PLATFORM_RELOAD_SHADER(Platform_Reload_Shader);
 
 #define PLATFORM_INIT_TEXTURE(name) void name(Platform_Texture *texture)
@@ -138,6 +149,12 @@ typedef PLATFORM_DRAW_MESH(Platform_Draw_Mesh);
 #undef  PLATFORM_DRAW_MESH
 #define PLATFORM_DRAW_MESH(name) void name(Platform_Mesh_Buffers *mesh, Platform_Shader *shader, Platform_Phong_Settings *settings, m4 *model_transform, m4 *camera_transform = 0, m4 *screen_transform = 0, v3 *light_data = 0, v3 *eye = 0)
 
+#define PLATFORM_DRAW_LINE(name) void name(v3 a, v3 b, v4 color, m4 *camera_transform, m4 *screen_transform)
+typedef PLATFORM_DRAW_LINE(Platform_Draw_Line);
+#undef  PLATFORM_DRAW_LINE
+#define PLATFORM_DRAW_LINE(name) void name(v3 a, v3 b, v4 color, m4 *camera_transform = 0, m4 *screen_transform = 0)
+
+
 struct Platform_Renderer
 {
     Platform_Load_Renderer    *load_renderer;
@@ -156,8 +173,10 @@ struct Platform_Renderer
     Platform_Draw_Rect *draw_rect;
     Platform_Draw_Text *draw_text;
     Platform_Draw_Mesh *draw_mesh;
+    Platform_Draw_Line *draw_line;
 
     Platform_Mesh_Buffers  square;
+    Platform_Shader        debug_shader;
 
     void *platform;
 };

@@ -21,6 +21,7 @@ struct D11_Renderer
     ID3D11Buffer *matrix_buff;
     ID3D11Buffer *light_buff;
     ID3D11Buffer *settings_buff;
+    ID3D11Buffer *debug_buff;
 };
 
 #define WIN32_RENDERER_D3D11_H

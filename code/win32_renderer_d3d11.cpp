@@ -16,6 +16,14 @@ cat(char *src0, char *src1, char *dest)
     *dest = '\0';
 }
 
+void d3d11_enable_constant_buffer(ID3D11Buffer *buffer, u32 slot, bool vertex_shader, bool pixel_shader)
+{
+    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+
+    if (vertex_shader)  d11->context->VSSetConstantBuffers(slot, 1, &buffer);
+    if (pixel_shader)   d11->context->PSSetConstantBuffers(slot, 1, &buffer);
+}
+
 inline void
 d3d11_resize_render_targets()
 {
@@ -147,7 +155,6 @@ PLATFORM_LOAD_RENDERER(win32_load_d3d11)
     MatrixBufferDesc.MiscFlags = 0;
     MatrixBufferDesc.StructureByteStride = sizeof(m4);
     d11->device->CreateBuffer(&MatrixBufferDesc, 0, &d11->matrix_buff);
-    d11->context->VSSetConstantBuffers(0, 1, &d11->matrix_buff);
 
     D3D11_BUFFER_DESC light_buff_desc = {};
     light_buff_desc.ByteWidth = 16*3;
@@ -157,17 +164,24 @@ PLATFORM_LOAD_RENDERER(win32_load_d3d11)
     light_buff_desc.MiscFlags = 0;
     light_buff_desc.StructureByteStride = sizeof(v3);
     d11->device->CreateBuffer(&light_buff_desc, 0, &d11->light_buff);
-    d11->context->PSSetConstantBuffers(0, 1, &d11->light_buff);
 
     D3D11_BUFFER_DESC settings_buff_desc = {};
-    settings_buff_desc.ByteWidth = sizeof(Platform_Phong_Settings);
+    settings_buff_desc.ByteWidth = next_multiple_of_16(sizeof(Platform_Phong_Settings));
     settings_buff_desc.Usage = D3D11_USAGE_DYNAMIC;
     settings_buff_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     settings_buff_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     settings_buff_desc.MiscFlags = 0;
     settings_buff_desc.StructureByteStride = 0;
     d11->device->CreateBuffer(&settings_buff_desc, 0, &d11->settings_buff);
-    d11->context->PSSetConstantBuffers(1, 1, &d11->settings_buff);
+
+    D3D11_BUFFER_DESC debug_buff_desc = {};
+    debug_buff_desc.ByteWidth = next_multiple_of_16(sizeof(Platform_Debug_Shader_Settings));
+    debug_buff_desc.Usage = D3D11_USAGE_DYNAMIC;
+    debug_buff_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    debug_buff_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    debug_buff_desc.MiscFlags = 0;
+    debug_buff_desc.StructureByteStride = 0;
+    d11->device->CreateBuffer(&debug_buff_desc, 0, &d11->debug_buff);
 
     //
     // rasterizer set-up
@@ -260,9 +274,20 @@ PLATFORM_RELOAD_SHADER(d3d11_reload_shader)
 
     if(win32_reload_file_if_changed(&shader->vertex_file))
         d11->device->CreateVertexShader(shader->vertex_file.data, shader->vertex_file.size, 0, (ID3D11VertexShader **)&shader->vertex);
+    else if (!shader->vertex)
+    {
+        
+        throw_error_and_exit("Could not open shader '%s'\n", vertex_path);
+        Assert(0);
+    }
 
     if(win32_reload_file_if_changed(&shader->pixel_file))
         d11->device->CreatePixelShader(shader->pixel_file.data, shader->pixel_file.size, 0, (ID3D11PixelShader **)&shader->pixel);
+    else if (!shader->pixel)
+    {
+        throw_error_and_exit("Could not open shader '%s'\n", pixel_path);
+        Assert(0);
+    }
 }
 
 PLATFORM_INIT_TEXTURE(d3d11_init_texture)
@@ -360,33 +385,6 @@ inline PLATFORM_SET_ACTIVE_SHADER(d3d11_set_active_shader)
     d11->context->PSSetShader((ID3D11PixelShader  *)shader->pixel,  0, 0);
 }
 
-inline PLATFORM_DRAW_RECT(d3d11_draw_rect)
-{
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
-
-    D3D11_MAPPED_SUBRESOURCE matrices_map = {};
-    d11->context->Map(d11->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
-
-    m4 *matrix_buffer = (m4 *)matrices_map.pData;
-
-    size.x /= (r32)global_width;
-    size.y /= (r32)global_height;
-    pos.x  /= (r32)global_width;
-    pos.y  /= (r32)global_height;
-    pos.x   =  (pos.x*2.f - 1.f);
-    pos.y   = -(pos.y*2.f - 1.f);
-
-    matrix_buffer[0] = Translation_m4(pos.x, pos.y, 0)*Scale_m4(size*2.f);
-    d11->context->Unmap(d11->matrix_buff, 0);
-
-    d11->context->OMSetDepthStencilState(d11->nodepth_nostencil_state, 1);
-    d11->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    Mesh m = {};
-    m.buffers = global_renderer->square;
-    global_renderer->set_active_mesh(&m.buffers);
-    d11->context->Draw(6, 0);
-}
-
 inline PLATFORM_SET_RENDER_TARGETS(d3d11_set_default_render_targets)
 {
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
@@ -421,6 +419,79 @@ inline PLATFORM_CLEAR(d3d11_clear)
     d11->context->ClearDepthStencilView(d11->render_target_depth, clear_flags, depth, stencil);
 }
 
+
+// @note @todo: this function is currently only compatible with text rendering (proper shader set-up and the like are missing)
+inline PLATFORM_DRAW_RECT(d3d11_draw_rect)
+{
+    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+
+    D3D11_MAPPED_SUBRESOURCE matrices_map = {};
+    d11->context->Map(d11->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+
+    m4 *matrix_buffer = (m4 *)matrices_map.pData;
+
+    size.x /= (r32)global_width;
+    size.y /= (r32)global_height;
+    pos.x  /= (r32)global_width;
+    pos.y  /= (r32)global_height;
+    pos.x   =  (pos.x*2.f - 1.f);
+    pos.y   = -(pos.y*2.f - 1.f);
+
+    matrix_buffer[0] = Translation_m4(pos.x, pos.y, 0)*Scale_m4(size*2.f);
+    d11->context->Unmap(d11->matrix_buff, 0);
+
+    d11->context->OMSetDepthStencilState(d11->nodepth_nostencil_state, 1);
+    d11->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    d3d11_enable_constant_buffer(d11->matrix_buff, 0, true, false);
+
+    global_renderer->set_active_mesh(&global_renderer->square);
+    d11->context->Draw(6, 0);
+}
+
+// @todo: review this whole function
+PLATFORM_DRAW_LINE(d3d11_draw_line)
+{
+    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+
+    local_persist m4 camera = Identity_m4();
+    local_persist m4 screen = Identity_m4();
+    if (camera_transform)
+        camera = *camera_transform;
+    if (screen_transform)
+        screen = *screen_transform;
+
+
+    global_renderer->set_active_shader(&global_renderer->debug_shader);
+    global_renderer->set_active_mesh(&global_renderer->square);
+    d11->context->OMSetDepthStencilState(d11->nodepth_nostencil_state, 1);
+    d11->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+    d3d11_set_default_render_targets();
+
+    d3d11_enable_constant_buffer(d11->debug_buff, 2, true, true);
+    {
+        D3D11_MAPPED_SUBRESOURCE debug_map = {};
+        d11->context->Map(d11->debug_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &debug_map);
+        Platform_Debug_Shader_Settings *gpu = (Platform_Debug_Shader_Settings *)debug_map.pData;
+        gpu->type  = DEBUG_LINE;
+        gpu->color = color;
+        gpu->positions[0] = a;
+        gpu->positions[1] = b;
+        d11->context->Unmap(d11->debug_buff, 0);
+    }
+
+    // @todo: D3D11_MAP_WRITE
+    d3d11_enable_constant_buffer(d11->matrix_buff, 0, true, false);
+    {
+        D3D11_MAPPED_SUBRESOURCE matrices_map = {};
+        d11->context->Map(d11->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+        m4 *matrix_buffer = (m4 *)matrices_map.pData;
+        matrix_buffer[1] = camera;
+        matrix_buffer[2] = screen;
+        d11->context->Unmap(d11->matrix_buff, 0);
+    }
+
+    d11->context->Draw(2, 0);
+}
 
 r32
 d3d11_draw_char(Platform_Shader *shader, Platform_Font *font, char character, v2 pos)
@@ -534,6 +605,7 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
 
     if (light_data && eye)
     {
+        d3d11_enable_constant_buffer(d11->light_buff, 0, false, true);
         d11->context->Map(d11->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
         TMP_Light_Buffer *lights_mapped = (TMP_Light_Buffer *)lights_map.pData;
         lights_mapped->color = light_data[0]; // color
@@ -544,6 +616,7 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
 
     if (settings)
     {
+        d3d11_enable_constant_buffer(d11->settings_buff, 1, false, true);
         d11->context->Map(d11->settings_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &settings_map);
         Platform_Phong_Settings *gpu = (Platform_Phong_Settings *)settings_map.pData;
         gpu->flags = settings->flags;
@@ -552,12 +625,15 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
     }
 
     // @todo: D3D11_MAP_WRITE
-    d11->context->Map(d11->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
-    m4 *matrix_buffer = (m4 *)matrices_map.pData;
-    matrix_buffer[0] = *model_transform;
-    matrix_buffer[1] = camera;
-    matrix_buffer[2] = screen;
-    d11->context->Unmap(d11->matrix_buff, 0);
+    d3d11_enable_constant_buffer(d11->matrix_buff, 0, true, false);
+    {
+        d11->context->Map(d11->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+        m4 *matrix_buffer = (m4 *)matrices_map.pData;
+        matrix_buffer[0] = *model_transform;
+        matrix_buffer[1] = camera;
+        matrix_buffer[2] = screen;
+        d11->context->Unmap(d11->matrix_buff, 0);
+    }
 
     d11->context->DrawIndexed(mesh->index_count, 0, 0);
 }

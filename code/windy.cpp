@@ -208,8 +208,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         // @todo: remove need for pre-allocation
         state->phong_shader = push_struct(&mempool, Platform_Shader);
         state->font_shader  = push_struct(&mempool, Platform_Shader);
-        renderer->reload_shader(state->phong_shader, renderer, "phong");
-        renderer->reload_shader(state->font_shader, renderer, "fonts");
+        renderer->reload_shader(state->phong_shader, "phong");
+        renderer->reload_shader( state->font_shader, "fonts");
+        renderer->reload_shader(&renderer->debug_shader, "debug");
 
         state->obj_index_env    = load_mesh(renderer, memory->read_file, "assets/environment.wexp", &state->current_level, state->phong_shader);
         state->obj_index_player = load_mesh(renderer, memory->read_file, "assets/player.wexp",      &state->current_level, state->phong_shader);
@@ -306,8 +307,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     }
 
 #if WINDY_INTERNAL
-    renderer->reload_shader(state->phong_shader, renderer, "phong");
-    renderer->reload_shader(state->font_shader,  renderer, "fonts");
+    renderer->reload_shader(state->phong_shader, "phong");
+    renderer->reload_shader( state->font_shader, "fonts");
+    renderer->reload_shader(&renderer->debug_shader, "debug");
 #endif
     renderer->set_render_targets();
 
@@ -354,6 +356,13 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
     snprintf(debug_text, 128, "Hit: %d", last_hit);
     renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, height-64.f));
+
+    {
+        m4 camera = Camera_m4(active_camera->pos, active_camera->target, active_camera->up);
+        m4 screen = Perspective_m4(DegToRad*60.f, (r32)width/(r32)height, 0.01f, 100.f);
+        renderer->draw_line({0.f, 0.f, 0.f}, {0.f, 0.f, 2.f}, {1.f, 0.5f, 0.9f, 1.f},
+                            &camera, &screen);
+    }
 
 //    char *text = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\n0123456789 ?!\"'.,;<>[]{}()-_+=*&^%$#@/\\~`";
 //    renderer->draw_text(state->font_shader, &state->inconsolata, text, make_v2(0, 0));
