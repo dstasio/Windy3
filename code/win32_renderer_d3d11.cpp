@@ -474,8 +474,8 @@ PLATFORM_DRAW_LINE(d3d11_draw_line)
         Platform_Debug_Shader_Settings *gpu = (Platform_Debug_Shader_Settings *)debug_map.pData;
         gpu->type  = DEBUG_LINE;
         gpu->color = color;
-        gpu->positions[0] = a;
-        gpu->positions[1] = b;
+        gpu->positions[0] = make_v4(a);
+        gpu->positions[1] = make_v4(b);
         d11->context->Unmap(d11->debug_buff, 0);
     }
 

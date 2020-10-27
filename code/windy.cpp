@@ -250,6 +250,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     //
 
     i32 last_hit = -1;
+    local_persist v3 line[2] = {};
     Camera *active_camera = 0;
     { // Input Processing.
         if (*gamemode == GAMEMODE_GAME) 
@@ -278,7 +279,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         else if (*gamemode == GAMEMODE_EDITOR)
         {
             active_camera = &state->editor_camera;
-            v3 forward = state->game_camera.target - state->game_camera.pos;
+            v3 forward = active_camera->target - active_camera->pos;
 
             if (input->pressed.mouse_left)
             {
@@ -295,6 +296,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     }
                 }
 
+                line[0] = active_camera->pos;
+                line[1] = active_camera->pos + forward*200.f;
                 if (hit_index > 0)  last_hit = hit_index;
             }
 
@@ -360,7 +363,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     {
         m4 camera = Camera_m4(active_camera->pos, active_camera->target, active_camera->up);
         m4 screen = Perspective_m4(DegToRad*60.f, (r32)width/(r32)height, 0.01f, 100.f);
-        renderer->draw_line({0.f, 0.f, 0.f}, {0.f, 0.f, 2.f}, {1.f, 0.5f, 0.9f, 1.f},
+        renderer->draw_line(line[0], line[1], {1.f, 0.5f, 0.9f, 1.f},
                             &camera, &screen);
     }
 

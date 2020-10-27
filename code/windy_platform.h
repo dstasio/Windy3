@@ -78,6 +78,7 @@ struct Platform_Font
 };
 
 #include "hlsl_defines.h"
+// @todo: check correct alignment
 #pragma pack(push, 16)
 struct Platform_Phong_Settings
 {
@@ -86,12 +87,15 @@ struct Platform_Phong_Settings
 };
 #pragma pack(pop)
 
-#pragma pack(push, 16)
+#pragma pack(push, 4)
 struct Platform_Debug_Shader_Settings
 {
-    v4  color;
     u32 type;
-    v3  positions[4];
+    u32 _pad;
+    u32 _pad2;
+    u32 _pad3;
+    v4  color;
+    v4  positions[4];
 };
 #pragma pack(pop)
 

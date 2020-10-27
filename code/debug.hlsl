@@ -8,8 +8,8 @@ struct VS_OUTPUT
 
 cbuffer DebugSettings: register(b2)
 {
-    float4 debug_color;
     uint   debug_type;
+    float4 debug_color;
     float3 debug_pos[4];
 }
 
