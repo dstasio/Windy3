@@ -9,6 +9,12 @@
 #include <string.h>
 #include <cstdio>
 
+#if WINDY_DEBUG
+#define DEBUG_BUFFER_raycast  0
+#define DEBUG_BUFFER_new     10
+v3 DEBUG_buffer[DEBUG_BUFFER_new*2] = {};
+#endif
+
 internal u32
 load_mesh(Platform_Renderer *renderer, Platform_Read_File read_file, char *path, Level *level, Platform_Shader *shader = 0)
 {
@@ -129,7 +135,6 @@ void editor_camera(Input *input, Camera *camera, r32 dtime)
     camera->pos.y  = Sin(camera->_yaw) * Cos(camera->_pitch);
     camera->pos    = Normalize(camera->pos)*camera->_radius;
     camera->pos   += camera->target;
-    //    camera->target = target + make_v3(0.f, 0.f, 1.3f);
 }
 
 #if 1
@@ -143,10 +148,6 @@ struct Light_Buffer
 };
 #endif
 
-v3 DEBUG_hit_spots[8] = {};
-v3 DEBUG_new_hit_spots[8] = {};
-r32 DEBUG_new_hit_data[6] = {};
-r32 DEBUG_hit_data[6] = {};
 // @todo: Better algorithm
 //        ignore back-facing polygons
 //
@@ -169,9 +170,6 @@ raycast(Platform_Mesh_Buffers *buffers, v3 from, v3 dir, r32 min_distance, r32 m
             v3 u = Normalize(Cross( n, ((*p2) - (*p1))));
             v3 v = Normalize(Cross( u, n));
             m4 face_local_transform = WorldToLocal_m4(u, v, n, (*p1));
-            v3 local_p1 = face_local_transform * (*p1);
-            v3 local_p2 = face_local_transform * (*p2);
-            v3 local_p3 = face_local_transform * (*p3);
 
             v3 local_start = face_local_transform * from;
             v3 local_dir   = NoTranslation_m4(face_local_transform) *  dir;
@@ -194,68 +192,22 @@ raycast(Platform_Mesh_Buffers *buffers, v3 from, v3 dir, r32 min_distance, r32 m
                     (Dot(Cross(p2_p3, p2_in), n) > 0) &&
                     (Dot(Cross(p3_p1, p3_in), n) > 0))
                 {
-                    v3 incident_to_p1 = local_p1 - local_incident_point;
-                    v3 incident_to_p2 = local_p2 - local_incident_point;
-                    v3 incident_to_p3 = local_p3 - local_incident_point;
-#if 0
+                    r32 dist = Length_Sq(from - world_incident_point);
 
-                    //            if (((Dot(incident_to_p1, incident_to_p2) < 0) ||
-                    //                 (Dot(incident_to_p1, incident_to_p3) < 0)) &&
-                    //                ((Dot(incident_to_p2, incident_to_p1) < 0) ||
-                    //                 (Dot(incident_to_p2, incident_to_p3) < 0)) &&
-                    //                ((Dot(incident_to_p3, incident_to_p1) < 0) ||
-                    //                 (Dot(incident_to_p3, incident_to_p2) < 0)))
-                    if (((Dot(-incident_to_p1, incident_to_p2) > 0) &&
-                         (Dot(-incident_to_p1, incident_to_p3) > 0)) ||
-                        ((Dot(-incident_to_p2, incident_to_p1) > 0) &&
-                         (Dot(-incident_to_p2, incident_to_p3) > 0)) ||
-                        ((Dot(-incident_to_p3, incident_to_p1) > 0) &&
-                         (Dot(-incident_to_p3, incident_to_p2) > 0)))
-#endif
-                        r32 dist = Length_Sq(local_start - local_incident_point);
                     if ((dist > Square(min_distance)) && (dist < Square(max_distance)))
                     {
                         if (!hit_sq || (dist < hit_sq))
                         {
                             hit_sq = dist;
-                            DEBUG_new_hit_spots[0] = world_incident_point;
-//                            ((local_incident_point.x * u +
-//                              local_incident_point.y * v +
-//                              local_incident_point.z * n) + *p1);
-                            DEBUG_new_hit_spots[1] = ((local_start.x * u +
-                                                       local_start.y * v +
-                                                       local_start.z * n) + *p1);
 
-                            DEBUG_new_hit_spots[2] = *p1;
-                            DEBUG_new_hit_spots[3] = *p2;
-                            DEBUG_new_hit_spots[4] = *p3;
-
-                            DEBUG_new_hit_spots[5] = (DEBUG_new_hit_spots[0] +// incident_to_p1;
-                                                      (incident_to_p1.x * u +
-                                                       incident_to_p1.y * v +
-                                                       incident_to_p1.z * n));
-                            DEBUG_new_hit_spots[6] = (DEBUG_new_hit_spots[0] +// incident_to_p2;
-                                                      (incident_to_p2.x * u +
-                                                       incident_to_p2.y * v +
-                                                       incident_to_p2.z * n));
-                            DEBUG_new_hit_spots[7] = (DEBUG_new_hit_spots[0] +// incident_to_p3;
-                                                      (incident_to_p3.x * u +
-                                                       incident_to_p3.y * v +
-                                                       incident_to_p3.z * n));
-
-                            //                        DEBUG_new_hit_data[0] = Dot(DEBUG_new_hit_spots[5] - DEBUG_new_hit_spots[0], DEBUG_new_hit_spots[6] - DEBUG_new_hit_spots[0]);
-                            //                        DEBUG_new_hit_data[1] = Dot(DEBUG_new_hit_spots[5] - DEBUG_new_hit_spots[0], DEBUG_new_hit_spots[7] - DEBUG_new_hit_spots[0]);
-                            //                        DEBUG_new_hit_data[2] = Dot(DEBUG_new_hit_spots[6] - DEBUG_new_hit_spots[0], DEBUG_new_hit_spots[5] - DEBUG_new_hit_spots[0]);
-                            //                        DEBUG_new_hit_data[3] = Dot(DEBUG_new_hit_spots[6] - DEBUG_new_hit_spots[0], DEBUG_new_hit_spots[7] - DEBUG_new_hit_spots[0]);
-                            //                        DEBUG_new_hit_data[4] = Dot(DEBUG_new_hit_spots[7] - DEBUG_new_hit_spots[0], DEBUG_new_hit_spots[5] - DEBUG_new_hit_spots[0]);
-                            //                        DEBUG_new_hit_data[5] = Dot(DEBUG_new_hit_spots[7] - DEBUG_new_hit_spots[0], DEBUG_new_hit_spots[6] - DEBUG_new_hit_spots[0]);
-
-                            DEBUG_new_hit_data[0] = Dot(Normalize(incident_to_p1), Normalize(incident_to_p2));
-                            DEBUG_new_hit_data[1] = Dot(Normalize(incident_to_p1), Normalize(incident_to_p3));
-                            DEBUG_new_hit_data[2] = Dot(Normalize(incident_to_p2), Normalize(incident_to_p1));
-                            DEBUG_new_hit_data[3] = Dot(Normalize(incident_to_p2), Normalize(incident_to_p3));
-                            DEBUG_new_hit_data[4] = Dot(Normalize(incident_to_p3), Normalize(incident_to_p1));
-                            DEBUG_new_hit_data[5] = Dot(Normalize(incident_to_p3), Normalize(incident_to_p2));
+#if WINDY_DEBUG
+                            DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0] = world_incident_point;
+                            DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+1] = from;
+                            DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+2] = dir;
+                            DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+3] = *p1;
+                            DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+4] = *p2;
+                            DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+5] = *p3;
+#endif
                         }
                     }
                 }
@@ -337,7 +289,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     //
 
     local_persist i32 last_hit = -1;
-    local_persist v3 line[2] = {};
     Camera *active_camera = 0;
     { // Input Processing.
         if (*gamemode == GAMEMODE_GAME) 
@@ -387,26 +338,17 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                         hit_index = obj_index;
                         least_hit_distance = hit_distance;
 
-                        DEBUG_hit_spots[0] = DEBUG_new_hit_spots[0];
-                        DEBUG_hit_spots[1] = DEBUG_new_hit_spots[1];
-                        DEBUG_hit_spots[2] = DEBUG_new_hit_spots[2];
-                        DEBUG_hit_spots[3] = DEBUG_new_hit_spots[3];
-                        DEBUG_hit_spots[4] = DEBUG_new_hit_spots[4];
-                        DEBUG_hit_spots[5] = DEBUG_new_hit_spots[5];
-                        DEBUG_hit_spots[6] = DEBUG_new_hit_spots[6];
-                        DEBUG_hit_spots[7] = DEBUG_new_hit_spots[7];
-
-                        DEBUG_hit_data[0] = DEBUG_new_hit_data[0];
-                        DEBUG_hit_data[1] = DEBUG_new_hit_data[1];
-                        DEBUG_hit_data[2] = DEBUG_new_hit_data[2];
-                        DEBUG_hit_data[3] = DEBUG_new_hit_data[3];
-                        DEBUG_hit_data[4] = DEBUG_new_hit_data[4];
-                        DEBUG_hit_data[5] = DEBUG_new_hit_data[5];
+#if WINDY_DEBUG
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+0] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0];
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+1] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+1];
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+2] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+2];
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+3] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+3];
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+4] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+4];
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+5] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+5];
+#endif
                     }
                 }
 
-                line[0] = active_camera->pos;
-                line[1] = active_camera->pos + forward*200.f;
                 last_hit = hit_index;
             }
 
@@ -489,27 +431,19 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         {
             screen = Ortho_m4(active_camera->ortho_scale, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
         }
-        renderer->draw_line(line[0], line[1], {1.f, 0.5f, 0.9f, 1.f},
-                            0, &camera, &screen);
-        v4 lc = {0.5f, 0.5f, 0.9f, 1.f};
-        renderer->draw_line(DEBUG_hit_spots[0], DEBUG_hit_spots[1], lc, 0, 0, 0);
 
+        v4 lc = {0.5f, 0.5f, 0.9f, 0.2f};
+        renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+0], DEBUG_buffer[DEBUG_BUFFER_raycast+1], lc, 0, &camera, &screen);
         lc = {0.3f, 0.5f, 0.7f, 0.8f};
-        renderer->draw_line(DEBUG_hit_spots[1], DEBUG_hit_spots[2], lc, 1, 0, 0);
-        renderer->draw_line(DEBUG_hit_spots[1], DEBUG_hit_spots[3], lc, 1, 0, 0);
-        renderer->draw_line(DEBUG_hit_spots[1], DEBUG_hit_spots[4], lc, 1, 0, 0);
         lc = {0.3f, 0.6f, 0.3f, 0.9f};
-        renderer->draw_line(DEBUG_hit_spots[2], DEBUG_hit_spots[3], lc, 1, 0, 0);
-        renderer->draw_line(DEBUG_hit_spots[3], DEBUG_hit_spots[4], lc, 1, 0, 0);
-        renderer->draw_line(DEBUG_hit_spots[4], DEBUG_hit_spots[2], lc, 1, 0, 0);
+        renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+0], DEBUG_buffer[DEBUG_BUFFER_raycast+3], lc, 1, 0, 0);
+        renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+0], DEBUG_buffer[DEBUG_BUFFER_raycast+4], lc, 1, 0, 0);
+        renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+0], DEBUG_buffer[DEBUG_BUFFER_raycast+5], lc, 1, 0, 0);
 
         lc = {0.7f, 0.6f, 0.3f, 0.9f};
-        renderer->draw_line(DEBUG_hit_spots[0], DEBUG_hit_spots[5], lc, 1, 0, 0);
-        renderer->draw_line(DEBUG_hit_spots[0], DEBUG_hit_spots[6], lc, 1, 0, 0);
-        renderer->draw_line(DEBUG_hit_spots[0], DEBUG_hit_spots[7], lc, 1, 0, 0);
-
-        snprintf(debug_text, 128, "% f  % f\n% f  % f\n% f  % f", DEBUG_hit_data[0],DEBUG_hit_data[1],DEBUG_hit_data[2],DEBUG_hit_data[3],DEBUG_hit_data[4],DEBUG_hit_data[5]);
-        renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
+        renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+3], DEBUG_buffer[DEBUG_BUFFER_raycast+4], lc, 1, 0, 0);
+        renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+4], DEBUG_buffer[DEBUG_BUFFER_raycast+5], lc, 1, 0, 0);
+        renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+5], DEBUG_buffer[DEBUG_BUFFER_raycast+3], lc, 1, 0, 0);
     }
 
     //    char *text = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\n0123456789 ?!\"'.,;<>[]{}()-_+=*&^%$#@/\\~`";
