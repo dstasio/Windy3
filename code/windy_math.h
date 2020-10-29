@@ -168,6 +168,18 @@ Dot(v4 a, v4 b)
 // @todo: maybe add m4t (matrix4 transposed)?
 
 inline m4
+Identity_m4()
+{
+    m4 matrix = {
+        1.f, 0.f, 0.f, 0.f,
+        0.f, 1.f, 0.f, 0.f,
+        0.f, 0.f, 1.f, 0.f,
+        0.f, 0.f, 0.f, 1.f
+    };
+    return matrix;
+}
+
+inline m4
 Transpose(m4 a)
 {
     m4 matrix = {
@@ -178,6 +190,29 @@ Transpose(m4 a)
     };
     return matrix;
 }
+
+#if 0
+inline m4
+Invert(m4 A)
+{
+    m4 I = Identity_m4();
+
+    i32 pivot_index = 0;
+//    for (i32 col = 0; col < 4; ++col)
+    while (1)
+    {
+        u32 col_index = 0;
+        while (A.col[col_index] == 0)
+        {
+            // @todo
+        }
+
+        col_index += 1;
+    }
+
+    return I;
+}
+#endif
 
 v4 operator*(m4 a, v4 b)
 {
@@ -220,18 +255,6 @@ m4 &operator*=(m4 &a, m4 b)
 {
     a = a*b;
     return a;
-}
-
-inline m4
-Identity_m4()
-{
-    m4 matrix = {
-        1.f, 0.f, 0.f, 0.f,
-        0.f, 1.f, 0.f, 0.f,
-        0.f, 0.f, 1.f, 0.f,
-        0.f, 0.f, 0.f, 1.f
-    };
-    return matrix;
 }
 
 inline m4
@@ -365,14 +388,15 @@ Perspective_m4(r32 fov, r32 ar, r32 n, r32 f)
 }
 
 inline m4
-Ortho_m4(r32 ar, r32 n, r32 f)
+Ortho_m4(r32 size, r32 ar, r32 n, r32 f)
 {
+    r32 inv = 1.f/size;
     // @todo: test this matrix
     m4 matrix = {
-        1.f/ar, 0.f,        0.f, 0.f,
-        0.f,    1.f,        0.f, 0.f,
-        0.f,    0.f, -1.f/(f-n), 0.f,
-        0.f,    0.f,    n/(f-n), 1.f
+        inv/ar, 0.f,               0.f, 0.f,
+        0.f,    inv,               0.f, 0.f,
+        0.f,    0.f, 1.f/(f-n), 0.f,
+        0.f,    0.f, (-n)/(f-n), 1.f
     };
     return matrix;
 }
@@ -389,7 +413,7 @@ Transform_m4(v3 pos, v3 euler, v3 scale)
 }
 
 inline m4
-LocalSpace_m4(v3 u, v3 v, v3 n, v3 origin = {})
+WorldToLocal_m4(v3 u, v3 v, v3 n, v3 origin = {})
 {
     m4 matrix = {
              u.x, v.x, n.x, 0.f,
@@ -402,7 +426,7 @@ LocalSpace_m4(v3 u, v3 v, v3 n, v3 origin = {})
 }
 
 inline m4
-NoRotation_m4(m4 a)
+NoTranslation_m4(m4 a)
 {
     m4 result = a;
     result.col[3] = make_v4(0.f, 0.f, 0.f, 1.f);

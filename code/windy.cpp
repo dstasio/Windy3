@@ -105,8 +105,9 @@ void editor_camera(Input *input, Camera *camera, r32 dtime)
             v3 right   = Normalize(Cross(forward, camera->up));
             v3 up      = Normalize(Cross(right, forward));
 
-            camera->target +=  input->dmouse.y*up*dtime - input->dmouse.x*right*dtime;
-            camera->pos    +=  input->dmouse.y*up*dtime - input->dmouse.x*right*dtime;
+            r32 speed = 5.f;
+            camera->target += input->dmouse.y*up*dtime*speed - input->dmouse.x*right*dtime*speed;
+            camera->pos    += input->dmouse.y*up*dtime*speed - input->dmouse.x*right*dtime*speed;
         }
         else
         {
@@ -128,7 +129,7 @@ void editor_camera(Input *input, Camera *camera, r32 dtime)
     camera->pos.y  = Sin(camera->_yaw) * Cos(camera->_pitch);
     camera->pos    = Normalize(camera->pos)*camera->_radius;
     camera->pos   += camera->target;
-//    camera->target = target + make_v3(0.f, 0.f, 1.3f);
+    //    camera->target = target + make_v3(0.f, 0.f, 1.3f);
 }
 
 #if 1
@@ -142,6 +143,10 @@ struct Light_Buffer
 };
 #endif
 
+v3 DEBUG_hit_spots[8] = {};
+v3 DEBUG_new_hit_spots[8] = {};
+r32 DEBUG_new_hit_data[6] = {};
+r32 DEBUG_hit_data[6] = {};
 // @todo: Better algorithm
 //        ignore back-facing polygons
 //
@@ -154,45 +159,110 @@ raycast(Platform_Mesh_Buffers *buffers, v3 from, v3 dir, r32 min_distance, r32 m
     u16 *indices = (u16 *)byte_offset(buffers->wexp, buffers->wexp->indices_offset);
     for (u32 i = 0; i < buffers->index_count; i += 3)
     {
-        v3 p1 = *((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i])));
-        v3 p2 = *((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+1])));
-        v3 p3 = *((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+2])));
+        v3 *p1 = ((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i])));
+        v3 *p2 = ((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+1])));
+        v3 *p3 = ((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+2])));
 
-        v3 n = Normalize(Cross((p2 - p1), (p3 - p1)));
-        v3 u = Normalize(Cross(        n, (p2 - p1)));
-        v3 v = Normalize(Cross( u, n));
-        m4 face_local_transform = LocalSpace_m4(u, v, n, p1);
-        p1 = face_local_transform * p1;
-        p2 = face_local_transform * p2;
-        p3 = face_local_transform * p3;
-
-        v3 local_start = face_local_transform * from;
-        v3 local_dir   = NoRotation_m4(face_local_transform) *  dir;
-        r32 dir_steps  = - local_start.z / local_dir.z;
-        if (dir_steps >= 0)
+        v3 n = Normalize(Cross(((*p2) - (*p1)), ((*p3) - (*p1))));
+        if (Dot(n, dir) < 0)
         {
-            v3 incident_point = local_start + dir_steps*local_dir;
+            v3 u = Normalize(Cross( n, ((*p2) - (*p1))));
+            v3 v = Normalize(Cross( u, n));
+            m4 face_local_transform = WorldToLocal_m4(u, v, n, (*p1));
+            v3 local_p1 = face_local_transform * (*p1);
+            v3 local_p2 = face_local_transform * (*p2);
+            v3 local_p3 = face_local_transform * (*p3);
 
-            v3 incident_to_p1 = p1 - incident_point;
-            v3 incident_to_p2 = p2 - incident_point;
-            v3 incident_to_p3 = p3 - incident_point;
-
-            if (((Dot(incident_to_p1, incident_to_p2) < 0) ||
-                 (Dot(incident_to_p1, incident_to_p3) < 0)) &&
-                ((Dot(incident_to_p2, incident_to_p1) < 0) ||
-                 (Dot(incident_to_p2, incident_to_p3) < 0)) &&
-                ((Dot(incident_to_p3, incident_to_p1) < 0) ||
-                 (Dot(incident_to_p3, incident_to_p2) < 0)))
+            v3 local_start = face_local_transform * from;
+            v3 local_dir   = NoTranslation_m4(face_local_transform) *  dir;
+            r32 dir_steps  = - local_start.z / local_dir.z;
+            if (dir_steps >= 0)
             {
-                r32 dist = Length_Sq(local_start - incident_point);
-                if ((dist > Square(min_distance)) && (dist < Square(max_distance)))
+                v3 local_incident_point = local_start + dir_steps*local_dir;
+
+                v3 world_incident_point = ((local_incident_point.x * u) +
+                                           (local_incident_point.y * v) +
+                                           (local_incident_point.z * n) + (*p1));
+
+                v3 p1_p2 = (*p2) - (*p1);
+                v3 p2_p3 = (*p3) - (*p2);
+                v3 p3_p1 = (*p1) - (*p3);
+                v3 p1_in = world_incident_point - (*p1);
+                v3 p2_in = world_incident_point - (*p2);
+                v3 p3_in = world_incident_point - (*p3);
+                if ((Dot(Cross(p1_p2, p1_in), n) > 0) &&
+                    (Dot(Cross(p2_p3, p2_in), n) > 0) &&
+                    (Dot(Cross(p3_p1, p3_in), n) > 0))
                 {
-                    if (!hit_sq || (dist < hit_sq))
-                        hit_sq = dist;
+                    v3 incident_to_p1 = local_p1 - local_incident_point;
+                    v3 incident_to_p2 = local_p2 - local_incident_point;
+                    v3 incident_to_p3 = local_p3 - local_incident_point;
+#if 0
+
+                    //            if (((Dot(incident_to_p1, incident_to_p2) < 0) ||
+                    //                 (Dot(incident_to_p1, incident_to_p3) < 0)) &&
+                    //                ((Dot(incident_to_p2, incident_to_p1) < 0) ||
+                    //                 (Dot(incident_to_p2, incident_to_p3) < 0)) &&
+                    //                ((Dot(incident_to_p3, incident_to_p1) < 0) ||
+                    //                 (Dot(incident_to_p3, incident_to_p2) < 0)))
+                    if (((Dot(-incident_to_p1, incident_to_p2) > 0) &&
+                         (Dot(-incident_to_p1, incident_to_p3) > 0)) ||
+                        ((Dot(-incident_to_p2, incident_to_p1) > 0) &&
+                         (Dot(-incident_to_p2, incident_to_p3) > 0)) ||
+                        ((Dot(-incident_to_p3, incident_to_p1) > 0) &&
+                         (Dot(-incident_to_p3, incident_to_p2) > 0)))
+#endif
+                        r32 dist = Length_Sq(local_start - local_incident_point);
+                    if ((dist > Square(min_distance)) && (dist < Square(max_distance)))
+                    {
+                        if (!hit_sq || (dist < hit_sq))
+                        {
+                            hit_sq = dist;
+                            DEBUG_new_hit_spots[0] = world_incident_point;
+//                            ((local_incident_point.x * u +
+//                              local_incident_point.y * v +
+//                              local_incident_point.z * n) + *p1);
+                            DEBUG_new_hit_spots[1] = ((local_start.x * u +
+                                                       local_start.y * v +
+                                                       local_start.z * n) + *p1);
+
+                            DEBUG_new_hit_spots[2] = *p1;
+                            DEBUG_new_hit_spots[3] = *p2;
+                            DEBUG_new_hit_spots[4] = *p3;
+
+                            DEBUG_new_hit_spots[5] = (DEBUG_new_hit_spots[0] +// incident_to_p1;
+                                                      (incident_to_p1.x * u +
+                                                       incident_to_p1.y * v +
+                                                       incident_to_p1.z * n));
+                            DEBUG_new_hit_spots[6] = (DEBUG_new_hit_spots[0] +// incident_to_p2;
+                                                      (incident_to_p2.x * u +
+                                                       incident_to_p2.y * v +
+                                                       incident_to_p2.z * n));
+                            DEBUG_new_hit_spots[7] = (DEBUG_new_hit_spots[0] +// incident_to_p3;
+                                                      (incident_to_p3.x * u +
+                                                       incident_to_p3.y * v +
+                                                       incident_to_p3.z * n));
+
+                            //                        DEBUG_new_hit_data[0] = Dot(DEBUG_new_hit_spots[5] - DEBUG_new_hit_spots[0], DEBUG_new_hit_spots[6] - DEBUG_new_hit_spots[0]);
+                            //                        DEBUG_new_hit_data[1] = Dot(DEBUG_new_hit_spots[5] - DEBUG_new_hit_spots[0], DEBUG_new_hit_spots[7] - DEBUG_new_hit_spots[0]);
+                            //                        DEBUG_new_hit_data[2] = Dot(DEBUG_new_hit_spots[6] - DEBUG_new_hit_spots[0], DEBUG_new_hit_spots[5] - DEBUG_new_hit_spots[0]);
+                            //                        DEBUG_new_hit_data[3] = Dot(DEBUG_new_hit_spots[6] - DEBUG_new_hit_spots[0], DEBUG_new_hit_spots[7] - DEBUG_new_hit_spots[0]);
+                            //                        DEBUG_new_hit_data[4] = Dot(DEBUG_new_hit_spots[7] - DEBUG_new_hit_spots[0], DEBUG_new_hit_spots[5] - DEBUG_new_hit_spots[0]);
+                            //                        DEBUG_new_hit_data[5] = Dot(DEBUG_new_hit_spots[7] - DEBUG_new_hit_spots[0], DEBUG_new_hit_spots[6] - DEBUG_new_hit_spots[0]);
+
+                            DEBUG_new_hit_data[0] = Dot(Normalize(incident_to_p1), Normalize(incident_to_p2));
+                            DEBUG_new_hit_data[1] = Dot(Normalize(incident_to_p1), Normalize(incident_to_p3));
+                            DEBUG_new_hit_data[2] = Dot(Normalize(incident_to_p2), Normalize(incident_to_p1));
+                            DEBUG_new_hit_data[3] = Dot(Normalize(incident_to_p2), Normalize(incident_to_p3));
+                            DEBUG_new_hit_data[4] = Dot(Normalize(incident_to_p3), Normalize(incident_to_p1));
+                            DEBUG_new_hit_data[5] = Dot(Normalize(incident_to_p3), Normalize(incident_to_p2));
+                        }
+                    }
                 }
             }
         }
     }
+
     return Sqrt(hit_sq);
 }
 
@@ -230,26 +300,30 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         //
         // camera set-up
         //
-        state->game_camera.pos     = {0.f, -3.f, 2.f};
-        state->game_camera.target  = {0.f,  0.f, 0.f};
-        state->game_camera.up      = {0.f,  0.f, 1.f};
-        state->game_camera.fov     = DegToRad*60.f;
-        state->game_camera.min_z   = 0.01f;
-        state->game_camera.max_z   = 100.f;
-        state->game_camera._radius = 2.5f;
-        state->game_camera._pitch  = 1.f;
-        state->game_camera._yaw    = PI/2.f;
+        state->game_camera.pos         = {0.f, -3.f, 2.f};
+        state->game_camera.target      = {0.f,  0.f, 0.f};
+        state->game_camera.up          = {0.f,  0.f, 1.f};
+        state->game_camera.fov         = DegToRad*60.f;
+        state->game_camera.min_z       = 0.01f;
+        state->game_camera.max_z       = 100.f;
+        state->game_camera.is_ortho    = 0;
+        state->game_camera.ortho_scale = 20.f;
+        state->game_camera._radius     = 2.5f;
+        state->game_camera._pitch      = 1.f;
+        state->game_camera._yaw        = PI/2.f;
 
-        state->editor_camera.pos     = {0.f, -3.f, 2.f};
-        state->editor_camera.target  = {0.f,  0.f, 0.f};
-        state->editor_camera.up      = {0.f,  0.f, 1.f};
-        state->editor_camera.fov     = DegToRad*60.f;
-        state->editor_camera.min_z   = 0.01f;
-        state->editor_camera.max_z   = 100.f;
-        state->editor_camera._radius = 2.5f;
-        state->editor_camera._pitch  = 1.f;
-        state->editor_camera._yaw    = PI/2.f;
-        state->editor_camera._pivot  = state->current_level.get(state->obj_index_player).p;
+        state->editor_camera.pos         = {0.f, -3.f, 2.f};
+        state->editor_camera.target      = {0.f,  0.f, 0.f};
+        state->editor_camera.up          = {0.f,  0.f, 1.f};
+        state->editor_camera.fov         = DegToRad*60.f;
+        state->editor_camera.min_z       = 0.01f;
+        state->editor_camera.max_z       = 100.f;
+        state->editor_camera.is_ortho    = 0;
+        state->editor_camera.ortho_scale = 20.f;
+        state->editor_camera._radius     = 2.5f;
+        state->editor_camera._pitch      = 1.f;
+        state->editor_camera._yaw        = PI/2.f;
+        state->editor_camera._pivot      = state->current_level.get(state->obj_index_player).p;
 
         //state->sun.color = {1.f,  1.f,  1.f};
         //state->sun.dir   = {0.f, -1.f, -1.f};
@@ -294,6 +368,10 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             active_camera = &state->editor_camera;
             v3 forward = active_camera->target - active_camera->pos;
 
+            if (input->pressed.space)
+            {
+                active_camera->is_ortho = !active_camera->is_ortho;
+            }
             if (input->pressed.mouse_left)
             {
                 i32 hit_index = -1;
@@ -308,6 +386,22 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     {
                         hit_index = obj_index;
                         least_hit_distance = hit_distance;
+
+                        DEBUG_hit_spots[0] = DEBUG_new_hit_spots[0];
+                        DEBUG_hit_spots[1] = DEBUG_new_hit_spots[1];
+                        DEBUG_hit_spots[2] = DEBUG_new_hit_spots[2];
+                        DEBUG_hit_spots[3] = DEBUG_new_hit_spots[3];
+                        DEBUG_hit_spots[4] = DEBUG_new_hit_spots[4];
+                        DEBUG_hit_spots[5] = DEBUG_new_hit_spots[5];
+                        DEBUG_hit_spots[6] = DEBUG_new_hit_spots[6];
+                        DEBUG_hit_spots[7] = DEBUG_new_hit_spots[7];
+
+                        DEBUG_hit_data[0] = DEBUG_new_hit_data[0];
+                        DEBUG_hit_data[1] = DEBUG_new_hit_data[1];
+                        DEBUG_hit_data[2] = DEBUG_new_hit_data[2];
+                        DEBUG_hit_data[3] = DEBUG_new_hit_data[3];
+                        DEBUG_hit_data[4] = DEBUG_new_hit_data[4];
+                        DEBUG_hit_data[5] = DEBUG_new_hit_data[5];
                     }
                 }
 
@@ -339,6 +433,13 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         Mesh *env = &state->current_level.get(state->obj_index_env);
         m4 camera = Camera_m4(active_camera->pos, active_camera->target, active_camera->up);
         m4 screen = Perspective_m4(active_camera->fov, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
+        if (active_camera->is_ortho)
+        {
+            active_camera->ortho_scale = 5.f;
+            active_camera->max_z = 500.f;
+            screen = Ortho_m4(active_camera->ortho_scale, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
+        }
+
         m4 model  = env->transform;
         Platform_Phong_Settings settings = {};
 
@@ -375,11 +476,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     }
 
     char debug_text[128] = {};
-    snprintf(debug_text, 128, "Delta mouse:\n%f\n%f\n%d", input->dmouse.x, input->dmouse.y, input->dwheel);
-    renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
-    snprintf(debug_text, 128, "FPS: %f", 1.f/dtime);
-    renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, height-32.f));
-
     printf("Hit: %d", last_hit);
     snprintf(debug_text, 128, "Hit: %d", last_hit);
     renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, height-64.f));
@@ -389,10 +485,33 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     {
         m4 camera = Camera_m4(active_camera->pos, active_camera->target, active_camera->up);
         m4 screen = Perspective_m4(active_camera->fov, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
+        if (active_camera->is_ortho)
+        {
+            screen = Ortho_m4(active_camera->ortho_scale, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
+        }
         renderer->draw_line(line[0], line[1], {1.f, 0.5f, 0.9f, 1.f},
-                            &camera, &screen);
+                            0, &camera, &screen);
+        v4 lc = {0.5f, 0.5f, 0.9f, 1.f};
+        renderer->draw_line(DEBUG_hit_spots[0], DEBUG_hit_spots[1], lc, 0, 0, 0);
+
+        lc = {0.3f, 0.5f, 0.7f, 0.8f};
+        renderer->draw_line(DEBUG_hit_spots[1], DEBUG_hit_spots[2], lc, 1, 0, 0);
+        renderer->draw_line(DEBUG_hit_spots[1], DEBUG_hit_spots[3], lc, 1, 0, 0);
+        renderer->draw_line(DEBUG_hit_spots[1], DEBUG_hit_spots[4], lc, 1, 0, 0);
+        lc = {0.3f, 0.6f, 0.3f, 0.9f};
+        renderer->draw_line(DEBUG_hit_spots[2], DEBUG_hit_spots[3], lc, 1, 0, 0);
+        renderer->draw_line(DEBUG_hit_spots[3], DEBUG_hit_spots[4], lc, 1, 0, 0);
+        renderer->draw_line(DEBUG_hit_spots[4], DEBUG_hit_spots[2], lc, 1, 0, 0);
+
+        lc = {0.7f, 0.6f, 0.3f, 0.9f};
+        renderer->draw_line(DEBUG_hit_spots[0], DEBUG_hit_spots[5], lc, 1, 0, 0);
+        renderer->draw_line(DEBUG_hit_spots[0], DEBUG_hit_spots[6], lc, 1, 0, 0);
+        renderer->draw_line(DEBUG_hit_spots[0], DEBUG_hit_spots[7], lc, 1, 0, 0);
+
+        snprintf(debug_text, 128, "% f  % f\n% f  % f\n% f  % f", DEBUG_hit_data[0],DEBUG_hit_data[1],DEBUG_hit_data[2],DEBUG_hit_data[3],DEBUG_hit_data[4],DEBUG_hit_data[5]);
+        renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
     }
 
-//    char *text = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\n0123456789 ?!\"'.,;<>[]{}()-_+=*&^%$#@/\\~`";
-//    renderer->draw_text(state->font_shader, &state->inconsolata, text, make_v2(0, 0));
+    //    char *text = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\n0123456789 ?!\"'.,;<>[]{}()-_+=*&^%$#@/\\~`";
+    //    renderer->draw_text(state->font_shader, &state->inconsolata, text, make_v2(0, 0));
 }

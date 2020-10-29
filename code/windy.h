@@ -28,6 +28,9 @@ struct Camera
     r32 min_z;
     r32 max_z;
 
+    b32 is_ortho;
+    r32 ortho_scale;
+
     r32 _radius; // Variables used for third person camera
     r32 _pitch;
     r32 _yaw;

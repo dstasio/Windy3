@@ -463,7 +463,10 @@ PLATFORM_DRAW_LINE(d3d11_draw_line)
 
     global_renderer->set_active_shader(&global_renderer->debug_shader);
     global_renderer->set_active_mesh(&global_renderer->square);
-    d11->context->OMSetDepthStencilState(d11->depth_nostencil_state, 1);
+    if (on_top)
+        d11->context->OMSetDepthStencilState(d11->nodepth_nostencil_state, 1);
+    else
+        d11->context->OMSetDepthStencilState(d11->depth_nostencil_state, 1);
     d11->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
     d3d11_set_default_render_targets();
 
