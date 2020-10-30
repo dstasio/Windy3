@@ -15,6 +15,8 @@
 v3 DEBUG_buffer[DEBUG_BUFFER_new*2] = {};
 #endif
 
+r32 global_mouse_sensitivity = 50.f;
+
 internal u32
 load_mesh(Platform_Renderer *renderer, Platform_Read_File read_file, char *path, Level *level, Platform_Shader *shader = 0)
 {
@@ -88,10 +90,10 @@ load_font(Platform_Font *font, Platform_Read_File *read_file, char *path, r32 he
 
 void third_person_camera(Input *input, Camera *camera, v3 target, r32 dtime)
 {
-    camera->_yaw += input->dmouse.x*dtime;
-    camera->_pitch -= input->dmouse.y*dtime;
+    camera->_yaw += input->mouse.dx*dtime;
+    camera->_pitch -= input->mouse.dy*dtime;
     camera->_pitch  = Clamp(camera->_pitch, -PI/2.1f, PI/2.1f);
-    camera->_radius -= input->dwheel*0.1f*dtime;
+    camera->_radius -= input->mouse.wheel*0.1f*dtime;
 
     camera->pos.z  = Sin(camera->_pitch);
     camera->pos.x  = Cos(camera->_yaw) * Cos(camera->_pitch);
@@ -112,22 +114,22 @@ void editor_camera(Input *input, Camera *camera, r32 dtime)
             v3 up      = Normalize(Cross(right, forward));
 
             r32 speed = 5.f;
-            camera->target += input->dmouse.y*up*dtime*speed - input->dmouse.x*right*dtime*speed;
-            camera->pos    += input->dmouse.y*up*dtime*speed - input->dmouse.x*right*dtime*speed;
+            camera->target += input->mouse.dy*up*dtime*speed - input->mouse.dx*right*dtime*speed;
+            camera->pos    += input->mouse.dy*up*dtime*speed - input->mouse.dx*right*dtime*speed;
         }
         else
         {
-            camera->_yaw -= input->dmouse.x*PI*dtime;
-            camera->_pitch += input->dmouse.y*dtime;
+            camera->_yaw -= input->mouse.dx*PI*dtime;
+            camera->_pitch += input->mouse.dy*dtime;
             camera->_pitch  = Clamp(camera->_pitch, -PI/2.1f, PI/2.1f);
-            camera->_radius -= input->dwheel*0.1f*dtime;
+            camera->_radius -= input->mouse.wheel*0.1f*dtime;
         }
     }
     else
     {
         v3 forward = Normalize(camera->target - camera->pos);
-        camera->target += input->dwheel*dtime*forward;
-        camera->pos    += input->dwheel*dtime*forward;
+        camera->target += input->mouse.wheel*dtime*forward;
+        camera->pos    += input->mouse.wheel*dtime*forward;
     }
 
     camera->pos.z  = Sin(camera->_pitch);
@@ -291,6 +293,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     local_persist i32 last_hit = -1;
     Camera *active_camera = 0;
     { // Input Processing.
+        input->mouse.dp *= global_mouse_sensitivity;
+//        input->mouse.pos *= global_mouse_sensitivity;
         if (*gamemode == GAMEMODE_GAME) 
         {
             Mesh *player = &state->current_level.get(state->obj_index_player);
@@ -418,11 +422,13 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     }
 
     char debug_text[128] = {};
-    printf("Hit: %d", last_hit);
     snprintf(debug_text, 128, "Hit: %d", last_hit);
     renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, height-64.f));
-
     renderer->draw_text(state->font_shader, &state->inconsolata, "+", make_v2(width/2.f - 16.f, height/2.f - 16.f));
+    snprintf(debug_text, 128, "FPS: %f", 1.f/dtime);
+    renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
+    snprintf(debug_text, 128, "% f\n% f", input->mouse.x, input->mouse.y);
+    renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 32));
 
     {
         m4 camera = Camera_m4(active_camera->pos, active_camera->target, active_camera->up);
@@ -432,9 +438,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             screen = Ortho_m4(active_camera->ortho_scale, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
         }
 
+#if WINDY_DEBUG
         v4 lc = {0.5f, 0.5f, 0.9f, 0.2f};
         renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+0], DEBUG_buffer[DEBUG_BUFFER_raycast+1], lc, 0, &camera, &screen);
-        lc = {0.3f, 0.5f, 0.7f, 0.8f};
         lc = {0.3f, 0.6f, 0.3f, 0.9f};
         renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+0], DEBUG_buffer[DEBUG_BUFFER_raycast+3], lc, 1, 0, 0);
         renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+0], DEBUG_buffer[DEBUG_BUFFER_raycast+4], lc, 1, 0, 0);
@@ -444,8 +450,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+3], DEBUG_buffer[DEBUG_BUFFER_raycast+4], lc, 1, 0, 0);
         renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+4], DEBUG_buffer[DEBUG_BUFFER_raycast+5], lc, 1, 0, 0);
         renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+5], DEBUG_buffer[DEBUG_BUFFER_raycast+3], lc, 1, 0, 0);
+#endif
     }
-
-    //    char *text = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz\n0123456789 ?!\"'.,;<>[]{}()-_+=*&^%$#@/\\~`";
-    //    renderer->draw_text(state->font_shader, &state->inconsolata, text, make_v2(0, 0));
 }

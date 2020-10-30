@@ -208,13 +208,27 @@ struct Input_Keyboard
     u32 mouse_right;
 };
 
+// @note: position is normalized: (0;0) top-left, (1,1)bottom-right
+//        delta goes from (-WINDY_WIN32_MOUSE_SENSITIVITY;-WINDY_WIN32_MOUSE_SENSITIVITY) to (+WINDY_WIN32_MOUSE_SENSITIVITY;+WINDY_WIN32_MOUSE_SENSITIVITY)
+struct Input_Mouse
+{
+    union {
+        struct { r32 x; r32 y; };
+        v2 p;
+    };
+    union {
+        struct { r32 dx; r32 dy; };
+        v2 dp;
+    };
+    i16 wheel;
+};
+
 struct Input
 {
     Input_Keyboard pressed;
     Input_Keyboard held;
 
-    v2  dmouse;
-    i16 dwheel;
+    Input_Mouse mouse;
 };
 
 typedef struct Game_Memory

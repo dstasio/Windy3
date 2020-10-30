@@ -374,8 +374,8 @@ WinMain(
         while(global_running && !global_error)
         {
             input.pressed = {};
-            input.dmouse = {};
-            input.dwheel = 0;
+            input.mouse.dp = {};
+            input.mouse.wheel = 0;
 
             Assert(QueryPerformanceCounter((LARGE_INTEGER *)&current_performance_counter));
             r32 dtime = (r32)(current_performance_counter - last_performance_counter) / (r32)performance_counter_frequency;
@@ -421,16 +421,17 @@ WinMain(
                             key_up(VK_MENU,    alt);
                         } break;
 
+#define WINDY_WIN32_MOUSE_SENSITIVITY 1000.f
                         case WM_INPUT:
                         {
                             RAWINPUT raw_input = {};
                             u32 raw_size = sizeof(raw_input);
                             GetRawInputData((HRAWINPUT)Message.lParam, RID_INPUT, &raw_input, &raw_size, sizeof(RAWINPUTHEADER));
                             RAWMOUSE raw_mouse = raw_input.data.mouse;
-                            if (raw_mouse.usFlags == MOUSE_MOVE_RELATIVE)
+                            if ((raw_mouse.usFlags & MOUSE_MOVE_RELATIVE) == MOUSE_MOVE_RELATIVE)
                             {
-                                input.dmouse.x = (r32)raw_mouse.lLastX;
-                                input.dmouse.y = (r32)raw_mouse.lLastY;
+                                input.mouse.dx = ((r32)raw_mouse.lLastX / 65535.f)*WINDY_WIN32_MOUSE_SENSITIVITY;
+                                input.mouse.dy = ((r32)raw_mouse.lLastY / 65535.f)*WINDY_WIN32_MOUSE_SENSITIVITY;
                             }
 
                             raw_mouse_button(1, mouse_left);
@@ -439,7 +440,7 @@ WinMain(
 
                             if (raw_mouse.usButtonFlags & RI_MOUSE_WHEEL)
                             {
-                                input.dwheel = raw_mouse.usButtonData;
+                                input.mouse.wheel = raw_mouse.usButtonData;
                             }
 
                             if (gamemode == GAMEMODE_GAME)
@@ -448,18 +449,16 @@ WinMain(
                             }
                         } break;
 
-                        // @todo: maybe switch to WM_MOUSEMOVE for editor and menu?
-                        //case WM_MOUSEMOVE:
-                        //{
-                        //    i16 m_x = ((i16*)&Message.lParam)[0];
-                        //    i16 m_y = ((i16*)&Message.lParam)[1];
-                        //    NewInput->dm_x = NewInput->m_x - m_x;
-                        //    NewInput->dm_y = NewInput->m_y - m_y;
-                        //    NewInput->m_x = m_x;
-                        //    NewInput->m_y = m_y;
-
-                        //    //SetCursorPos((window_rect.right - window_rect.left)/2, (window_rect.bottom - window_rect.top)/2);
-                        //} break;
+                        case WM_MOUSEMOVE:
+                        {
+                            if (gamemode == GAMEMODE_EDITOR)
+                            {
+                                // @todo: doing the division here might cause problems if a window resize
+                                //        happens between frames.
+                                input.mouse.x = (r32)(((i16*)&Message.lParam)[0]) / global_width;
+                                input.mouse.y = (r32)(((i16*)&Message.lParam)[1]) / global_height;
+                            }
+                        } break;
 
                         default:
                         {
