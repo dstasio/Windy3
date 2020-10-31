@@ -36,7 +36,7 @@ set autoindent
 set background=dark
 set cindent
 set cinoptions=l1,g0,N-s,E-s,t0,(0,w1,Ws,m1,=0
-set errorformat=%f(%l)\ :\ %t%*\\D%n:\ %m,%*[^\"]\"%f\"%*\\D%l:\ %m,%f(%l)\ :\ %m,%*[^\ ]\ %f\ %l:\ %m,%f:%l:%c:%m,%f(%l):%m,%f:%l:%m,%f|%l|\ %m,%f(%l\\,%c):\ %t%*\\D%n:\ %m
+set errorformat=%f(%l)\ :\ %t%*\\D%n:\ %m,%*[^\"]\"%f\"%*\\D%l:\ %m,%f(%l)\ :\ %m,%*[^\ ]\ %f\ %l:\ %m,%f:%l:%c:%m,%f(%l):%m,%f:%l:%m,%f|%l|\ %m,%f(%l\\,%c):\ %t%*\\D%n:\ %m,%f(%l\\,%c-%*\\d):\ %t%*\\D%n:\ %m
 set expandtab
 set guifont=Consolas:h11:cANSI
 set guioptions=egt
@@ -59,16 +59,14 @@ if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
   let s:wipebuf = bufnr('%')
 endif
 set shortmess=aoO
-badd +323 windy.cpp
-badd +303 win32_layer.cpp
-badd +313 win32_renderer_d3d11.cpp
-badd +21 win32_renderer_d3d11.h
-badd +39 windy_platform.h
-badd +33 windy.h
-badd +5 build.bat
+badd +213 windy_platform.h
+badd +206 windy.cpp
+badd +400 win32_layer.cpp
+badd +378 windy_math.h
+badd +27 windy.h
 argglobal
 silent! argdel *
-edit win32_renderer_d3d11.cpp
+edit windy_math.h
 set splitbelow splitright
 wincmd _ | wincmd |
 vsplit
@@ -198,12 +196,12 @@ set nowrap
 setlocal nowrap
 setlocal wrapmargin=0
 silent! normal! zE
-let s:l = 288 - ((12 * winheight(0) + 26) / 53)
+let s:l = 380 - ((23 * winheight(0) + 26) / 53)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-288
-normal! 047|
+380
+normal! 0
 wincmd w
 argglobal
 if bufexists('windy.cpp') | buffer windy.cpp | else | edit windy.cpp | endif
@@ -324,11 +322,11 @@ set nowrap
 setlocal nowrap
 setlocal wrapmargin=0
 silent! normal! zE
-let s:l = 323 - ((26 * winheight(0) + 26) / 53)
+let s:l = 334 - ((17 * winheight(0) + 26) / 53)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-323
+334
 normal! 0
 wincmd w
 2wincmd w

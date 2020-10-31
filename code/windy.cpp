@@ -121,7 +121,7 @@ void editor_camera(Input *input, Camera *camera, r32 dtime)
         {
             camera->_yaw -= input->mouse.dx*PI*dtime;
             camera->_pitch += input->mouse.dy*dtime;
-            camera->_pitch  = Clamp(camera->_pitch, -PI/2.1f, PI/2.1f);
+//            camera->_pitch  = Clamp(camera->_pitch, -PI/2.1f, PI/2.1f);
             camera->_radius -= input->mouse.wheel*0.1f*dtime;
         }
     }
@@ -321,7 +321,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         else if (*gamemode == GAMEMODE_EDITOR)
         {
             active_camera = &state->editor_camera;
-            v3 forward = active_camera->target - active_camera->pos;
 
             if (input->pressed.space)
             {
@@ -329,14 +328,28 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             }
             if (input->pressed.mouse_left)
             {
+                v3 forward = Normalize(active_camera->target - active_camera->pos);
+                v3 right   = Normalize(Cross(forward, active_camera->up));
+                v3 up      = Normalize(Cross(right, forward));
+
                 i32 hit_index = -1;
                 r32 least_hit_distance = 0.f;
+                v3  click_p = {};
+                v3  click_dir = {};
+                click_dir.x =  ((input->mouse.x*2.f) - 1.f) * Tan(active_camera->fov/2.f) * ((r32)width/(r32)height) * active_camera->min_z;
+                click_dir.y = -((input->mouse.y*2.f) - 1.f) * Tan(active_camera->fov/2.f) * active_camera->min_z;
+                click_dir.z = active_camera->min_z;
+                click_dir = click_dir.x*right + click_dir.y*up + click_dir.z*forward;
+                click_p = active_camera->pos + click_dir;
+                click_dir = Normalize(click_dir);
+
                 for (u32 obj_index = 0;
                      (obj_index < state->current_level.n_objects);
                      ++obj_index)
                 {
-                    r32 hit_distance = raycast(&state->current_level.get(obj_index).buffers, active_camera->pos,
-                                               forward, active_camera->min_z, active_camera->max_z);
+                    r32 hit_distance = raycast(&state->current_level.get(obj_index).buffers,
+                                               click_p, click_dir,
+                                               active_camera->min_z, active_camera->max_z);
                     if ((hit_distance > 0) && (!least_hit_distance || (hit_distance < least_hit_distance)))
                     {
                         hit_index = obj_index;
@@ -427,8 +440,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     renderer->draw_text(state->font_shader, &state->inconsolata, "+", make_v2(width/2.f - 16.f, height/2.f - 16.f));
     snprintf(debug_text, 128, "FPS: %f", 1.f/dtime);
     renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
-    snprintf(debug_text, 128, "% f\n% f", input->mouse.x, input->mouse.y);
-    renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 32));
 
     {
         m4 camera = Camera_m4(active_camera->pos, active_camera->target, active_camera->up);
@@ -441,6 +452,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 #if WINDY_DEBUG
         v4 lc = {0.5f, 0.5f, 0.9f, 0.2f};
         renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+0], DEBUG_buffer[DEBUG_BUFFER_raycast+1], lc, 0, &camera, &screen);
+        lc.w = 1.f;
+        renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+1], DEBUG_buffer[DEBUG_BUFFER_raycast+1]+DEBUG_buffer[DEBUG_BUFFER_raycast+2]*200.f, lc, 0, 0, 0);
         lc = {0.3f, 0.6f, 0.3f, 0.9f};
         renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+0], DEBUG_buffer[DEBUG_BUFFER_raycast+3], lc, 1, 0, 0);
         renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+0], DEBUG_buffer[DEBUG_BUFFER_raycast+4], lc, 1, 0, 0);
