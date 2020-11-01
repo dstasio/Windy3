@@ -148,10 +148,9 @@ typedef PLATFORM_DRAW_RECT(Platform_Draw_Rect);
 #define PLATFORM_DRAW_TEXT(name) void name(Platform_Shader *shader, Platform_Font *font, char *text, v2 pivot)
 typedef PLATFORM_DRAW_TEXT(Platform_Draw_Text);
 
-#define PLATFORM_DRAW_MESH(name) void name(Platform_Mesh_Buffers *mesh, Platform_Shader *shader, Platform_Phong_Settings *settings, m4 *model_transform, m4 *camera_transform, m4 *screen_transform, v3 *light_data, v3 *eye)
+#define PLATFORM_DRAW_MESH(name) void name(Platform_Mesh_Buffers *mesh, Platform_Shader *shader, Platform_Phong_Settings *settings, \
+                                           m4 *model_transform, m4 *camera_transform, m4 *screen_transform, v3 *light_data, v3 *eye, bool wireframe_overlay)
 typedef PLATFORM_DRAW_MESH(Platform_Draw_Mesh);
-#undef  PLATFORM_DRAW_MESH
-#define PLATFORM_DRAW_MESH(name) void name(Platform_Mesh_Buffers *mesh, Platform_Shader *shader, Platform_Phong_Settings *settings, m4 *model_transform, m4 *camera_transform = 0, m4 *screen_transform = 0, v3 *light_data = 0, v3 *eye = 0)
 
 #define PLATFORM_DRAW_LINE(name) void name(v3 a, v3 b, v4 color, bool on_top, m4 *camera_transform, m4 *screen_transform)
 typedef PLATFORM_DRAW_LINE(Platform_Draw_Line);

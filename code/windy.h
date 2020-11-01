@@ -77,8 +77,9 @@ struct Game_State
     Platform_Shader  *font_shader;
 
     Level current_level;
-    u32 obj_index_env;
-    u32 obj_index_player;
+    Mesh *selected;
+    Mesh *env;
+    Mesh *player;
 
     Platform_Texture  tex_white;
     Platform_Texture  tex_yellow;
