@@ -20,6 +20,38 @@
 
 #define next_multiple_of_16(x) (16*(((i32)(x / 16))+1))
 
+#include "hlsl_defines.h"
+// @todo: check correct alignment
+#pragma pack(push, 16)
+struct Platform_Phong_Settings
+{
+    u32 flags;
+    v3  color;
+};
+#pragma pack(pop)
+
+#pragma pack(push, 4)
+struct Platform_Debug_Shader_Settings
+{
+    u32 type;
+    u32 _pad;
+    u32 _pad2;
+    u32 _pad3;
+    v4  color;
+    v4  positions[4];
+};
+#pragma pack(pop)
+
+// @todo @cleanup: TEMPORARY HACK
+struct Platform_Light_Buffer
+{
+    v3 color;
+    r32 pad0_; // 16 bytes
+    v3 p;      // 28 bytes
+    r32 pad1_;
+    v3 eye;    // 40 bytes
+};
+
 struct Input_File
 {
     char *path;
@@ -53,6 +85,8 @@ struct Platform_Mesh_Buffers
     u8  vert_stride;
 
     Wexp_Header *wexp;
+
+    Platform_Phong_Settings settings;
 };
 
 // @todo: add guards for when 'handle == 0' (texture not initalized)
@@ -76,28 +110,6 @@ struct Platform_Font
     r32 height, scale;
     Platform_Texture chars[n_supported_characters];
 };
-
-#include "hlsl_defines.h"
-// @todo: check correct alignment
-#pragma pack(push, 16)
-struct Platform_Phong_Settings
-{
-    u32 flags;
-    v3  color;
-};
-#pragma pack(pop)
-
-#pragma pack(push, 4)
-struct Platform_Debug_Shader_Settings
-{
-    u32 type;
-    u32 _pad;
-    u32 _pad2;
-    u32 _pad3;
-    v4  color;
-    v4  positions[4];
-};
-#pragma pack(pop)
 
 #define PLATFORM_LOAD_RENDERER(name) void name(Platform_Renderer *renderer)
 typedef PLATFORM_LOAD_RENDERER(Platform_Load_Renderer);
@@ -148,8 +160,8 @@ typedef PLATFORM_DRAW_RECT(Platform_Draw_Rect);
 #define PLATFORM_DRAW_TEXT(name) void name(Platform_Shader *shader, Platform_Font *font, char *text, v2 pivot)
 typedef PLATFORM_DRAW_TEXT(Platform_Draw_Text);
 
-#define PLATFORM_DRAW_MESH(name) void name(Platform_Mesh_Buffers *mesh, Platform_Shader *shader, Platform_Phong_Settings *settings, \
-                                           m4 *model_transform, m4 *camera_transform, m4 *screen_transform, v3 *light_data, v3 *eye, bool wireframe_overlay)
+#define PLATFORM_DRAW_MESH(name) void name(Platform_Mesh_Buffers *mesh, m4 *model_transform, Platform_Shader *shader, \
+                                           m4 *in_camera, m4 *in_screen, Platform_Light_Buffer *light, v3 *eye, bool wireframe_overlay)
 typedef PLATFORM_DRAW_MESH(Platform_Draw_Mesh);
 
 #define PLATFORM_DRAW_LINE(name) void name(v3 a, v3 b, v4 color, bool on_top, m4 *camera_transform, m4 *screen_transform)

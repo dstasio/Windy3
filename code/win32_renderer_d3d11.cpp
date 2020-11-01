@@ -579,78 +579,78 @@ PLATFORM_DRAW_TEXT(d3d11_draw_text)
     }
 }
 
-// @todo @cleanup: TEMPORARY HACK
-struct TMP_Light_Buffer
-{
-    v3 color;
-    r32 pad0_; // 16 bytes
-    v3 p;      // 28 bytes
-    r32 pad1_;
-    v3 eye;    // 40 bytes
-};
-
 PLATFORM_DRAW_MESH(d3d11_draw_mesh)
 {
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
 
     local_persist m4 camera = Identity_m4();
     local_persist m4 screen = Identity_m4();
-    if (camera_transform)
-        camera = *camera_transform;
-    if (screen_transform)
-        screen = *screen_transform;
-
-    global_renderer->set_active_mesh(mesh);
-    global_renderer->set_active_shader(shader);
-    D3D11_MAPPED_SUBRESOURCE matrices_map = {};
-    D3D11_MAPPED_SUBRESOURCE lights_map = {};
-    D3D11_MAPPED_SUBRESOURCE settings_map = {};
-
-    if (light_data && eye)
+    if (in_camera)
     {
+        camera = *in_camera;
+    }
+    if (in_screen)
+        screen = *in_screen;
+
+    if (light && eye)
+    {
+        D3D11_MAPPED_SUBRESOURCE lights_map = {};
+        global_renderer->set_active_shader(shader);
         d3d11_enable_constant_buffer(d11->light_buff, 0, false, true);
         d11->context->Map(d11->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
-        TMP_Light_Buffer *lights_mapped = (TMP_Light_Buffer *)lights_map.pData;
-        lights_mapped->color = light_data[0]; // color
-        lights_mapped->p     = light_data[1]; // position
+        Platform_Light_Buffer *lights_mapped = (Platform_Light_Buffer *)lights_map.pData;
+        lights_mapped->color = light->color;
+        lights_mapped->p     = light->p;
         lights_mapped->eye   = *eye;
         d11->context->Unmap(d11->light_buff, 0);
     }
 
-    if (settings)
+    // @note: call this function with mesh=0 to store camera and screen matrix
+    if (mesh)
     {
-        d3d11_enable_constant_buffer(d11->settings_buff, 1, false, true);
-        d11->context->Map(d11->settings_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &settings_map);
-        Platform_Phong_Settings *gpu = (Platform_Phong_Settings *)settings_map.pData;
-        gpu->flags = settings->flags;
-        gpu->color = settings->color;
-        d11->context->Unmap(d11->settings_buff, 0);
-    }
-
-    // @todo: D3D11_MAP_WRITE
-    d3d11_enable_constant_buffer(d11->matrix_buff, 0, true, false);
-    {
-        d11->context->Map(d11->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
-        m4 *matrix_buffer = (m4 *)matrices_map.pData;
-        matrix_buffer[0] = *model_transform;
-        matrix_buffer[1] = camera;
-        matrix_buffer[2] = screen;
-        d11->context->Unmap(d11->matrix_buff, 0);
-    }
-
-    d11->context->DrawIndexed(mesh->index_count, 0, 0);
-
-    if (wireframe_overlay)
-    {
-        d11->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+        global_renderer->set_active_mesh(mesh);
+        D3D11_MAPPED_SUBRESOURCE matrices_map = {};
+        D3D11_MAPPED_SUBRESOURCE settings_map = {};
 
         d3d11_enable_constant_buffer(d11->settings_buff, 1, false, true);
         d11->context->Map(d11->settings_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &settings_map);
         Platform_Phong_Settings *gpu = (Platform_Phong_Settings *)settings_map.pData;
-        gpu->flags = PHONG_FLAG_SOLIDCOLOR|PHONG_FLAG_UNLIT;
-        gpu->color = {1.f, 0.f, 1.f};
+        gpu->flags = mesh->settings.flags;
+        gpu->color = mesh->settings.color;
         d11->context->Unmap(d11->settings_buff, 0);
+
+        // @todo: D3D11_MAP_WRITE
+        d3d11_enable_constant_buffer(d11->matrix_buff, 0, true, false);
+        {
+            d11->context->Map(d11->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+            m4 *matrix_buffer = (m4 *)matrices_map.pData;
+            matrix_buffer[0] = *model_transform;
+            matrix_buffer[1] = camera;
+            matrix_buffer[2] = screen;
+            d11->context->Unmap(d11->matrix_buff, 0);
+        }
 
         d11->context->DrawIndexed(mesh->index_count, 0, 0);
+
+        if (wireframe_overlay)
+        {
+            d11->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+
+            d3d11_enable_constant_buffer(d11->settings_buff, 1, false, true);
+            d11->context->Map(d11->settings_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &settings_map);
+            Platform_Phong_Settings *gpu = (Platform_Phong_Settings *)settings_map.pData;
+            gpu->flags = PHONG_FLAG_SOLIDCOLOR|PHONG_FLAG_UNLIT;
+            gpu->color = {1.f, 0.f, 1.f};
+            d11->context->Unmap(d11->settings_buff, 0);
+
+            d11->context->DrawIndexed(mesh->index_count, 0, 0);
+        }
+    }
+    else
+    {
+        Assert(in_camera); // @note: if mesh is 0, the function was probably meant to store camera and projection matrices
+        Assert(in_screen);
+        Assert(light);     // and light/eye data for the frame
+        Assert(eye);
     }
 }

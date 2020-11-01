@@ -48,27 +48,18 @@ struct Mesh
     v3 ddp;
 };
 
-struct Point_Light
-{
-    v3 color;
-    v3 p;
-};
-
-struct Dir_Light
-{
-    v3 color;
-    v3 dir;
-};
-
 #define MAX_LEVEL_OBJECTS 20
+#define MAX_LEVEL_LIGHTS  10
 // @todo: Mesh struct should keep all the info needed for rendering
 struct Level
 {
     Mesh objects[MAX_LEVEL_OBJECTS];
+    Platform_Light_Buffer lights[MAX_LEVEL_LIGHTS];
     u32  n_objects;
+    u32  n_lights;
 
-    Mesh &get(u32 index)  {return objects[index];}
-    Mesh &last() {return this->get(n_objects);};
+    Mesh &obj(u32 index)  {return objects[index];}
+    Mesh &last_obj() {return this->obj(n_objects);};
 };
  
 struct Game_State
@@ -90,9 +81,6 @@ struct Game_State
 
     Camera game_camera;
     Camera editor_camera;
-
-    Dir_Light    sun_;
-    Point_Light  lamp;
 };
 
 struct Memory_Pool

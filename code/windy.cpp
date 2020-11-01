@@ -18,21 +18,24 @@ v3 DEBUG_buffer[DEBUG_BUFFER_new*2] = {};
 r32 global_mouse_sensitivity = 50.f;
 
 internal Mesh*
-load_mesh(Platform_Renderer *renderer, Platform_Read_File read_file, char *path, Level *level, Platform_Shader *shader = 0)
+load_mesh(Platform_Renderer *renderer, Platform_Read_File read_file, char *path, Level *level, Platform_Shader *shader = 0, Platform_Phong_Settings *settings = 0)
 {
     Assert(level->n_objects < (MAX_LEVEL_OBJECTS - 1));
+    Mesh *new_mesh = &level->obj((level->n_objects)++);
 
-    level->last().buffers.wexp = (Wexp_Header *)read_file(path).data;
-    Wexp_Header *wexp = level->last().buffers.wexp;
+    new_mesh->buffers.wexp = (Wexp_Header *)read_file(path).data;
+    Wexp_Header *wexp = new_mesh->buffers.wexp;
     assert(wexp->signature == 0x7877);
     u32 vertices_size = wexp->indices_offset - wexp->vert_offset;
     u32 indices_size  = wexp->eof_offset - wexp->indices_offset;
-    level->last().buffers.index_count  = truncate_to_u16(indices_size / 2); // two bytes per index
-    level->last().buffers.vert_stride  = 8*sizeof(r32);
-    level->last().transform    = Identity_m4();
+    new_mesh->buffers.index_count  = truncate_to_u16(indices_size / 2); // two bytes per index
+    new_mesh->buffers.vert_stride  = 8*sizeof(r32);
+    if (settings)
+        new_mesh->buffers.settings = *settings;
+    new_mesh->transform    = Identity_m4();
 
-    renderer->load_wexp(&level->last().buffers, shader);
-    return &level->get((level->n_objects)++);
+    renderer->load_wexp(&new_mesh->buffers, shader);
+    return new_mesh;
 }
 
 internal Platform_Texture
@@ -151,7 +154,7 @@ struct Light_Buffer
 #endif
 
 // @todo: Better algorithm
-//        ignore back-facing polygons
+//        take Mesh struct as parameter, and use its transform matrix
 //
 internal r32
 raycast(Platform_Mesh_Buffers *buffers, v3 from, v3 dir, r32 min_distance, r32 max_distance)
@@ -220,6 +223,27 @@ raycast(Platform_Mesh_Buffers *buffers, v3 from, v3 dir, r32 min_distance, r32 m
     return Sqrt(hit_sq);
 }
 
+// @todo: move aspect ratio variable (maybe into Camera/Renderer struct)
+void draw_level(Platform_Renderer *renderer, Level *level, Platform_Shader *shader, Camera *camera, r32 ar)
+{
+    m4 cam_space_transform    = Camera_m4(camera->pos, camera->target, camera->up);
+    m4 screen_space_transform = Perspective_m4(camera->fov, ar, camera->min_z, camera->max_z);
+    if (camera->is_ortho)
+    {
+        camera->ortho_scale = 5.f;
+        camera->max_z = 500.f;
+        screen_space_transform = Ortho_m4(camera->ortho_scale, ar, camera->min_z, camera->max_z);
+    }
+    renderer->draw_mesh(0, 0, shader, &cam_space_transform, &screen_space_transform, &level->lights[0], &camera->pos, 0);
+
+    for (Mesh *mesh = level->objects; 
+         (mesh - level->objects) < level->n_objects;
+         mesh += 1)
+    {
+        renderer->draw_mesh(&mesh->buffers, &mesh->transform, 0, 0, 0, 0, 0, 0);
+    }
+}
+
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
     Game_State *state = (Game_State *)memory->storage;
@@ -242,9 +266,14 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         renderer->reload_shader( state->font_shader, "fonts");
         renderer->reload_shader(&renderer->debug_shader, "debug");
 
-        load_mesh(renderer, memory->read_file, "assets/testpoly.wexp", &state->current_level, state->phong_shader);
+        Platform_Phong_Settings phong_settings = {};
+        phong_settings.flags = PHONG_FLAG_SOLIDCOLOR;
+        phong_settings.color = {0.2f, 0.3f, 0.6f};
+        load_mesh(renderer, memory->read_file, "assets/testpoly.wexp", &state->current_level, state->phong_shader, &phong_settings);
         state->env    = load_mesh(renderer, memory->read_file, "assets/environment.wexp", &state->current_level, state->phong_shader);
-        state->player = load_mesh(renderer, memory->read_file, "assets/player.wexp",      &state->current_level, state->phong_shader);
+        phong_settings.flags = PHONG_FLAG_SOLIDCOLOR;
+        phong_settings.color = {0.8f, 0.f, 0.2f};
+        state->player = load_mesh(renderer, memory->read_file, "assets/player.wexp",      &state->current_level, state->phong_shader, &phong_settings);
         state->tex_white   = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_white.bmp");
         state->tex_yellow  = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_yellow.bmp");
         renderer->init_square_mesh(state->font_shader);
@@ -281,8 +310,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
         //state->sun.color = {1.f,  1.f,  1.f};
         //state->sun.dir   = {0.f, -1.f, -1.f};
-        state->lamp.color = {1.f,  1.f, 0.9f};
-        state->lamp.p     = {0.f,  3.f, 5.f};
+        state->current_level.lights[0].color = {1.f,  1.f, 0.9f};
+        state->current_level.lights[0].p     = {0.f,  3.f, 5.f};
         memory->is_initialized = true;
     }
 
@@ -326,11 +355,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             }
             if (input->pressed.mouse_left)
             {
+                state->selected = 0;
                 v3 forward = Normalize(active_camera->target - active_camera->pos);
                 v3 right   = Normalize(Cross(forward, active_camera->up));
                 v3 up      = Normalize(Cross(right, forward));
 
-                i32 hit_index = -1;
                 r32 least_hit_distance = 0.f;
                 v3  click_p = {};
                 v3  click_dir = {};
@@ -341,16 +370,14 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 click_p = active_camera->pos + click_dir;
                 click_dir = Normalize(click_dir);
 
-                for (u32 obj_index = 0;
-                     (obj_index < state->current_level.n_objects);
-                     ++obj_index)
+                for (Mesh *mesh = state->current_level.objects; 
+                     (mesh - state->current_level.objects) < state->current_level.n_objects;
+                     mesh += 1)
                 {
-                    r32 hit_distance = raycast(&state->current_level.get(obj_index).buffers,
-                                               click_p, click_dir,
-                                               active_camera->min_z, active_camera->max_z);
+                    r32 hit_distance = raycast(&mesh->buffers, click_p, click_dir, active_camera->min_z, active_camera->max_z);
                     if ((hit_distance > 0) && (!least_hit_distance || (hit_distance < least_hit_distance)))
                     {
-                        hit_index = obj_index;
+                        state->selected = mesh;
                         least_hit_distance = hit_distance;
 
 #if WINDY_DEBUG
@@ -363,11 +390,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 #endif
                     }
                 }
-
-                if (hit_index < 0)
-                    state->selected = 0;
-                else
-                    state->selected = &state->current_level.get(hit_index);
             }
 
             editor_camera(input, &state->editor_camera, dtime);
@@ -389,58 +411,14 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     renderer->set_depth_stencil(true, false, 1);
 
     renderer->set_active_texture(&state->tex_white);
-    { // environment -------------------------------------------------
-        m4 camera = Camera_m4(active_camera->pos, active_camera->target, active_camera->up);
-        m4 screen = Perspective_m4(active_camera->fov, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
-        if (active_camera->is_ortho)
+
+    draw_level(renderer, &state->current_level, state->phong_shader, active_camera, (r32)width/(r32)height);
+    if (*gamemode == GAMEMODE_EDITOR)
+    {
+        if (state->selected)
         {
-            active_camera->ortho_scale = 5.f;
-            active_camera->max_z = 500.f;
-            screen = Ortho_m4(active_camera->ortho_scale, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
+            renderer->draw_mesh(&state->selected->buffers, &state->selected->transform, state->phong_shader, 0, 0, 0, 0, 1);
         }
-
-        m4 model  = state->env->transform;
-        Platform_Phong_Settings settings = {};
-
-        renderer->draw_mesh(&state->env->buffers, state->phong_shader, &settings,
-                            &model, &camera, &screen,
-                            (v3 *)&state->lamp, &state->game_camera.pos, 0);
-    }
-
-    { // player ------------------------------------------------------
-        m4 model  = Transform_m4(state->lamp.p, make_v3(0.f), make_v3(0.1f));
-        Platform_Phong_Settings settings = {};
-        settings.flags |= PHONG_FLAG_SOLIDCOLOR;
-        settings.flags |= PHONG_FLAG_UNLIT;
-        settings.color = make_v3(1.f);
-
-        renderer->draw_mesh(&state->player->buffers, state->phong_shader, &settings, &model, 0, 0, 0, 0, 0);
-
-        settings.flags &= ~PHONG_FLAG_UNLIT;
-        settings.color = {0.8f, 0.f, 0.2f};
-
-        model  = state->player->transform;
-        renderer->draw_mesh(&state->player->buffers, state->phong_shader, &settings, &model, 0, 0, 0, 0, 0);
-
-        {
-            if (*gamemode == GAMEMODE_EDITOR)
-            {
-                if (state->selected)
-                {
-                    renderer->draw_mesh(&state->player->buffers, state->phong_shader, &settings, &model, 0, 0, 0, 0, 1);
-                }
-            }
-        }
-    }
-
-    { // testpoly ------------------------------------------------------
-        Mesh *testpoly = &state->current_level.get(0);
-        Platform_Phong_Settings settings = {};
-        settings.flags |= PHONG_FLAG_SOLIDCOLOR;
-        settings.color = {0.2f, 0.3f, 0.6f};
-
-        m4 model = Identity_m4();
-        renderer->draw_mesh(&testpoly->buffers, state->phong_shader, &settings, &model, 0, 0, 0, 0, 0);
     }
 
 
