@@ -207,6 +207,10 @@ struct Input_Keyboard
     u32 d;
 
     u32 f;
+    u32 g;
+    u32 x;
+    u32 y;
+    u32 z;
 
     u32 space;
     u32 shift;

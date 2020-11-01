@@ -348,46 +348,93 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         else if (*gamemode == GAMEMODE_EDITOR)
         {
             active_camera = &state->editor_camera;
+            local_persist v3 move_mask = {};
+            local_persist v3 moving_start_position = {};
 
-            if (input->pressed.space)
+            if (state->selected)
             {
-                active_camera->is_ortho = !active_camera->is_ortho;
-            }
-            if (input->pressed.mouse_left)
-            {
-                state->selected = 0;
-                v3 forward = Normalize(active_camera->target - active_camera->pos);
-                v3 right   = Normalize(Cross(forward, active_camera->up));
-                v3 up      = Normalize(Cross(right, forward));
-
-                r32 least_hit_distance = 0.f;
-                v3  click_p = {};
-                v3  click_dir = {};
-                click_dir.x =  ((input->mouse.x*2.f) - 1.f) * Tan(active_camera->fov/2.f) * ((r32)width/(r32)height) * active_camera->min_z;
-                click_dir.y = -((input->mouse.y*2.f) - 1.f) * Tan(active_camera->fov/2.f) * active_camera->min_z;
-                click_dir.z = active_camera->min_z;
-                click_dir = click_dir.x*right + click_dir.y*up + click_dir.z*forward;
-                click_p = active_camera->pos + click_dir;
-                click_dir = Normalize(click_dir);
-
-                for (Mesh *mesh = state->current_level.objects; 
-                     (mesh - state->current_level.objects) < state->current_level.n_objects;
-                     mesh += 1)
+                if (input->pressed.g)
                 {
-                    r32 hit_distance = raycast(mesh, click_p, click_dir, active_camera->min_z, active_camera->max_z);
-                    if ((hit_distance > 0) && (!least_hit_distance || (hit_distance < least_hit_distance)))
+                    move_mask = make_v3(!move_mask);
+                    if (move_mask)  moving_start_position = state->selected->p;
+                }
+            }
+
+            if (move_mask)
+            {
+                if (input->pressed.x)  move_mask = {1, 0, 0};
+                if (input->pressed.y)  move_mask = {0, 1, 0};
+                if (input->pressed.z)  move_mask = {0, 0, 1};
+
+                if (input->pressed.mouse_right)
+                {
+                    move_mask = {};
+                    state->selected->p = moving_start_position;
+                    state->selected->transform = Translation_m4(state->selected->p);
+                }
+                else if (input->pressed.mouse_left)
+                {
+                    move_mask = {};
+                }
+                else
+                {
+                    v3 forward = Normalize(active_camera->target - active_camera->pos);
+                    v3 right   = Normalize(Cross(forward, active_camera->up));
+                    v3 up      = Normalize(Cross(right, forward));
+
+                    v3 movement = input->mouse.dx*right - input->mouse.dy*up;
+                    movement /= Dot((state->selected->p - active_camera->pos), forward);
+                    movement.x *= move_mask.x;
+                    movement.y *= move_mask.y;
+                    movement.z *= move_mask.z;
+                    if (input->held.shift)
+                        movement *= 0.1f;
+                    state->selected->p        += movement;
+                    state->selected->transform = Translation_m4(state->selected->p);
+                }
+            }
+            else
+            {
+                if (input->pressed.space)
+                {
+                    active_camera->is_ortho = !active_camera->is_ortho;
+                }
+                if (input->pressed.mouse_left)
+                {
+                    state->selected = 0;
+                    v3 forward = Normalize(active_camera->target - active_camera->pos);
+                    v3 right   = Normalize(Cross(forward, active_camera->up));
+                    v3 up      = Normalize(Cross(right, forward));
+
+                    r32 least_hit_distance = 0.f;
+                    v3  click_p = {};
+                    v3  click_dir = {};
+                    click_dir.x =  ((input->mouse.x*2.f) - 1.f) * Tan(active_camera->fov/2.f) * ((r32)width/(r32)height) * active_camera->min_z;
+                    click_dir.y = -((input->mouse.y*2.f) - 1.f) * Tan(active_camera->fov/2.f) * active_camera->min_z;
+                    click_dir.z = active_camera->min_z;
+                    click_dir = click_dir.x*right + click_dir.y*up + click_dir.z*forward;
+                    click_p = active_camera->pos + click_dir;
+                    click_dir = Normalize(click_dir);
+
+                    for (Mesh *mesh = state->current_level.objects; 
+                         (mesh - state->current_level.objects) < state->current_level.n_objects;
+                         mesh += 1)
                     {
-                        state->selected = mesh;
-                        least_hit_distance = hit_distance;
+                        r32 hit_distance = raycast(mesh, click_p, click_dir, active_camera->min_z, active_camera->max_z);
+                        if ((hit_distance > 0) && (!least_hit_distance || (hit_distance < least_hit_distance)))
+                        {
+                            state->selected = mesh;
+                            least_hit_distance = hit_distance;
 
 #if WINDY_DEBUG
-                        DEBUG_buffer[DEBUG_BUFFER_raycast+0] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0];
-                        DEBUG_buffer[DEBUG_BUFFER_raycast+1] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+1];
-                        DEBUG_buffer[DEBUG_BUFFER_raycast+2] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+2];
-                        DEBUG_buffer[DEBUG_BUFFER_raycast+3] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+3];
-                        DEBUG_buffer[DEBUG_BUFFER_raycast+4] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+4];
-                        DEBUG_buffer[DEBUG_BUFFER_raycast+5] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+5];
+                            DEBUG_buffer[DEBUG_BUFFER_raycast+0] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0];
+                            DEBUG_buffer[DEBUG_BUFFER_raycast+1] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+1];
+                            DEBUG_buffer[DEBUG_BUFFER_raycast+2] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+2];
+                            DEBUG_buffer[DEBUG_BUFFER_raycast+3] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+3];
+                            DEBUG_buffer[DEBUG_BUFFER_raycast+4] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+4];
+                            DEBUG_buffer[DEBUG_BUFFER_raycast+5] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+5];
 #endif
+                        }
                     }
                 }
             }

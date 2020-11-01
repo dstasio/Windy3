@@ -93,6 +93,12 @@ v3 &operator*=(v3 &a, r32 b)
     return a;
 }
 
+v3 &operator/=(v3 &a, r32 b)
+{
+    a = a / b;
+    return a;
+}
+
 v3 &operator+=(v3 &a, v3 b)
 {
     a = a + b;

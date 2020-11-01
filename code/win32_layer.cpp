@@ -396,6 +396,10 @@ WinMain(
                             key_down(VK_S,       s);
                             key_down(VK_D,       d);
                             key_down(VK_F,       f);
+                            key_down(VK_G,       g);
+                            key_down(VK_X,       x);
+                            key_down(VK_Y,       y);
+                            key_down(VK_Z,       z);
                             key_down(VK_SPACE,   space);
                             key_down(VK_SHIFT,   shift);
                             key_down(VK_CONTROL, ctrl);
@@ -414,6 +418,10 @@ WinMain(
                             key_up(VK_S,       s);
                             key_up(VK_D,       d);
                             key_up(VK_F,       f);
+                            key_up(VK_G,       g);
+                            key_up(VK_X,       x);
+                            key_up(VK_Y,       y);
+                            key_up(VK_Z,       z);
                             key_up(VK_SPACE,   space);
                             key_up(VK_SHIFT,   shift);
                             key_up(VK_CONTROL, ctrl);
