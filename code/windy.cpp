@@ -157,24 +157,24 @@ struct Light_Buffer
 //        take Mesh struct as parameter, and use its transform matrix
 //
 internal r32
-raycast(Platform_Mesh_Buffers *buffers, v3 from, v3 dir, r32 min_distance, r32 max_distance)
+raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
 {
     r32 hit_sq = 0.f;
 
-    v3 *verts    = (v3  *)byte_offset(buffers->wexp, buffers->wexp->vert_offset);
-    u16 *indices = (u16 *)byte_offset(buffers->wexp, buffers->wexp->indices_offset);
-    for (u32 i = 0; i < buffers->index_count; i += 3)
+    v3 *verts    = (v3  *)byte_offset(mesh->buffers.wexp, mesh->buffers.wexp->vert_offset);
+    u16 *indices = (u16 *)byte_offset(mesh->buffers.wexp, mesh->buffers.wexp->indices_offset);
+    for (u32 i = 0; i < mesh->buffers.index_count; i += 3)
     {
-        v3 *p1 = ((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i])));
-        v3 *p2 = ((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+1])));
-        v3 *p3 = ((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+2])));
+        v3 p1 = mesh->transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i  ]))));
+        v3 p2 = mesh->transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+1]))));
+        v3 p3 = mesh->transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+2]))));
 
-        v3 n = Normalize(Cross(((*p2) - (*p1)), ((*p3) - (*p1))));
+        v3 n = Normalize(Cross(((p2) - (p1)), ((p3) - (p1))));
         if (Dot(n, dir) < 0)
         {
-            v3 u = Normalize(Cross( n, ((*p2) - (*p1))));
+            v3 u = Normalize(Cross( n, ((p2) - (p1))));
             v3 v = Normalize(Cross( u, n));
-            m4 face_local_transform = WorldToLocal_m4(u, v, n, (*p1));
+            m4 face_local_transform = WorldToLocal_m4(u, v, n, (p1));
 
             v3 local_start = face_local_transform * from;
             v3 local_dir   = NoTranslation_m4(face_local_transform) *  dir;
@@ -185,14 +185,14 @@ raycast(Platform_Mesh_Buffers *buffers, v3 from, v3 dir, r32 min_distance, r32 m
 
                 v3 world_incident_point = ((local_incident_point.x * u) +
                                            (local_incident_point.y * v) +
-                                           (local_incident_point.z * n) + (*p1));
+                                           (local_incident_point.z * n) + (p1));
 
-                v3 p1_p2 = (*p2) - (*p1);
-                v3 p2_p3 = (*p3) - (*p2);
-                v3 p3_p1 = (*p1) - (*p3);
-                v3 p1_in = world_incident_point - (*p1);
-                v3 p2_in = world_incident_point - (*p2);
-                v3 p3_in = world_incident_point - (*p3);
+                v3 p1_p2 = (p2) - (p1);
+                v3 p2_p3 = (p3) - (p2);
+                v3 p3_p1 = (p1) - (p3);
+                v3 p1_in = world_incident_point - (p1);
+                v3 p2_in = world_incident_point - (p2);
+                v3 p3_in = world_incident_point - (p3);
                 if ((Dot(Cross(p1_p2, p1_in), n) > 0) &&
                     (Dot(Cross(p2_p3, p2_in), n) > 0) &&
                     (Dot(Cross(p3_p1, p3_in), n) > 0))
@@ -209,9 +209,9 @@ raycast(Platform_Mesh_Buffers *buffers, v3 from, v3 dir, r32 min_distance, r32 m
                             DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0] = world_incident_point;
                             DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+1] = from;
                             DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+2] = dir;
-                            DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+3] = *p1;
-                            DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+4] = *p2;
-                            DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+5] = *p3;
+                            DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+3] = p1;
+                            DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+4] = p2;
+                            DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+5] = p3;
 #endif
                         }
                     }
@@ -374,7 +374,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                      (mesh - state->current_level.objects) < state->current_level.n_objects;
                      mesh += 1)
                 {
-                    r32 hit_distance = raycast(&mesh->buffers, click_p, click_dir, active_camera->min_z, active_camera->max_z);
+                    r32 hit_distance = raycast(mesh, click_p, click_dir, active_camera->min_z, active_camera->max_z);
                     if ((hit_distance > 0) && (!least_hit_distance || (hit_distance < least_hit_distance)))
                     {
                         state->selected = mesh;

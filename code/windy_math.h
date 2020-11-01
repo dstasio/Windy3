@@ -148,6 +148,13 @@ Normalize(v3 a)
     return result;
 }
 
+inline v3
+Lerp(v3 a, v3 b, r32 t)
+{
+    v3 result = a*t + b*(1.f-t);
+    return result;
+}
+
 //
 // Vector 4 ----------------------------------------------------------
 // 
