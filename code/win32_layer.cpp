@@ -38,6 +38,8 @@
 #define mouse_up(id, key)      
 #define file_time_to_u64(wt) ((wt).dwLowDateTime | ((u64)((wt).dwHighDateTime) << 32))
 
+// @todo, @critical: Use VirtualProtect (handmade_hero day 004) to check for freed-memory access errors
+
 global b32 global_running;
 global b32 global_error;
 global u32 global_width = 1280;
@@ -231,6 +233,11 @@ LRESULT CALLBACK WindyProc(
             global_height = HIWORD(l);
 
             if (global_renderer)  d3d11_resize_render_targets();
+        } break;
+
+        // @todo: implement this
+        case WM_SETCURSOR:
+        {
         } break;
 
         default:
