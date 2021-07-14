@@ -1,0 +1,11 @@
+Mesh format: multiple meshes in one file
+
+GJK
+equations of motion
+
+
+******************************
+* Quality Improvements       *
+******************************
+Editor mouse acceleration
+Editor camera: auto-detect center of orbit

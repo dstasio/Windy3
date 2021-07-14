@@ -58,8 +58,7 @@ struct Level
     u32  n_objects;
     u32  n_lights;
 
-    Mesh &obj(u32 index)  {return objects[index];}
-    Mesh &last_obj() {return this->obj(n_objects);};
+    Mesh &last_obj() {return objects[n_objects - 1];};
 };
  
 struct Game_State

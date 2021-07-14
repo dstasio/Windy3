@@ -21,7 +21,7 @@ internal Mesh*
 load_mesh(Platform_Renderer *renderer, Platform_Read_File read_file, char *path, Level *level, Platform_Shader *shader = 0, Platform_Phong_Settings *settings = 0)
 {
     Assert(level->n_objects < (MAX_LEVEL_OBJECTS - 1));
-    Mesh *new_mesh = &level->obj((level->n_objects)++);
+    Mesh *new_mesh = &level->objects[(level->n_objects)++];
 
     new_mesh->buffers.wexp = (Wexp_Header *)read_file(path).data;
     Wexp_Header *wexp = new_mesh->buffers.wexp;

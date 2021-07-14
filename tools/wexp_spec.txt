@@ -1,16 +1,27 @@
-Header:
-  Element              Size  Offset
-  ====================================================================
-  ID                   2     0x00   = ASCII for 'wx'
-  vertex_data offset   2     0x02   = Header Size
-  index_data  offset   4     0x04
-  end         offset   4     0x08
-  ====================================================================
-  vertex_data          4*8*N 0x0c
-  index_data           2*N   0x??
+# WEXP FILE FORMAT - VERSION 1
+File Structure:
+====================================================================================
+    Element                 Size  Offset
+   =================================================================================
+    ID                      2     0x00   = ASCII for 'Wx'  (0x7857) as of Version 1
+    version number          1     0x02   = 1
+    number of meshes        2     0x03
+    first mesh                    0x05
+                      [subsequent meshes if present]
+    eof                     2    -0x02   = ASCII for 'xW'  (0x5778)
 
 
-
+Mesh:
+====================================================================================
+    Element                 Size  Offset (in mesh header)
+   =================================================================================
+    vertex_data  offset     2     0x00   (= Header Size)
+    index_data   offset     4     0x02
+    next element offset*    4     0x06   (offset relative to the start of current header)
+    vertex_data             4*8*N 0x0A
+    index_data              2*N   0x??
+   =================================================================================
+    *: next element is either a new mesh header or eof
 
 Legend:
-  N = number of elements for resource (n. of vertices, n. of indices, etc.)
+    N = number of elements for resource (n. of vertices, n. of indices, etc.)

@@ -31,7 +31,7 @@ struct Bitmap_Header
 // indices are u16
 struct Wexp_Header
 {
-    u16 signature;
+    u16 signature;       // @doc: must be 0x7877
     u16 vert_offset;
     u32 indices_offset;
     u32 eof_offset;
