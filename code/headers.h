@@ -27,14 +27,31 @@ struct Bitmap_Header
     u32 ImportantColors;
 };
 
-#define WEXP_VERTEX_SIZE 8*sizeof(r32)
+#define WEXP_ELEMENTS_PER_VERTEX  8   // 3 position, 3 normal, 2 texture coordinates
+#define WEXP_INDEX_SIZE           2   // 2 bytes per index
+#define WEXP_VERTEX_SIZE          (WEXP_ELEMENTS_PER_VERTEX*sizeof(r32))
 // indices are u16
-struct Wexp_Header
+struct Wexp_Header_legacy
 {
-    u16 signature;       // @doc: must be 0x7877
+    u16 signature;       // @doc: must be 0x7877  ('wx')
     u16 vert_offset;
     u32 indices_offset;
     u32 eof_offset;
+};
+
+struct Wexp_Header
+{
+    u16 signature;       // @doc: must be 0x7857  ('Wx')
+    u8  version;
+    u16 mesh_count;
+};
+
+struct Wexp_Mesh_Header
+{
+    u16 signature;           // @doc: must be 0x6D57  ('Wm')
+    u16 vertex_data_offset;
+    u32  index_data_offset;
+    u32   next_elem_offset;
 };
 #pragma pack(pop)
 

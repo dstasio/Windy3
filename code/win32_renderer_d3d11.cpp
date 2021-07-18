@@ -313,28 +313,20 @@ PLATFORM_INIT_TEXTURE(d3d11_init_texture)
     d11->context->GenerateMips(*view);
 }
 
-// @todo: move most of this to platform-independent code
-PLATFORM_LOAD_WEXP(d3d11_load_wexp)
+PLATFORM_INIT_MESH(d3d11_init_mesh)
 {
-    // @todo: I think buffers->wexp is a memory leak
     Assert(shader);
-    Assert(buffers->wexp);
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
-    Wexp_Header *wexp = buffers->wexp;
-
-    u32 vertices_size = wexp->indices_offset - wexp->vert_offset;
-    u32 indices_size  = wexp->eof_offset - wexp->indices_offset;
-    u16 index_count  = truncate_to_u16(indices_size / 2); // two bytes per index
 
     //
     // vertex buffer
     //
-    D3D11_SUBRESOURCE_DATA raw_vert_data = {byte_offset(wexp, wexp->vert_offset)};
+    D3D11_SUBRESOURCE_DATA raw_vert_data = {buffers->vert};
     D3D11_BUFFER_DESC vert_buff_desc     = {};
-    vert_buff_desc.ByteWidth             = vertices_size;
+    vert_buff_desc.ByteWidth             = buffers->vertex_count*buffers->vert_stride;
     vert_buff_desc.Usage                 = D3D11_USAGE_IMMUTABLE;
     vert_buff_desc.BindFlags             = D3D11_BIND_VERTEX_BUFFER;
-    vert_buff_desc.StructureByteStride   = WEXP_VERTEX_SIZE;
+    vert_buff_desc.StructureByteStride   = buffers->vert_stride;
     d11->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, (ID3D11Buffer **)&buffers->vert);
 
     //
@@ -345,14 +337,15 @@ PLATFORM_LOAD_WEXP(d3d11_load_wexp)
         {"NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
         {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0}
     };
+    // @todo: can the shader check be skipped?
     d11->device->CreateInputLayout(in_desc, 3, shader->vertex_file.data, shader->vertex_file.size, (ID3D11InputLayout **)&buffers->platform);
 
     //
     // index buffer
     //
-    D3D11_SUBRESOURCE_DATA index_data = {byte_offset(wexp, wexp->indices_offset)};
+    D3D11_SUBRESOURCE_DATA index_data = {buffers->index};
     D3D11_BUFFER_DESC index_buff_desc = {};
-    index_buff_desc.ByteWidth         = indices_size;
+    index_buff_desc.ByteWidth         = buffers->index_count*WEXP_INDEX_SIZE;
     index_buff_desc.Usage             = D3D11_USAGE_IMMUTABLE;
     index_buff_desc.BindFlags         = D3D11_BIND_INDEX_BUFFER;
     d11->device->CreateBuffer(&index_buff_desc, &index_data, (ID3D11Buffer **)&buffers->index);

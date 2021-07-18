@@ -322,7 +322,7 @@ WinMain(
         renderer.load_renderer    = win32_load_d3d11;
         renderer.reload_shader    = d3d11_reload_shader;
         renderer.init_texture     = d3d11_init_texture;
-        renderer.load_wexp        = d3d11_load_wexp;
+        renderer.init_mesh        = d3d11_init_mesh;
         renderer.init_square_mesh = d3d11_init_square_mesh; // @todo: this is to be removed; called in a general init function for the renderer
         renderer.clear               = d3d11_clear;
         renderer.set_active_mesh     = d3d11_set_active_mesh;

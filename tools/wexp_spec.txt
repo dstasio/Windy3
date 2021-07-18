@@ -15,10 +15,11 @@ Mesh:
 ====================================================================================
     Element                 Size  Offset (in mesh header)
    =================================================================================
-    vertex_data  offset     2     0x00   (= Header Size)
-    index_data   offset     4     0x02
-    next element offset*    4     0x06   (offset relative to the start of current header)
-    vertex_data             4*8*N 0x0A
+    ID                      2     0x00   = ASCII for 'Wm'  (0x6D57)
+    vertex_data  offset     2     0x02   (= Header Size)
+    index_data   offset     4     0x04
+    next element offset*    4     0x08   (offset relative to the start of current header)
+    vertex_data             4*8*N 0x0C
     index_data              2*N   0x??
    =================================================================================
     *: next element is either a new mesh header or eof

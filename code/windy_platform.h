@@ -81,7 +81,8 @@ struct Platform_Mesh_Buffers
     void *index;
     void *platform;
 
-    u16 index_count;
+    u32 vertex_count;
+    u16  index_count;
     u8  vert_stride;
 
     Wexp_Header *wexp;
@@ -121,8 +122,8 @@ typedef PLATFORM_RELOAD_SHADER(Platform_Reload_Shader);
 typedef PLATFORM_INIT_TEXTURE(Platform_Init_Texture);
 
 // "shader" is needed for d3d11, can be null otherwise
-#define PLATFORM_LOAD_WEXP(name) void name(Platform_Mesh_Buffers *buffers, Platform_Shader *shader)
-typedef PLATFORM_LOAD_WEXP(Platform_Load_Wexp);
+#define PLATFORM_INIT_MESH(name) void name(Platform_Mesh_Buffers *buffers, Platform_Shader *shader)
+typedef PLATFORM_INIT_MESH(Platform_Init_Mesh);
 
 #define PLATFORM_INIT_SQUARE_MESH(name) void name(Platform_Shader *shader)
 typedef PLATFORM_INIT_SQUARE_MESH(Platform_Init_Square_Mesh);
@@ -173,7 +174,7 @@ struct Platform_Renderer
     Platform_Load_Renderer    *load_renderer;
     Platform_Reload_Shader    *reload_shader;
     Platform_Init_Texture     *init_texture;
-    Platform_Load_Wexp        *load_wexp;
+    Platform_Init_Mesh        *init_mesh;
     Platform_Init_Square_Mesh *init_square_mesh;
 
     Platform_Clear              *clear;

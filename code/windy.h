@@ -53,6 +53,7 @@ struct Mesh
 // @todo: Mesh struct should keep all the info needed for rendering
 struct Level
 {
+    // @todo: use pointers for meshes
     Mesh objects[MAX_LEVEL_OBJECTS];
     Platform_Light_Buffer lights[MAX_LEVEL_LIGHTS];
     u32  n_objects;
@@ -66,7 +67,7 @@ struct Game_State
     Platform_Shader  *phong_shader;
     Platform_Shader  *font_shader;
 
-    Level current_level;
+    Level *current_level;
     Mesh *selected;
     Mesh *env;
     Mesh *player;

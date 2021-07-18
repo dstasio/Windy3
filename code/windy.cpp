@@ -17,25 +17,54 @@ v3 DEBUG_buffer[DEBUG_BUFFER_new*2] = {};
 
 r32 global_mouse_sensitivity = 50.f;
 
-internal Mesh*
-load_mesh(Platform_Renderer *renderer, Platform_Read_File read_file, char *path, Level *level, Platform_Shader *shader = 0, Platform_Phong_Settings *settings = 0)
+internal Level *
+new_level(Memory_Pool *mempool, Platform_Renderer *renderer, Platform_Read_File *read_file, char *path, Platform_Shader *shader = 0, Platform_Phong_Settings *settings = 0)
 {
-    Assert(level->n_objects < (MAX_LEVEL_OBJECTS - 1));
-    Mesh *new_mesh = &level->objects[(level->n_objects)++];
+    // @todo: cleanup allocation for wexp file;
+    //        use memory pool and keep the vertices for collision computation
+    Level *level = push_struct(mempool, Level);
+    Input_File wexp_file = read_file(path);
+    Wexp_Header *wexp = (Wexp_Header *)wexp_file.data;
+    if (wexp->signature == 0x7857)  // 'Wx'
+    {
+        if (wexp->version == 1)
+        {
+            // wexp->mesh_count
+            Wexp_Mesh_Header *mesh_header = (Wexp_Mesh_Header *)(wexp + 1);
+            while(mesh_header->signature == 0x6D57)
+            {
+                Mesh *mesh = &level->objects[level->n_objects];
+                mesh->buffers.vert  = byte_offset(mesh_header, mesh_header->vertex_data_offset);
+                mesh->buffers.index = byte_offset(mesh_header, mesh_header->index_data_offset);
+                mesh->buffers.vertex_count = (mesh_header->index_data_offset - mesh_header->vertex_data_offset) / WEXP_VERTEX_SIZE;
+                mesh->buffers.index_count  = truncate_to_u16((mesh_header->next_elem_offset  - mesh_header->index_data_offset) / WEXP_INDEX_SIZE);
+                mesh->buffers.vert_stride = WEXP_VERTEX_SIZE;
 
-    new_mesh->buffers.wexp = (Wexp_Header *)read_file(path).data;
-    Wexp_Header *wexp = new_mesh->buffers.wexp;
-    assert(wexp->signature == 0x7877);
-    u32 vertices_size = wexp->indices_offset - wexp->vert_offset;
-    u32 indices_size  = wexp->eof_offset - wexp->indices_offset;
-    new_mesh->buffers.index_count  = truncate_to_u16(indices_size / 2); // two bytes per index
-    new_mesh->buffers.vert_stride  = 8*sizeof(r32);
-    if (settings)
-        new_mesh->buffers.settings = *settings;
-    new_mesh->transform    = Identity_m4();
+                if (settings)
+                    mesh->buffers.settings = *settings;
+                mesh->transform  = Identity_m4();
 
-    renderer->load_wexp(&new_mesh->buffers, shader);
-    return new_mesh;
+                renderer->init_mesh(&mesh->buffers, shader);
+
+                level->n_objects += 1;
+                mesh_header = (Wexp_Mesh_Header *)byte_offset(mesh_header, mesh_header->next_elem_offset);
+            }
+        }
+        else
+        {
+            // @todo: Log
+        }
+    }
+    else if (wexp->signature == 0x7877) // 'wx'
+    {
+        // Legacy wexp file
+    }
+    else
+    {
+        // @todo: Log
+    }
+
+    return level;
 }
 
 internal Platform_Texture
@@ -161,6 +190,7 @@ raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
 {
     r32 hit_sq = 0.f;
 
+#if 0 //// WEXP FIX
     v3 *verts    = (v3  *)byte_offset(mesh->buffers.wexp, mesh->buffers.wexp->vert_offset);
     u16 *indices = (u16 *)byte_offset(mesh->buffers.wexp, mesh->buffers.wexp->indices_offset);
     for (u32 i = 0; i < mesh->buffers.index_count; i += 3)
@@ -219,6 +249,7 @@ raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
             }
         }
     }
+#endif
 
     return Sqrt(hit_sq);
 }
@@ -269,14 +300,17 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         Platform_Phong_Settings phong_settings = {};
         phong_settings.flags = PHONG_FLAG_SOLIDCOLOR;
         phong_settings.color = {0.2f, 0.3f, 0.6f};
-        load_mesh(renderer, memory->read_file, "assets/testpoly.wexp", &state->current_level, state->phong_shader, &phong_settings);
-        state->env    = load_mesh(renderer, memory->read_file, "assets/environment.wexp", &state->current_level, state->phong_shader);
+        //load_mesh(renderer, memory->read_file, "assets/testpoly.wexp", &state->current_level, state->phong_shader, &phong_settings);
+        //state->env    = load_mesh(renderer, memory->read_file, "assets/environment.wexp", &state->current_level, state->phong_shader);
         phong_settings.flags = PHONG_FLAG_SOLIDCOLOR;
         phong_settings.color = {0.8f, 0.f, 0.2f};
-        state->player = load_mesh(renderer, memory->read_file, "assets/player.wexp",      &state->current_level, state->phong_shader, &phong_settings);
+        //state->player = load_mesh(renderer, memory->read_file, "assets/player.wexp",      &state->current_level, state->phong_shader, &phong_settings);
         state->tex_white   = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_white.bmp");
         state->tex_yellow  = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_yellow.bmp");
         renderer->init_square_mesh(state->font_shader);
+
+        state->current_level = new_level(&mempool, renderer, memory->read_file, "assets/cubes.wexp", state->phong_shader, &phong_settings);
+        state->player = &state->current_level->objects[0];
 
         load_font(&state->inconsolata, memory->read_file, "assets/Inconsolata.ttf", 32);
 
@@ -310,8 +344,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
         //state->sun.color = {1.f,  1.f,  1.f};
         //state->sun.dir   = {0.f, -1.f, -1.f};
-        state->current_level.lights[0].color = {1.f,  1.f, 0.9f};
-        state->current_level.lights[0].p     = {0.f,  3.f, 5.f};
+        state->current_level->lights[0].color = {1.f,  1.f, 0.9f};
+        state->current_level->lights[0].p     = {0.f,  3.f, 5.f};
         memory->is_initialized = true;
     }
 
@@ -416,8 +450,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     click_p = active_camera->pos + click_dir;
                     click_dir = Normalize(click_dir);
 
-                    for (Mesh *mesh = state->current_level.objects; 
-                         (mesh - state->current_level.objects) < state->current_level.n_objects;
+                    for (Mesh *mesh = state->current_level->objects; 
+                         (mesh - state->current_level->objects) < state->current_level->n_objects;
                          mesh += 1)
                     {
                         r32 hit_distance = raycast(mesh, click_p, click_dir, active_camera->min_z, active_camera->max_z);
@@ -459,7 +493,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
     renderer->set_active_texture(&state->tex_white);
 
-    draw_level(renderer, &state->current_level, state->phong_shader, active_camera, (r32)width/(r32)height);
+    draw_level(renderer, state->current_level, state->phong_shader, active_camera, (r32)width/(r32)height);
     if (*gamemode == GAMEMODE_EDITOR)
     {
         if (state->selected)
