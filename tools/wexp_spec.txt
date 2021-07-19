@@ -19,7 +19,9 @@ Mesh:
     vertex_data  offset     2     0x02   (= Header Size)
     index_data   offset     4     0x04
     next element offset*    4     0x08   (offset relative to the start of current header)
-    vertex_data             4*8*N 0x0C
+    name         offset     4     0x0C
+    name size in bytes      1     0x0D
+    vertex_data             4*8*N 0x11
     index_data              2*N   0x??
    =================================================================================
     *: next element is either a new mesh header or eof

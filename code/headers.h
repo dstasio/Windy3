@@ -48,10 +48,11 @@ struct Wexp_Header
 
 struct Wexp_Mesh_Header
 {
-    u16 signature;           // @doc: must be 0x6D57  ('Wm')
+    u16          signature;    // @doc: must be 0x6D57  ('Wm')
     u16 vertex_data_offset;
     u32  index_data_offset;
     u32   next_elem_offset;
+    u32        name_offset;
 };
 #pragma pack(pop)
 

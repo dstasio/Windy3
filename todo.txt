@@ -3,7 +3,8 @@
 // add_meshes_to_level(level, "")
 // *player_model = search_mesh_in_level(level, "player")
 
-Mesh format: multiple meshes in one file
+Wexp: specify mesh names
+      specify the name of the player mesh
 
 GJK
 equations of motion

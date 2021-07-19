@@ -31,7 +31,7 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer, Platform_Read_File 
         {
             // wexp->mesh_count
             Wexp_Mesh_Header *mesh_header = (Wexp_Mesh_Header *)(wexp + 1);
-            while(mesh_header->signature == 0x6D57)
+            while(mesh_header->signature == 0x6D57)   // If signature is 'Wm', current object is a mesh
             {
                 Mesh *mesh = &level->objects[level->n_objects];
                 mesh->buffers.vert  = byte_offset(mesh_header, mesh_header->vertex_data_offset);
@@ -39,6 +39,7 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer, Platform_Read_File 
                 mesh->buffers.vertex_count = (mesh_header->index_data_offset - mesh_header->vertex_data_offset) / WEXP_VERTEX_SIZE;
                 mesh->buffers.index_count  = truncate_to_u16((mesh_header->next_elem_offset  - mesh_header->index_data_offset) / WEXP_INDEX_SIZE);
                 mesh->buffers.vert_stride = WEXP_VERTEX_SIZE;
+                mesh->name = (char *)byte_offset(mesh_header, mesh_header->name_offset);
 
                 if (settings)
                     mesh->buffers.settings = *settings;
@@ -309,7 +310,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->tex_yellow  = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_yellow.bmp");
         renderer->init_square_mesh(state->font_shader);
 
-        state->current_level = new_level(&mempool, renderer, memory->read_file, "assets/cubes.wexp", state->phong_shader, &phong_settings);
+        state->current_level = new_level(&mempool, renderer, memory->read_file, "assets/scene.wexp", state->phong_shader, &phong_settings);
         state->player = &state->current_level->objects[0];
 
         load_font(&state->inconsolata, memory->read_file, "assets/Inconsolata.ttf", 32);

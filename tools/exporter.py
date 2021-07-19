@@ -45,6 +45,7 @@ class WexpExport(bpy.types.Operator):
             
             for mesh_index in mesh_indices:
                 mesh = bpy.context.selected_objects[mesh_index].data
+                mesh_name = bpy.context.selected_objects[mesh_index].name
         
                 #
                 # Getting vertex data without repetitions
@@ -126,20 +127,26 @@ class WexpExport(bpy.types.Operator):
                 '2s',  # signature
                 'H',   # Vertex   data offset (from this header)  [2 bytes]
                 'I',   # Index    data offset (from this header)  [4 bytes]
-                'I'))  # Next mesh/eof offset (from this header)  [4 bytes]
+                'I',   # Next mesh/eof offset (from this header)  [4 bytes]
+                'I',   # Name offset
+                'B'))  # Name size in bytes
                 
                 mesh_header_size = struct.calcsize(mesh_header_format)
                 vertex_bytes_offset = mesh_header_size
                 vertex_bytes_count  = len(vertex_data)*4
                 index_bytes_offset  = vertex_bytes_offset + vertex_bytes_count
                 index_bytes_count   = len(trigon_indices)*2
-                end_offset          = index_bytes_offset + index_bytes_count
+                name_bytes_offset   = index_bytes_offset + index_bytes_count
+                name_bytes_count    = len(mesh_name) + 1 # (includes 0 at end of string)
+                end_offset          = name_bytes_offset + name_bytes_count
                 
                 file.write(struct.pack(mesh_header_format,  \
-                                       b'Wm',                \
+                                       b'Wm',               \
                                        vertex_bytes_offset, \
                                        index_bytes_offset,  \
-                                       end_offset))
+                                       end_offset,          \
+                                       name_bytes_offset,   \
+                                       name_bytes_count))
             
                 for vertex_component in vertex_data:
                     bytes = struct.pack("<f", vertex_component)
@@ -147,6 +154,11 @@ class WexpExport(bpy.types.Operator):
                 for index in trigon_indices:
                     bytes = struct.pack("<H", index)
                     file.write(bytes)
+
+                # writing mesh name
+                file.write(struct.pack("<{}s".format(name_bytes_count-1), mesh_name.encode()))
+                file.write(b'\0')
+                
                 #file.close()
                 #file = None
         

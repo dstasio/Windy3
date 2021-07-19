@@ -41,6 +41,7 @@ struct Camera
 struct Mesh
 {
     Platform_Mesh_Buffers buffers;
+    char *name;
 
     m4 transform;
     v3 p;
