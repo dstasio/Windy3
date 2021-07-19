@@ -17,6 +17,20 @@ v3 DEBUG_buffer[DEBUG_BUFFER_new*2] = {};
 
 r32 global_mouse_sensitivity = 50.f;
 
+internal inline b32
+string_compare(char *s1, char *s2)
+{
+    b32 result = 1;
+    while((*s1) && (*s2) &&
+          (*(s1++) == *(s2++))) {}
+    if ((*s1) ||
+        (*s2))
+    {
+        result = 0;
+    }
+    return result;
+}
+
 internal Level *
 new_level(Memory_Pool *mempool, Platform_Renderer *renderer, Platform_Read_File *read_file, char *path, Platform_Shader *shader = 0, Platform_Phong_Settings *settings = 0)
 {
@@ -66,6 +80,22 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer, Platform_Read_File 
     }
 
     return level;
+}
+
+// Searches for a mesh with the given name
+// If none is found, returns 0
+internal Mesh *
+find_mesh(Level *level, char *name)
+{
+    Mesh *result = 0;
+    for (u32 mesh_index = 0;
+         (!result) && (mesh_index < level->n_objects);
+         ++mesh_index)
+    {
+        if (string_compare(name, level->objects[mesh_index].name))
+            result = &level->objects[mesh_index];
+    }
+    return result;
 }
 
 internal Platform_Texture
@@ -311,7 +341,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         renderer->init_square_mesh(state->font_shader);
 
         state->current_level = new_level(&mempool, renderer, memory->read_file, "assets/scene.wexp", state->phong_shader, &phong_settings);
-        state->player = &state->current_level->objects[0];
+        state->player = find_mesh(state->current_level, "Player");
 
         load_font(&state->inconsolata, memory->read_file, "assets/Inconsolata.ttf", 32);
 
