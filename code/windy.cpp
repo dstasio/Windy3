@@ -48,10 +48,10 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer, Platform_Read_File 
             while(mesh_header->signature == 0x6D57)   // If signature is 'Wm', current object is a mesh
             {
                 Mesh *mesh = &level->objects[level->n_objects];
-                mesh->buffers.vert  = byte_offset(mesh_header, mesh_header->vertex_data_offset);
-                mesh->buffers.index = byte_offset(mesh_header, mesh_header->index_data_offset);
+                mesh->buffers.vertex_data  = byte_offset(mesh_header, mesh_header->vertex_data_offset);
+                mesh->buffers.index_data   = byte_offset(mesh_header, mesh_header->index_data_offset);
                 mesh->buffers.vertex_count = (mesh_header->index_data_offset - mesh_header->vertex_data_offset) / WEXP_VERTEX_SIZE;
-                mesh->buffers.index_count  = truncate_to_u16((mesh_header->next_elem_offset  - mesh_header->index_data_offset) / WEXP_INDEX_SIZE);
+                mesh->buffers.index_count  = truncate_to_u16((mesh_header->name_offset  - mesh_header->index_data_offset) / WEXP_INDEX_SIZE);
                 mesh->buffers.vert_stride = WEXP_VERTEX_SIZE;
                 mesh->name = (char *)byte_offset(mesh_header, mesh_header->name_offset);
 
@@ -221,9 +221,10 @@ raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
 {
     r32 hit_sq = 0.f;
 
-#if 0 //// WEXP FIX
-    v3 *verts    = (v3  *)byte_offset(mesh->buffers.wexp, mesh->buffers.wexp->vert_offset);
-    u16 *indices = (u16 *)byte_offset(mesh->buffers.wexp, mesh->buffers.wexp->indices_offset);
+    //v3 *verts    = (v3  *)byte_offset(mesh->buffers.wexp, mesh->buffers.wexp->vert_offset);
+    //u16 *indices = (u16 *)byte_offset(mesh->buffers.wexp, mesh->buffers.wexp->indices_offset);
+    v3 *verts    = (v3  *)mesh->buffers.vertex_data;
+    u16 *indices = (u16 *)mesh->buffers.index_data;
     for (u32 i = 0; i < mesh->buffers.index_count; i += 3)
     {
         v3 p1 = mesh->transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i  ]))));
@@ -280,7 +281,6 @@ raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
             }
         }
     }
-#endif
 
     return Sqrt(hit_sq);
 }

@@ -33,12 +33,16 @@ class WexpExport(bpy.types.Operator):
             print('\nExporting mesh:')
         
         with open(self.filepath, 'wb') as file:
-            
             # getting mesh indices among selected objects
             mesh_indices = []
             for object_index in range(len(bpy.context.selected_objects)):
                 if bpy.context.selected_objects[object_index].type == 'MESH':
                     mesh_indices.append(object_index)
+                        
+            if len(bpy.context.selected_objects) == 0:
+                print("WARNING: no objects selected")
+            elif len(mesh_indices) == 0:
+                print("WARNING: no mesh objects were selected")
             
             # Writing file header
             file.write(struct.pack('<2sBH', b'Wx', VERSION, len(mesh_indices)))

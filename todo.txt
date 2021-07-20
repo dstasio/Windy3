@@ -3,7 +3,10 @@
 // add_meshes_to_level(level, "")
 // *player_model = search_mesh_in_level(level, "player")
 
-Wexp: specify the name of the player mesh
+Wexp:
+ - specify the name of the player mesh
+ - Export mesh transform
+Game logic for mesh rotation
 Mesh importing: check if two meshes have the same name (decide how to deal with it)
 
 GJK

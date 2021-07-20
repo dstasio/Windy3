@@ -77,10 +77,12 @@ struct Platform_Shader
 
 struct Platform_Mesh_Buffers
 {
-    void *vert;
-    void *index;
+    void *vertex_buffer;
+    void * index_buffer;
     void *platform;
 
+    void *vertex_data;
+    void * index_data;
     u32 vertex_count;
     u16  index_count;
     u8  vert_stride;

@@ -247,7 +247,7 @@ inline PLATFORM_INIT_SQUARE_MESH(d3d11_init_square_mesh)
     vert_buff_desc.Usage                 = D3D11_USAGE_IMMUTABLE;
     vert_buff_desc.BindFlags             = D3D11_BIND_VERTEX_BUFFER;
     vert_buff_desc.StructureByteStride   = global_renderer->square.vert_stride;
-    d11->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, (ID3D11Buffer **)&global_renderer->square.vert);
+    d11->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, (ID3D11Buffer **)&global_renderer->square.vertex_buffer);
 
     //
     // input layout description
@@ -321,13 +321,13 @@ PLATFORM_INIT_MESH(d3d11_init_mesh)
     //
     // vertex buffer
     //
-    D3D11_SUBRESOURCE_DATA raw_vert_data = {buffers->vert};
+    D3D11_SUBRESOURCE_DATA raw_vert_data = {buffers->vertex_data};
     D3D11_BUFFER_DESC vert_buff_desc     = {};
     vert_buff_desc.ByteWidth             = buffers->vertex_count*buffers->vert_stride;
     vert_buff_desc.Usage                 = D3D11_USAGE_IMMUTABLE;
     vert_buff_desc.BindFlags             = D3D11_BIND_VERTEX_BUFFER;
     vert_buff_desc.StructureByteStride   = buffers->vert_stride;
-    d11->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, (ID3D11Buffer **)&buffers->vert);
+    d11->device->CreateBuffer(&vert_buff_desc, &raw_vert_data, (ID3D11Buffer **)&buffers->vertex_buffer);
 
     //
     // input layout description
@@ -343,12 +343,12 @@ PLATFORM_INIT_MESH(d3d11_init_mesh)
     //
     // index buffer
     //
-    D3D11_SUBRESOURCE_DATA index_data = {buffers->index};
+    D3D11_SUBRESOURCE_DATA index_data = {buffers->index_data};
     D3D11_BUFFER_DESC index_buff_desc = {};
     index_buff_desc.ByteWidth         = buffers->index_count*WEXP_INDEX_SIZE;
     index_buff_desc.Usage             = D3D11_USAGE_IMMUTABLE;
     index_buff_desc.BindFlags         = D3D11_BIND_INDEX_BUFFER;
-    d11->device->CreateBuffer(&index_buff_desc, &index_data, (ID3D11Buffer **)&buffers->index);
+    d11->device->CreateBuffer(&index_buff_desc, &index_data, (ID3D11Buffer **)&buffers->index_buffer);
 }
 
 
@@ -359,9 +359,9 @@ inline PLATFORM_SET_ACTIVE_MESH(d3d11_set_active_mesh)
 
     u32 offsets = 0;
     u32 stride = buffers->vert_stride;
-    d11->context->IASetVertexBuffers(0, 1, (ID3D11Buffer **)&buffers->vert, &stride, &offsets);
+    d11->context->IASetVertexBuffers(0, 1, (ID3D11Buffer **)&buffers->vertex_buffer, &stride, &offsets);
     d11->context->IASetInputLayout(in_layout);
-    if(buffers->index)  d11->context->IASetIndexBuffer((ID3D11Buffer *)buffers->index, DXGI_FORMAT_R16_UINT, 0);
+    if(buffers->index_buffer)  d11->context->IASetIndexBuffer((ID3D11Buffer *)buffers->index_buffer, DXGI_FORMAT_R16_UINT, 0);
     d11->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 

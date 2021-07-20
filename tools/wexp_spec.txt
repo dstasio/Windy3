@@ -23,8 +23,10 @@ Mesh:
     name size in bytes      1     0x0D
     vertex_data             4*8*N 0x11
     index_data              2*N   0x??
+    name data               X     0x??
    =================================================================================
     *: next element is either a new mesh header or eof
 
 Legend:
     N = number of elements for resource (n. of vertices, n. of indices, etc.)
+    X = amount previously expressed
