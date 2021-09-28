@@ -16,13 +16,21 @@ v3 DEBUG_buffer[DEBUG_BUFFER_new*2] = {};
 #endif
 
 r32 global_mouse_sensitivity = 50.f;
+global Mesh *mesh_A;
+global Mesh *mesh_B;
+global Mesh *mesh_C;
 
 internal inline b32
 string_compare(char *s1, char *s2)
 {
     b32 result = 1;
     while((*s1) && (*s2) &&
-          (*(s1++) == *(s2++))) {}
+          (*s1 == *s2))
+    {
+        s1 += 1;
+        s2 += 1;
+    }
+
     if ((*s1) ||
         (*s2))
     {
@@ -31,8 +39,12 @@ string_compare(char *s1, char *s2)
     return result;
 }
 
+// @note: if settings is zero, phong flags is zero and the shader uses the texture
+//        bound at rendering time
 internal Level *
-new_level(Memory_Pool *mempool, Platform_Renderer *renderer, Platform_Read_File *read_file, char *path, Platform_Shader *shader = 0, Platform_Phong_Settings *settings = 0)
+new_level(Memory_Pool *mempool, Platform_Renderer *renderer,
+          Platform_Read_File *read_file, Platform_Close_File *close_file,
+          char *path, Platform_Shader *shader = 0, Platform_Phong_Settings *settings = 0)
 {
     // @todo: cleanup allocation for wexp file;
     //        use memory pool and keep the vertices for collision computation
@@ -52,7 +64,7 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer, Platform_Read_File 
                 mesh->buffers.index_data   = byte_offset(mesh_header, mesh_header->index_data_offset);
                 mesh->buffers.vertex_count = (mesh_header->index_data_offset - mesh_header->vertex_data_offset) / WEXP_VERTEX_SIZE;
                 mesh->buffers.index_count  = truncate_to_u16((mesh_header->name_offset  - mesh_header->index_data_offset) / WEXP_INDEX_SIZE);
-                mesh->buffers.vert_stride = WEXP_VERTEX_SIZE;
+                mesh->buffers.vertex_stride = WEXP_VERTEX_SIZE;
                 mesh->name = (char *)byte_offset(mesh_header, mesh_header->name_offset);
 
                 if (settings)
@@ -73,12 +85,14 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer, Platform_Read_File 
     else if (wexp->signature == 0x7877) // 'wx'
     {
         // Legacy wexp file
+        Assert(0);
     }
     else
     {
         // @todo: Log
     }
 
+//    close_file(&wexp_file);
     return level;
 }
 
@@ -173,8 +187,8 @@ void editor_camera(Input *input, Camera *camera, r32 dtime)
         if (input->held.shift)
         {
             v3 forward = Normalize(camera->target - camera->pos);
-            v3 right   = Normalize(Cross(forward, camera->up));
-            v3 up      = Normalize(Cross(right, forward));
+            v3 right   = Normalize(cross(forward, camera->up));
+            v3 up      = Normalize(cross(right, forward));
 
             r32 speed = 5.f;
             camera->target += input->mouse.dy*up*dtime*speed - input->mouse.dx*right*dtime*speed;
@@ -214,15 +228,13 @@ struct Light_Buffer
 #endif
 
 // @todo: Better algorithm
-//        take Mesh struct as parameter, and use its transform matrix
+// @todo: take Mesh struct as parameter, and use its transform matrix
 //
 internal r32
 raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
 {
     r32 hit_sq = 0.f;
 
-    //v3 *verts    = (v3  *)byte_offset(mesh->buffers.wexp, mesh->buffers.wexp->vert_offset);
-    //u16 *indices = (u16 *)byte_offset(mesh->buffers.wexp, mesh->buffers.wexp->indices_offset);
     v3 *verts    = (v3  *)mesh->buffers.vertex_data;
     u16 *indices = (u16 *)mesh->buffers.index_data;
     for (u32 i = 0; i < mesh->buffers.index_count; i += 3)
@@ -231,11 +243,11 @@ raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
         v3 p2 = mesh->transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+1]))));
         v3 p3 = mesh->transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+2]))));
 
-        v3 n = Normalize(Cross(((p2) - (p1)), ((p3) - (p1))));
-        if (Dot(n, dir) < 0)
+        v3 n = Normalize(cross(((p2) - (p1)), ((p3) - (p1))));
+        if (dot(n, dir) < 0)
         {
-            v3 u = Normalize(Cross( n, ((p2) - (p1))));
-            v3 v = Normalize(Cross( u, n));
+            v3 u = Normalize(cross( n, ((p2) - (p1))));
+            v3 v = Normalize(cross( u, n));
             m4 face_local_transform = WorldToLocal_m4(u, v, n, (p1));
 
             v3 local_start = face_local_transform * from;
@@ -255,9 +267,9 @@ raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
                 v3 p1_in = world_incident_point - (p1);
                 v3 p2_in = world_incident_point - (p2);
                 v3 p3_in = world_incident_point - (p3);
-                if ((Dot(Cross(p1_p2, p1_in), n) > 0) &&
-                    (Dot(Cross(p2_p3, p2_in), n) > 0) &&
-                    (Dot(Cross(p3_p1, p3_in), n) > 0))
+                if ((dot(cross(p1_p2, p1_in), n) > 0) &&
+                    (dot(cross(p2_p3, p2_in), n) > 0) &&
+                    (dot(cross(p3_p1, p3_in), n) > 0))
                 {
                     r32 dist = Length_Sq(from - world_incident_point);
 
@@ -306,15 +318,260 @@ void draw_level(Platform_Renderer *renderer, Level *level, Platform_Shader *shad
     }
 }
 
+#define gjk_farthest_minkowski(d, _fv, _fn, _fs, _sv, _sn, _ss) \
+    (gjk_get_farthest_along_direction( (dir), (_fv), (_fn), (_fs)) - \
+     gjk_get_farthest_along_direction(-(dir), (_sv), (_sn), (_ss)))
+
+// @todo: support rotations
+internal v3
+gjk_get_farthest_along_direction(v3 dir, void *vertices, u32 n_vertices, u8 v_stride)
+{
+    v3  farthest = ((v3*)vertices)[0];
+    r32 max_distance = dot(dir, farthest);
+
+    for(u32 index = 1; index < n_vertices; ++index)
+    {
+        v3 current_vertex = ((v3 *)byte_offset(vertices, (index*v_stride)))[0];
+        r32 current_distance = dot(dir, current_vertex);
+        if (current_distance > max_distance)
+        {
+            farthest     = current_vertex;
+            max_distance = current_distance;
+        }
+    }
+
+    return farthest;
+}
+
+// @doc: returns true on intersection, false otherwise
+//       fills parameters with new simplex data
+#define same_direction(a, b)  (dot((a),(b)) > 0)
+internal b32
+gjk_do_simplex(v3 *simplex, u32 *simplex_count, v3 *out_dir)
+{
+    b32 result = 0;
+
+    if (*simplex_count == 2)
+    {
+        v3 A = simplex[1];
+        v3 B = simplex[0];
+        v3 AO =  -A;
+        v3 AB = B-A;
+        if (same_direction(AB, AO))            // Edge is closest to origin
+        {
+            //simplex remains unchanged
+            *out_dir = cross(cross(AB, AO), AB);
+        }
+        else                                   // Point A is closest to origin
+        {
+            simplex[0] = simplex[1];
+            *simplex_count = 1;
+            *out_dir   = AO;
+        }
+    }
+    else if(*simplex_count == 3)
+    {
+        v3 A = simplex[2];
+        v3 B = simplex[1];
+        v3 C = simplex[0];
+        v3 AO =  -A;
+        v3 AB = B-A;
+        v3 AC = C-A;
+        v3 ABC = cross(AB, AC);
+        if (same_direction(cross(ABC,AC), AO))
+        {
+            if (same_direction(AC, AO))                  // AC closest
+            {
+                simplex[0] = C;
+                simplex[1] = A;
+                *simplex_count = 2;
+                *out_dir = cross(AC, cross(AO, AC));
+            }
+            else if (same_direction(AB, AO))             // AB closest
+            {
+                simplex[0] = B;
+                simplex[1] = A;
+                *simplex_count = 2;
+                *out_dir = cross(AB, cross(AO, AB));
+            }
+            else                                         // A closest
+            {
+                simplex[0] = A;
+                *simplex_count = 1;
+                *out_dir = AO;
+            }
+        }
+        else if (same_direction(cross(AB, ABC), AO))
+        {
+            if (same_direction(AB, AO))                  // AB closest
+            {
+                simplex[0] = B;
+                simplex[1] = A;
+                *simplex_count = 2;
+                *out_dir = cross(AB, cross(AO, AB));
+            }
+            else                                         // A closest
+            {
+                simplex[0] = A;
+                *simplex_count = 1;
+                *out_dir = AO;
+            }
+        }
+        else if (ABC, AO)                                // ABC closest, in direction of ABC vector
+        {
+            simplex[0] = C;
+            simplex[1] = B;
+            simplex[2] = A;
+            *simplex_count = 3;
+            *out_dir = ABC;
+        }
+        else                                             // ABC closest, in direction of -ABC vector
+        {
+            simplex[0] = B;
+            simplex[1] = C;
+            simplex[2] = A;
+            *simplex_count = 3;
+            *out_dir = -ABC;
+        }
+    }
+    else if(*simplex_count == 4)
+    {
+        v3 A = simplex[3];
+        v3 B = simplex[2];
+        v3 C = simplex[1];
+        v3 D = simplex[0];
+        v3 AO =  -A;
+        v3 AB = B-A;
+        v3 AC = C-A;
+        v3 AD = D-A;
+
+        // @todo: remove need for direction checking
+        v3 ABC = cross(AB, AC);
+        if (!(same_direction(ABC, AD)))
+            ABC = -ABC;
+
+        v3 ABD = cross(AB, AD);
+        if (!(same_direction(ABD, AC)))
+            ABD = -ABD;
+
+        v3 ACD = cross(AC, AD);
+        if (!(same_direction(ACD, AB)))
+            ACD = -ACD;
+
+        if (same_direction(ABD, AO))
+        {
+            if (same_direction(ACD, AO))
+            {
+                if (same_direction(ABC, AO))
+                {
+                    result = 1;                                  // Intersection found!
+                }
+                else                                             // ABC closest, in direction of -ABC vector
+                {
+                    simplex[0] = B;
+                    simplex[1] = C;
+                    simplex[2] = A;
+                    *simplex_count = 3;
+                    *out_dir = -ABC;
+                }
+            }
+            else
+            {
+                if (same_direction(ABC, AO))                     // ACD closest, in direction of -ACD vector
+                {
+                    simplex[0] = C;
+                    simplex[1] = D;
+                    simplex[2] = A;
+                    *simplex_count = 3;
+                    *out_dir = -ACD;
+                }
+                else                                             // AC closest
+                {
+                    simplex[0] = C;
+                    simplex[1] = A;
+                    *simplex_count = 2;
+                    *out_dir = cross(AC, cross(AO, AC));
+                }
+            }
+        }
+        else
+        {
+            if (same_direction(ACD, AO))
+            {
+                if (same_direction(ABC, AO))                      // ABD closest, in direction of -ABD vector
+                {
+                    simplex[0] = B;
+                    simplex[1] = D;
+                    simplex[2] = A;
+                    *simplex_count = 3;
+                    *out_dir = -ABD;
+                }
+                else                                             // AB closest
+                {
+                    simplex[0] = B;
+                    simplex[1] = A;
+                    *simplex_count = 2;
+                    *out_dir = cross(AB, cross(AO, AB));
+                }
+            }
+            else                                             // AD closest
+            {
+                simplex[0] = D;
+                simplex[1] = A;
+                *simplex_count = 2;
+                *out_dir = cross(AD, cross(AO, AD));
+            }
+        }
+    }
+
+    return result;
+}
+
+// @todo: support rotations
+internal b32
+gjk_intersection(Mesh *x, Mesh *y)
+{
+    b32 intersection = 0;
+
+    v3 dir = {0, 1, 0};
+    v3  simplex[4];
+    u32 simplex_count = 0;
+
+    v3 f_x = gjk_get_farthest_along_direction( dir, x->buffers.vertex_data, x->buffers.vertex_count, x->buffers.vertex_stride);
+    v3 f_y = gjk_get_farthest_along_direction(-dir, y->buffers.vertex_data, y->buffers.vertex_count, y->buffers.vertex_stride);
+    simplex[simplex_count++] = f_x - f_y;
+    //simplex[simplex_count++] = gjk_farthest_minkowski(dir,
+    //                                    x->buffers.vertex_data, x->buffers.vertex_count, x->buffers.vertex_stride,
+    //                                    y->buffers.vertex_data, y->buffers.vertex_count, y->buffers.vertex_stride);
+    dir = -simplex[0];
+    do {
+        v3 P = gjk_farthest_minkowski(dir,
+                                      x->buffers.vertex_data, x->buffers.vertex_count, x->buffers.vertex_stride,
+                                      y->buffers.vertex_data, y->buffers.vertex_count, y->buffers.vertex_stride);
+        if (dot(P, dir) < 0)
+            break;                                                                // no intersection
+        Assert(simplex_count <= 3);
+        simplex[simplex_count++] = P;
+
+        intersection = gjk_do_simplex(simplex, &simplex_count, &dir);             // intersection
+    } while(!intersection);
+
+    return intersection;
+}
+
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
-    Game_State *state = (Game_State *)memory->storage;
+    Game_State *state = (Game_State *)memory->main_storage;
     if(!memory->is_initialized)
     {
-        Memory_Pool mempool = {};
-        mempool.base = (u8 *)memory->storage;
-        mempool.size = memory->storage_size;
-        mempool.used = sizeof(Game_State);
+        Memory_Pool main_pool     = {};
+        Memory_Pool volatile_pool = {};
+        main_pool.base = (u8 *)memory->main_storage;
+        main_pool.size = memory->main_storage_size;
+        main_pool.used = sizeof(Game_State);
+        volatile_pool.base = (u8 *)memory->volatile_storage;
+        volatile_pool.size = memory->volatile_storage_size;
+        volatile_pool.used = sizeof(Game_State);
 
         renderer->load_renderer(renderer);
 
@@ -322,8 +579,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         // Shaders
         //
         // @todo: remove need for pre-allocation
-        state->phong_shader = push_struct(&mempool, Platform_Shader);
-        state->font_shader  = push_struct(&mempool, Platform_Shader);
+        state->phong_shader = push_struct(&volatile_pool, Platform_Shader);
+        state->font_shader  = push_struct(&volatile_pool, Platform_Shader);
         renderer->reload_shader(state->phong_shader, "phong");
         renderer->reload_shader( state->font_shader, "fonts");
         renderer->reload_shader(&renderer->debug_shader, "debug");
@@ -336,12 +593,18 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         phong_settings.flags = PHONG_FLAG_SOLIDCOLOR;
         phong_settings.color = {0.8f, 0.f, 0.2f};
         //state->player = load_mesh(renderer, memory->read_file, "assets/player.wexp",      &state->current_level, state->phong_shader, &phong_settings);
-        state->tex_white   = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_white.bmp");
-        state->tex_yellow  = load_texture(renderer, &mempool, memory->read_file, "assets/blockout_yellow.bmp");
+        state->tex_white   = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_white.bmp");
+        state->tex_yellow  = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_yellow.bmp");
         renderer->init_square_mesh(state->font_shader);
 
-        state->current_level = new_level(&mempool, renderer, memory->read_file, "assets/scene.wexp", state->phong_shader, &phong_settings);
+        state->current_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/scene.wexp", state->phong_shader);
         state->player = find_mesh(state->current_level, "Player");
+        mesh_A = find_mesh(state->current_level, "Cube_A");
+        mesh_B = find_mesh(state->current_level, "Cube_B");
+        mesh_C = find_mesh(state->current_level, "Cube_C");
+        Assert(mesh_A);
+        Assert(mesh_B);
+        Assert(mesh_C);
 
         load_font(&state->inconsolata, memory->read_file, "assets/Inconsolata.ttf", 32);
 
@@ -395,13 +658,13 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             r32 speed = input->held.space ? 10.f : 3.f;
             v3  movement = {};
             v3  cam_forward = Normalize(state->game_camera.target - state->game_camera.pos);
-            v3  cam_right   = Normalize(Cross(cam_forward, state->game_camera.up));
+            v3  cam_right   = Normalize(cross(cam_forward, state->game_camera.up));
             if (input->held.w)     movement += make_v3(cam_forward.xy);
             if (input->held.s)     movement -= make_v3(cam_forward.xy);
             if (input->held.d)     movement += make_v3(cam_right.xy);
             if (input->held.a)     movement -= make_v3(cam_right.xy);
-            if (input->held.shift) movement += state->game_camera.up;
-            if (input->held.ctrl)  movement -= state->game_camera.up;
+            if (input->held.e)     movement += state->game_camera.up;
+            if (input->held.q)     movement -= state->game_camera.up;
             if (movement)
             {
                 state->player->p += Normalize(movement)*speed*dtime;
@@ -444,11 +707,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 else
                 {
                     v3 forward = Normalize(active_camera->target - active_camera->pos);
-                    v3 right   = Normalize(Cross(forward, active_camera->up));
-                    v3 up      = Normalize(Cross(right, forward));
+                    v3 right   = Normalize(cross(forward, active_camera->up));
+                    v3 up      = Normalize(cross(right, forward));
 
                     v3 movement = input->mouse.dx*right - input->mouse.dy*up;
-                    movement /= Dot((state->selected->p - active_camera->pos), forward);
+                    movement /= dot((state->selected->p - active_camera->pos), forward);
                     movement.x *= move_mask.x;
                     movement.y *= move_mask.y;
                     movement.z *= move_mask.z;
@@ -468,8 +731,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 {
                     state->selected = 0;
                     v3 forward = Normalize(active_camera->target - active_camera->pos);
-                    v3 right   = Normalize(Cross(forward, active_camera->up));
-                    v3 up      = Normalize(Cross(right, forward));
+                    v3 right   = Normalize(cross(forward, active_camera->up));
+                    v3 up      = Normalize(cross(right, forward));
 
                     r32 least_hit_distance = 0.f;
                     v3  click_p = {};
@@ -536,6 +799,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
     char debug_text[128] = {};
     snprintf(debug_text, 128, "FPS: %f", 1.f/dtime);
+    if (gjk_intersection(mesh_C, mesh_A))
+        snprintf(debug_text, 128, "FPS: %f INTERSECTION", 1.f/dtime);
     renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
 
     {

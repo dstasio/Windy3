@@ -204,6 +204,16 @@ PLATFORM_RELOAD_CHANGED_FILE(win32_reload_file_if_changed)
     return(has_changed);
 }
 
+internal 
+PLATFORM_CLOSE_FILE(win32_close_file)
+{
+    if ((file) &&
+        (file->data))
+    {
+        VirtualFree(file->data, 0, MEM_RELEASE);
+    }
+}
+
 #include "win32_renderer_d3d11.cpp"
 
 LRESULT CALLBACK WindyProc(
@@ -301,17 +311,23 @@ WinMain(
         RegisterRawInputDevices(raw_in_devices, 1, sizeof(raw_in_devices[0]));
 
 #if WINDY_INTERNAL
-        LPVOID BaseAddress = (LPVOID)Terabytes(2);
+        LPVOID base_address = (LPVOID)Terabytes(2);
 #else
-        LPVOID BaseAddress = 0;
+        LPVOID base_address = 0;
 #endif
         global_running = true;
         global_error = false;
         game_memory GameMemory = {};
-        GameMemory.storage_size = Megabytes(500);
-        GameMemory.storage = VirtualAlloc(BaseAddress, GameMemory.storage_size,
-                                           MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
-        GameMemory.read_file = win32_read_file;
+        // @todo: assert storage allocations
+        GameMemory.main_storage_size = Megabytes(50);
+        GameMemory.main_storage = VirtualAlloc(base_address, GameMemory.main_storage_size,
+                                               MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+        GameMemory.volatile_storage_size = Gigabytes(1);
+        GameMemory.volatile_storage = VirtualAlloc(byte_offset(base_address, GameMemory.main_storage_size),
+                                                   GameMemory.volatile_storage_size,
+                                                   MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+        GameMemory.read_file  = win32_read_file;
+        GameMemory.close_file = win32_close_file;
         GameMemory.reload_if_changed = win32_reload_file_if_changed;
 
         Win32_Game_Code windy = load_windy();
@@ -319,11 +335,11 @@ WinMain(
         // @todo: probably a global variable is a good idea?
         Platform_Renderer renderer = {};
         D11_Renderer d11 = {};
-        renderer.load_renderer    = win32_load_d3d11;
-        renderer.reload_shader    = d3d11_reload_shader;
-        renderer.init_texture     = d3d11_init_texture;
-        renderer.init_mesh        = d3d11_init_mesh;
-        renderer.init_square_mesh = d3d11_init_square_mesh; // @todo: this is to be removed; called in a general init function for the renderer
+        renderer.load_renderer       = win32_load_d3d11;
+        renderer.reload_shader       = d3d11_reload_shader;
+        renderer.init_texture        = d3d11_init_texture;
+        renderer.init_mesh           = d3d11_init_mesh;
+        renderer.init_square_mesh    = d3d11_init_square_mesh; // @todo: this is to be removed; called in a general init function for the renderer
         renderer.clear               = d3d11_clear;
         renderer.set_active_mesh     = d3d11_set_active_mesh;
         renderer.set_active_texture  = d3d11_set_active_texture;
@@ -402,8 +418,10 @@ WinMain(
                             key_down(VK_A,       a);
                             key_down(VK_S,       s);
                             key_down(VK_D,       d);
+                            key_down(VK_E,       e);
                             key_down(VK_F,       f);
                             key_down(VK_G,       g);
+                            key_down(VK_Q,       q);
                             key_down(VK_X,       x);
                             key_down(VK_Y,       y);
                             key_down(VK_Z,       z);
@@ -424,8 +442,10 @@ WinMain(
                             key_up(VK_A,       a);
                             key_up(VK_S,       s);
                             key_up(VK_D,       d);
+                            key_up(VK_E,       e);
                             key_up(VK_F,       f);
                             key_up(VK_G,       g);
+                            key_up(VK_Q,       q);
                             key_up(VK_X,       x);
                             key_up(VK_Y,       y);
                             key_up(VK_Z,       z);

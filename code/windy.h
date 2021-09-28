@@ -86,15 +86,15 @@ struct Game_State
 
 struct Memory_Pool
 {
-    memory_index size;
-    memory_index used;
+    Memory_Index size;
+    Memory_Index used;
     u8 *base;
 };
 
 #define push_struct(pool, type) (type *)push_size_((pool), sizeof(type))
 #define push_array(pool, length, type) (type *)push_size_((pool), (length)*sizeof(type))
 inline void *
-push_size_(Memory_Pool *pool, memory_index size)
+push_size_(Memory_Pool *pool, Memory_Index size)
 {
     Assert((pool->used + size) < pool->size);
 

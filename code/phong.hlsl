@@ -30,8 +30,8 @@ main(VS_INPUT input)
     output.world_pos = (float3)mul(model, float4(input.pos, 1.f));
     float4x4 screen_space = mul(projection, camera);
     output.proj_pos = mul(screen_space, float4(output.world_pos, 1.f));
-    //output.txc = input.txc;
-    output.txc = input.pos.xy;
+    output.txc = input.txc;
+    //output.txc = input.pos.xy;
     output.normal = input.normal;
 
     return(output);

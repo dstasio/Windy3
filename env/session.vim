@@ -76,7 +76,7 @@ endif
 set shortmess=aoO
 argglobal
 %argdel
-edit windy_platform.h
+edit win32_renderer_d3d11.cpp
 let s:save_splitbelow = &splitbelow
 let s:save_splitright = &splitright
 set splitbelow splitright
@@ -93,10 +93,10 @@ set winminheight=0
 set winheight=1
 set winminwidth=0
 set winwidth=1
-exe 'vert 1resize ' . ((&columns * 93 + 94) / 188)
-exe 'vert 2resize ' . ((&columns * 94 + 94) / 188)
+exe 'vert 1resize ' . ((&columns * 117 + 117) / 235)
+exe 'vert 2resize ' . ((&columns * 117 + 117) / 235)
 argglobal
-balt win32_renderer_d3d11.cpp
+balt windy_platform.h
 setlocal keymap=
 setlocal noarabic
 setlocal autoindent
@@ -226,16 +226,16 @@ setlocal nowrap
 setlocal wrapmargin=0
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 177 - ((21 * winheight(0) + 21) / 43)
+let s:l = 331 - ((20 * winheight(0) + 26) / 53)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 177
-normal! 032|
+keepjumps 331
+normal! 0
 wincmd w
 argglobal
 if bufexists("windy.cpp") | buffer windy.cpp | else | edit windy.cpp | endif
-balt windy.h
+balt windy_platform.h
 setlocal keymap=
 setlocal noarabic
 setlocal autoindent
@@ -365,29 +365,30 @@ setlocal nowrap
 setlocal wrapmargin=0
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 311 - ((23 * winheight(0) + 21) / 43)
+let s:l = 532 - ((8 * winheight(0) + 26) / 53)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 311
+keepjumps 532
 normal! 0
 wincmd w
 2wincmd w
-exe 'vert 1resize ' . ((&columns * 93 + 94) / 188)
-exe 'vert 2resize ' . ((&columns * 94 + 94) / 188)
+exe 'vert 1resize ' . ((&columns * 117 + 117) / 235)
+exe 'vert 2resize ' . ((&columns * 117 + 117) / 235)
 tabnext 1
-badd +70 windy.h
-badd +32 headers.h
-badd +259 windy.cpp
+badd +87 windy_platform.h
+badd +361 win32_renderer_d3d11.cpp
+badd +719 windy.cpp
+badd +107 windy.h
+badd +60 headers.h
 badd +20 \Windy3\tools\wexp_spec.txt
 badd +1 ..\todo.txt
-badd +177 windy_platform.h
 badd +1 ..\tool
-badd +380 windy_math.h
+badd +378 windy_math.h
 badd +321 win32_layer.cpp
-badd +348 win32_renderer_d3d11.cpp
 badd +43 win32_layer.h
 badd +16 win32_renderer_d3d11.h
+badd +31 windy_types.h
 if exists('s:wipebuf') && len(win_findbuf(s:wipebuf)) == 0
   silent exe 'bwipe ' . s:wipebuf
 endif

@@ -64,6 +64,8 @@ struct Input_File
 typedef PLATFORM_READ_FILE(Platform_Read_File);
 #define PLATFORM_RELOAD_CHANGED_FILE(name) b32 name(Input_File *file)
 typedef PLATFORM_RELOAD_CHANGED_FILE(Platform_Reload_Changed_File);
+#define PLATFORM_CLOSE_FILE(name) void name(Input_File *file)
+typedef PLATFORM_CLOSE_FILE(Platform_Close_File);
 
 struct Platform_Renderer;
 struct Platform_Shader
@@ -81,13 +83,13 @@ struct Platform_Mesh_Buffers
     void * index_buffer;
     void *platform;
 
+    // @note: These pointers will be zeroed right after being initialized
+    //        (should become unusable pretty much anywhere)
     void *vertex_data;
     void * index_data;
     u32 vertex_count;
     u16  index_count;
-    u8  vert_stride;
-
-    Wexp_Header *wexp;
+    u8  vertex_stride;
 
     Platform_Phong_Settings settings;
 };
@@ -209,8 +211,10 @@ struct Input_Keyboard
     u32 s;
     u32 d;
 
+    u32 e;
     u32 f;
     u32 g;
+    u32 q;
     u32 x;
     u32 y;
     u32 z;
@@ -253,10 +257,13 @@ typedef struct Game_Memory
 {
     b32 is_initialized;
 
-    u64 storage_size;
-    void *storage;
+    u64 main_storage_size;
+    void *main_storage;
+    u64 volatile_storage_size;
+    void *volatile_storage;
 
     Platform_Read_File           *read_file;
+    Platform_Close_File          *close_file;
     Platform_Reload_Changed_File *reload_if_changed;
 } game_memory;
 

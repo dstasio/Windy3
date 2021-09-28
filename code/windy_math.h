@@ -112,14 +112,14 @@ v3 &operator-=(v3 &a, v3 b)
 }
 
 inline r32
-Dot(v3 a, v3 b)
+dot(v3 a, v3 b)
 {
     r32 result = a.x*b.x + a.y*b.y + a.z*b.z;
     return result;
 }
 
 inline v3
-Cross(v3 a, v3 b)
+cross(v3 a, v3 b)
 {
     v3 result = {
         a.y*b.z - a.z*b.y,
@@ -132,7 +132,7 @@ Cross(v3 a, v3 b)
 inline r32
 Length_Sq(v3 a)
 {
-    r32 result = Dot(a, a);
+    r32 result = dot(a, a);
     return result;
 }
 
@@ -371,11 +371,11 @@ inline m4
 Camera_m4(v3 pos, v3 target, v3 up)
 {
     v3 n = Normalize(target - pos);
-    v3 v = Normalize(Cross(n, up));
-    v3 u = Normalize(Cross(v, n));
-    r32 p_v = -Dot(pos, v);
-    r32 p_u = -Dot(pos, u);
-    r32 p_n = -Dot(pos, n);
+    v3 v = Normalize(cross(n, up));
+    v3 u = Normalize(cross(v, n));
+    r32 p_v = -dot(pos, v);
+    r32 p_u = -dot(pos, u);
+    r32 p_n = -dot(pos, n);
 
     m4 matrix = {
         v.x, u.x, n.x, 0.f,

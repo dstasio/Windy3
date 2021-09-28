@@ -28,7 +28,7 @@ typedef int32_t i32;
 typedef int64_t i64;
 typedef i32 b32;
 
-typedef size_t memory_index;
+typedef size_t Memory_Index;
 
 typedef float  r32;
 typedef double r64;
