@@ -1,10 +1,10 @@
-# WEXP FILE FORMAT - VERSION 1
+# WEXP FILE FORMAT - VERSION 2
 File Structure:
 ====================================================================================
     Element                 Size  Offset
    =================================================================================
     ID                      2     0x00   = ASCII for 'Wx'  (0x7857) as of Version 1
-    version number          1     0x02   = 1
+    version number          1     0x02   = 2
     number of meshes        2     0x03
     first mesh                    0x05
                       [subsequent meshes if present]
@@ -13,20 +13,23 @@ File Structure:
 
 Mesh:
 ====================================================================================
-    Element                 Size  Offset (in mesh header)
+    Element                 Size   Offset (in mesh header)
    =================================================================================
-    ID                      2     0x00   = ASCII for 'Wm'  (0x6D57)
-    vertex_data  offset     2     0x02   (= Header Size)
-    index_data   offset     4     0x04
-    next element offset*    4     0x08   (offset relative to the start of current header)
-    name         offset     4     0x0C
-    name size in bytes      1     0x0D
-    vertex_data             4*8*N 0x11
-    index_data              2*N   0x??
-    name data               X     0x??
+    ID                          2  0x00   = ASCII for 'Wm'  (0x6D57)
+    vertex_data  offset         2  0x02   (= Header Size)
+    index_data   offset         4  0x04
+    next element offset*        4  0x08   (offset relative to the start of current header)
+    name         offset         4  0x0C
+    name size in bytes          1  0x0D
+    position                   12  0x0E
+    rotation                   12  0x1A
+    scale                      12  0x26
+    vertex_data             4*8*N  0x32
+    index_data                2*N  0x??
+    name data                   X  0x??
    =================================================================================
     *: next element is either a new mesh header or eof
 
 Legend:
-    N = number of elements for resource (n. of vertices, n. of indices, etc.)
-    X = amount previously expressed
+    N = number of elements per resource (n. of vertices, n. of indices, etc.)
+    X = amount previously specified

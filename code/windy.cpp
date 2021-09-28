@@ -39,6 +39,16 @@ string_compare(char *s1, char *s2)
     return result;
 }
 
+internal void
+mesh_move(Mesh *mesh, v3 position, b32 is_delta = true)
+{
+    if (!is_delta)
+        mesh->p = {};
+
+    mesh->p        += position;
+    mesh->transform = Translation_m4(mesh->p);
+}
+
 // @note: if settings is zero, phong flags is zero and the shader uses the texture
 //        bound at rendering time
 internal Level *
@@ -53,7 +63,7 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer,
     Wexp_Header *wexp = (Wexp_Header *)wexp_file.data;
     if (wexp->signature == 0x7857)  // 'Wx'
     {
-        if (wexp->version == 1)
+        if (wexp->version < 3)
         {
             // wexp->mesh_count
             Wexp_Mesh_Header *mesh_header = (Wexp_Mesh_Header *)(wexp + 1);
@@ -67,9 +77,17 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer,
                 mesh->buffers.vertex_stride = WEXP_VERTEX_SIZE;
                 mesh->name = (char *)byte_offset(mesh_header, mesh_header->name_offset);
 
+                if (wexp->version == 2)
+                {
+                    mesh_move(mesh, mesh_header->world_position);
+                }
+                else
+                {
+                    mesh->transform  = Identity_m4();
+                }
+
                 if (settings)
                     mesh->buffers.settings = *settings;
-                mesh->transform  = Identity_m4();
 
                 renderer->init_mesh(&mesh->buffers, shader);
 
@@ -668,8 +686,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             if (input->held.q)     movement -= state->game_camera.up;
             if (movement)
             {
-                state->player->p += Normalize(movement)*speed*dtime;
-                state->player->transform = Translation_m4(state->player->p);
+                mesh_move(state->player, Normalize(movement)*speed*dtime);
             }
 
             third_person_camera(input, &state->game_camera, state->player->p, dtime);
@@ -718,8 +735,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     movement.z *= move_mask.z;
                     if (input->held.shift)
                         movement *= 0.1f;
-                    state->selected->p        += movement;
-                    state->selected->transform = Translation_m4(state->selected->p);
+                    mesh_move(state->selected, movement);
                 }
             }
             else

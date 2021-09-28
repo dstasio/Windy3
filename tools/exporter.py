@@ -1,7 +1,7 @@
 import bpy
 import struct
 
-VERSION = 1
+VERSION = 2
 ISDEBUG = True
 
 def float_to_int(f):
@@ -48,8 +48,9 @@ class WexpExport(bpy.types.Operator):
             file.write(struct.pack('<2sBH', b'Wx', VERSION, len(mesh_indices)))
             
             for mesh_index in mesh_indices:
+                object = bpy.context.selected_objects[mesh_index]
                 mesh = bpy.context.selected_objects[mesh_index].data
-                mesh_name = bpy.context.selected_objects[mesh_index].name
+                mesh_name = object.name
         
                 #
                 # Getting vertex data without repetitions
@@ -127,13 +128,16 @@ class WexpExport(bpy.types.Operator):
 
                 # writing mesh header
                 mesh_header_format = ''.join((
-                '<',   # (byte order = little endian)
-                '2s',  # signature
-                'H',   # Vertex   data offset (from this header)  [2 bytes]
-                'I',   # Index    data offset (from this header)  [4 bytes]
-                'I',   # Next mesh/eof offset (from this header)  [4 bytes]
-                'I',   # Name offset
-                'B'))  # Name size in bytes
+                '<',       # (byte order = little endian)
+                '2s',      # signature
+                 'H',      # Vertex   data offset (from this header)  [2 bytes]
+                 'I',      # Index    data offset (from this header)  [4 bytes]
+                 'I',      # Next mesh/eof offset (from this header)  [4 bytes]
+                 'I',      # Name offset
+                 'B',      # Name size in bytes
+                '3f',      # Mesh position (xyz)
+                '3f',      # Mesh rotation (xyz)
+                '3f'))    # Mesh scale    (xyz)
                 
                 mesh_header_size = struct.calcsize(mesh_header_format)
                 vertex_bytes_offset = mesh_header_size
@@ -142,15 +146,30 @@ class WexpExport(bpy.types.Operator):
                 index_bytes_count   = len(trigon_indices)*2
                 name_bytes_offset   = index_bytes_offset + index_bytes_count
                 name_bytes_count    = len(mesh_name) + 1 # (includes 0 at end of string)
+                pos_x               = object.location.x
+                pos_y               = object.location.y
+                pos_z               = object.location.z
+                rot_x               = object.rotation_euler.x
+                rot_y               = object.rotation_euler.y
+                rot_z               = object.rotation_euler.z
+                scale_x             = object.scale.x
+                scale_y             = object.scale.y
+                scale_z             = object.scale.z
                 end_offset          = name_bytes_offset + name_bytes_count
                 
-                file.write(struct.pack(mesh_header_format,  \
-                                       b'Wm',               \
-                                       vertex_bytes_offset, \
-                                       index_bytes_offset,  \
-                                       end_offset,          \
-                                       name_bytes_offset,   \
-                                       name_bytes_count))
+                if (object.rotation_euler.order != 'XYZ'):
+                    ___ERROR_ROTATION_MODE_NOT_SUPPORTED
+                
+                file.write(struct.pack(mesh_header_format,          \
+                                       b'Wm',                       \
+                                       vertex_bytes_offset,         \
+                                       index_bytes_offset,          \
+                                       end_offset,                  \
+                                       name_bytes_offset,           \
+                                       name_bytes_count,            \
+                                         pos_x,   pos_y,   pos_z,   \
+                                         rot_x,   rot_y,   rot_z,   \
+                                       scale_x, scale_y, scale_z))
             
                 for vertex_component in vertex_data:
                     bytes = struct.pack("<f", vertex_component)

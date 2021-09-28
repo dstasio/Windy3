@@ -53,6 +53,10 @@ struct Wexp_Mesh_Header
     u32  index_data_offset;
     u32   next_elem_offset;
     u32        name_offset;
+    u8           name_size;
+    v3      world_position;
+    v3      world_rotation;
+    v3         world_scale;
 };
 #pragma pack(pop)
 
