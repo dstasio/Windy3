@@ -318,15 +318,17 @@ void draw_level(Platform_Renderer *renderer, Level *level, Platform_Shader *shad
     }
 }
 
-#define gjk_farthest_minkowski(d, _fv, _fn, _fs, _sv, _sn, _ss) \
-    (gjk_get_farthest_along_direction( (dir), (_fv), (_fn), (_fs)) - \
-     gjk_get_farthest_along_direction(-(dir), (_sv), (_sn), (_ss)))
+#define gjk_farthest_minkowski(d, _first, _second)   (gjk_get_farthest_along_direction( (dir), (_first)) - gjk_get_farthest_along_direction(-(dir), (_second)))
 
 // @todo: support rotations
 internal v3
-gjk_get_farthest_along_direction(v3 dir, void *vertices, u32 n_vertices, u8 v_stride)
+gjk_get_farthest_along_direction(v3 dir, Mesh *m)
 {
+    void  *vertices = m->buffers.vertex_data;
+    u32  n_vertices = m->buffers.vertex_count;
+    u8     v_stride = m->buffers.vertex_stride;
     v3  farthest = ((v3*)vertices)[0];
+
     r32 max_distance = dot(dir, farthest);
 
     for(u32 index = 1; index < n_vertices; ++index)
@@ -340,6 +342,7 @@ gjk_get_farthest_along_direction(v3 dir, void *vertices, u32 n_vertices, u8 v_st
         }
     }
 
+    farthest += m->p;
     return farthest;
 }
 
@@ -417,7 +420,7 @@ gjk_do_simplex(v3 *simplex, u32 *simplex_count, v3 *out_dir)
                 *out_dir = AO;
             }
         }
-        else if (ABC, AO)                                // ABC closest, in direction of ABC vector
+        else if (same_direction(ABC, AO))                // ABC closest, in direction of ABC vector
         {
             simplex[0] = C;
             simplex[1] = B;
@@ -537,17 +540,15 @@ gjk_intersection(Mesh *x, Mesh *y)
     v3  simplex[4];
     u32 simplex_count = 0;
 
-    v3 f_x = gjk_get_farthest_along_direction( dir, x->buffers.vertex_data, x->buffers.vertex_count, x->buffers.vertex_stride);
-    v3 f_y = gjk_get_farthest_along_direction(-dir, y->buffers.vertex_data, y->buffers.vertex_count, y->buffers.vertex_stride);
+    v3 f_x = gjk_get_farthest_along_direction( dir, x);
+    v3 f_y = gjk_get_farthest_along_direction(-dir, y);
     simplex[simplex_count++] = f_x - f_y;
     //simplex[simplex_count++] = gjk_farthest_minkowski(dir,
     //                                    x->buffers.vertex_data, x->buffers.vertex_count, x->buffers.vertex_stride,
     //                                    y->buffers.vertex_data, y->buffers.vertex_count, y->buffers.vertex_stride);
     dir = -simplex[0];
     do {
-        v3 P = gjk_farthest_minkowski(dir,
-                                      x->buffers.vertex_data, x->buffers.vertex_count, x->buffers.vertex_stride,
-                                      y->buffers.vertex_data, y->buffers.vertex_count, y->buffers.vertex_stride);
+        v3 P = gjk_farthest_minkowski(dir, x, y);
         if (dot(P, dir) < 0)
             break;                                                                // no intersection
         Assert(simplex_count <= 3);
