@@ -378,17 +378,9 @@ gjk_do_simplex(v3 *simplex, u32 *simplex_count, v3 *out_dir)
         v3 B = simplex[0];
         v3 AO =  -A;
         v3 AB = B-A;
-        if (same_direction(AB, AO))            // Edge is closest to origin
-        {
-            //simplex remains unchanged
-            *out_dir = cross(cross(AB, AO), AB);
-        }
-        else                                   // Point A is closest to origin
-        {
-            simplex[0] = simplex[1];
-            *simplex_count = 1;
-            *out_dir   = AO;
-        }
+
+        //simplex remains unchanged
+        *out_dir = cross(cross(AB, AO), AB);
     }
     else if(*simplex_count == 3)
     {
@@ -457,6 +449,7 @@ gjk_do_simplex(v3 *simplex, u32 *simplex_count, v3 *out_dir)
     }
     else if(*simplex_count == 4)
     {
+        // @todo @critical: fix the 4-vertex simplex case
         v3 A = simplex[3];
         v3 B = simplex[2];
         v3 C = simplex[1];
@@ -527,7 +520,7 @@ gjk_do_simplex(v3 *simplex, u32 *simplex_count, v3 *out_dir)
                     *simplex_count = 3;
                     *out_dir = -ABD;
                 }
-                else                                             // AB closest
+                else                                              // AB closest
                 {
                     simplex[0] = B;
                     simplex[1] = A;
@@ -535,7 +528,7 @@ gjk_do_simplex(v3 *simplex, u32 *simplex_count, v3 *out_dir)
                     *out_dir = cross(AB, cross(AO, AB));
                 }
             }
-            else                                             // AD closest
+            else                                                  // AD closest
             {
                 simplex[0] = D;
                 simplex[1] = A;
@@ -815,9 +808,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
 
     char debug_text[128] = {};
-    snprintf(debug_text, 128, "FPS: %f", 1.f/dtime);
+    snprintf(debug_text, 128, "FPS: %.2f", 1.f/dtime);
+#if 1
     if (gjk_intersection(mesh_C, mesh_A))
-        snprintf(debug_text, 128, "FPS: %f INTERSECTION", 1.f/dtime);
+        snprintf(debug_text, 128, "FPS: %.2f INTERSECTION", 1.f/dtime);
+#endif
     renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
 
     {
