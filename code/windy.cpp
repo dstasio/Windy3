@@ -16,9 +16,9 @@ v3 DEBUG_buffer[DEBUG_BUFFER_new*2] = {};
 #endif
 
 r32 global_mouse_sensitivity = 50.f;
-global Mesh *mesh_A;
-global Mesh *mesh_B;
-global Mesh *mesh_C;
+//global Mesh *mesh_A;
+//global Mesh *mesh_B;
+//global Mesh *mesh_C;
 
 internal inline b32
 string_compare(char *s1, char *s2)
@@ -609,14 +609,14 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->tex_yellow  = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_yellow.bmp");
         renderer->init_square_mesh(state->font_shader);
 
-        state->current_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/scene.wexp", state->phong_shader);
+        state->current_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/level_0.wexp", state->phong_shader);
         state->player = find_mesh(state->current_level, "Player");
-        mesh_A = find_mesh(state->current_level, "Cube_A");
-        mesh_B = find_mesh(state->current_level, "Cube_B");
-        mesh_C = find_mesh(state->current_level, "Cube_C");
-        Assert(mesh_A);
-        Assert(mesh_B);
-        Assert(mesh_C);
+        //mesh_A = find_mesh(state->current_level, "Cube_A");
+        //mesh_B = find_mesh(state->current_level, "Cube_B");
+        //mesh_C = find_mesh(state->current_level, "Cube_C");
+        //Assert(mesh_A);
+        //Assert(mesh_B);
+        //Assert(mesh_C);
 
         load_font(&state->inconsolata, memory->read_file, "assets/Inconsolata.ttf", 32);
 
@@ -809,7 +809,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
     char debug_text[128] = {};
     snprintf(debug_text, 128, "FPS: %.2f", 1.f/dtime);
-#if 1
+#if 0
     if (gjk_intersection(mesh_C, mesh_A))
         snprintf(debug_text, 128, "FPS: %.2f INTERSECTION", 1.f/dtime);
 #endif
