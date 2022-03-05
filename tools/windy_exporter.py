@@ -2,11 +2,17 @@ import bpy
 import struct
 
 VERSION = 2
-ISDEBUG = True
+ISDEBUG = False
+
+bl_info = {
+    "name": "Windy Exporter",
+    "blender": (2, 80, 0),
+    "category": "Import-Export",
+}
 
 def float_to_int(f):
     return struct.unpack('i', struct.pack('f', f))[0]
-        
+
 class WexpExport(bpy.types.Operator):
     """Test exporter which just writes hello world"""
     bl_idname = "export.wexp"
@@ -198,12 +204,19 @@ def menu_func(self, context):
     self.layout.operator_context = 'INVOKE_DEFAULT'
     self.layout.operator(WexpExport.bl_idname, text=".wexp")
 
+def register():
+    bpy.utils.register_class(WexpExport)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func)
+    
+def unregister():
+    bpy.utils.unregister_class(WexpExport)
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func)
 
-#if __name__ == "__main__":
-bpy.utils.register_class(WexpExport)
-bpy.types.TOPBAR_MT_file_export.append(menu_func)
 
-bpy.ops.export.wexp('INVOKE_DEFAULT')
+if __name__ == "__main__":
+    register()
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func)
+    bpy.ops.export.wexp('INVOKE_DEFAULT')
 
 # list all loop indices
 #[bpy.data.meshes[0].polygons[x].loop_indices[y] for x in range(len(bpy.data.meshes[0].polygons)) for y in range(len(bpy.data.meshes[0].polygons[x].loop_indices))]
