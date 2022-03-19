@@ -571,6 +571,7 @@ gjk_intersection(Mesh *x, Mesh *y)
     return intersection;
 }
 
+// @todo: move gamemode to game layer
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
     Game_State *state = (Game_State *)memory->main_storage;
@@ -623,17 +624,14 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         //
         // camera set-up
         //
-        state->game_camera.pos         = {0.f, -3.f, 2.f};
+        // @todo: init camera _radius _pitch _yaw from position and target
+        state->game_camera.pos         = {0.f, -17.f, 11.f};
         state->game_camera.target      = {0.f,  0.f, 0.f};
         state->game_camera.up          = {0.f,  0.f, 1.f};
-        state->game_camera.fov         = DegToRad*60.f;
-        state->game_camera.min_z       = 0.01f;
-        state->game_camera.max_z       = 100.f;
+        state->game_camera.fov         = DegToRad*50.f;
+        state->game_camera.min_z       = 0.1f;
+        state->game_camera.max_z       = 1000.f;
         state->game_camera.is_ortho    = 0;
-        state->game_camera.ortho_scale = 20.f;
-        state->game_camera._radius     = 2.5f;
-        state->game_camera._pitch      = 1.f;
-        state->game_camera._yaw        = PI/2.f;
 
         state->editor_camera.pos         = {0.f, -3.f, 2.f};
         state->editor_camera.target      = {0.f,  0.f, 0.f};
@@ -651,7 +649,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         //state->sun.color = {1.f,  1.f,  1.f};
         //state->sun.dir   = {0.f, -1.f, -1.f};
         state->current_level->lights[0].color = {1.f,  1.f, 0.9f};
-        state->current_level->lights[0].p     = {0.f,  3.f, 5.f};
+        state->current_level->lights[0].p     = {0.f, -5.f, 7.f};
         memory->is_initialized = true;
     }
 
@@ -682,7 +680,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 mesh_move(state->player, Normalize(movement)*speed*dtime);
             }
 
-            third_person_camera(input, &state->game_camera, state->player->p, dtime);
+            //third_person_camera(input, &state->game_camera, state->player->p, dtime);
         }
         else if (*gamemode == GAMEMODE_EDITOR)
         {
