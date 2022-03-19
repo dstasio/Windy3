@@ -66,8 +66,13 @@ Texture2D SampleTexture;
 float4
 light(float3 color, float3 dir, float3 eyedir, float3 normal)
 {
-    float ambient = 0.2f;
-    float diffuse = max(dot(dir, normal), 0.f);
+    float diffuse_coeff = dot(dir, normal);
+    float diffuse_mask = sign(diffuse_coeff);
+    float diffuse_light = diffuse_coeff * (diffuse_mask * 0.5f + 0.5f);
+    float diffuse_shadow = pow((-1.f - diffuse_coeff) * (diffuse_mask * 0.5f - 0.5f), 2.f);
+
+    float ambient = 0.1f + 0.1f * diffuse_shadow;
+    float diffuse = diffuse_light;
     float specular = pow(max(dot(reflect(-dir, normal), eyedir), 0.0f), 512);
     return float4(color*(ambient+diffuse+specular*0.2f), 1.f);
 }
