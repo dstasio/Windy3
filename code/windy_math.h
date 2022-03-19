@@ -130,16 +130,16 @@ cross(v3 a, v3 b)
 }
 
 inline r32
-Length_Sq(v3 a)
+length_Sq(v3 a)
 {
     r32 result = dot(a, a);
     return result;
 }
 
 inline r32
-Length(v3 a)
+length(v3 a)
 {
-    r32 result = Length_Sq(a);
+    r32 result = length_Sq(a);
     if(result != 1)
     {
         result = Sqrt(result);
@@ -148,14 +148,14 @@ Length(v3 a)
 }
 
 inline v3
-Normalize(v3 a)
+normalize(v3 a)
 {
-    v3 result = a / Length(a);
+    v3 result = a / length(a);
     return result;
 }
 
 inline v3
-Lerp(v3 a, v3 b, r32 t)
+lerp(v3 a, v3 b, r32 t)
 {
     v3 result = a*t + b*(1.f-t);
     return result;
@@ -169,7 +169,7 @@ inline v4 make_v4(v3  a)                      { return {a.x, a.y, a.z, 1.f}; }
 inline v4 make_v4(r32 a)                      { return {  a,   a,   a,   a}; }
 
 inline r32
-Dot(v4 a, v4 b)
+dot(v4 a, v4 b)
 {
     r32 result = a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w;
     return result;
@@ -181,7 +181,7 @@ Dot(v4 a, v4 b)
 // @todo: maybe add m4t (matrix4 transposed)?
 
 inline m4
-Identity_m4()
+identity_m4()
 {
     m4 matrix = {
         1.f, 0.f, 0.f, 0.f,
@@ -193,7 +193,7 @@ Identity_m4()
 }
 
 inline m4
-Transpose(m4 a)
+transpose(m4 a)
 {
     m4 matrix = {
         a.m[0][0], a.m[1][0], a.m[2][0], a.m[3][0],
@@ -230,12 +230,12 @@ Invert(m4 A)
 v4 operator*(m4 a, v4 b)
 {
     v4 result = {};
-    a = Transpose(a);  // column-major to row-major
+    a = transpose(a);  // column-major to row-major
 
-    result.x = Dot(a.col[0], b);
-    result.y = Dot(a.col[1], b);
-    result.z = Dot(a.col[2], b);
-    result.w = Dot(a.col[3], b);
+    result.x = dot(a.col[0], b);
+    result.y = dot(a.col[1], b);
+    result.z = dot(a.col[2], b);
+    result.w = dot(a.col[3], b);
     return result;
 }
 
@@ -248,7 +248,7 @@ v3 operator*(m4 a, v3 b)
 m4 operator*(m4 a, m4 b)
 {
     m4 matrix = {};
-    a = Transpose(a);
+    a = transpose(a);
 
     for(u32 row_index = 0;
         row_index < 4;
@@ -258,7 +258,7 @@ m4 operator*(m4 a, m4 b)
             col_index < 4;
             ++col_index)
         {
-            matrix.m[col_index][row_index] = Dot(a.col[row_index], b.col[col_index]);
+            matrix.m[col_index][row_index] = dot(a.col[row_index], b.col[col_index]);
         }
     }
     return matrix;
@@ -271,7 +271,7 @@ m4 &operator*=(m4 &a, m4 b)
 }
 
 inline m4
-Flip_m4(i32 first_comp, i32 second_comp, i32 third_comp, i32 fourth_comp)
+flip_m4(i32 first_comp, i32 second_comp, i32 third_comp, i32 fourth_comp)
 {
     Assert((first_comp >= 0) && (first_comp < 4));
     Assert((second_comp >= 0) && (second_comp < 4));
@@ -287,7 +287,7 @@ Flip_m4(i32 first_comp, i32 second_comp, i32 third_comp, i32 fourth_comp)
 }
 
 inline m4
-Scale_m4(r32 sx, r32 sy, r32 sz)
+scale_m4(r32 sx, r32 sy, r32 sz)
 {
     m4 matrix = {
          sx, 0.f, 0.f, 0.f,
@@ -297,12 +297,12 @@ Scale_m4(r32 sx, r32 sy, r32 sz)
     };
     return matrix;
 }
-inline m4 Scale_m4(v3  s) { return Scale_m4(s.x, s.y, s.z); }
-inline m4 Scale_m4(v2  s) { return Scale_m4(s.x, s.y, 1.f); }
-inline m4 Scale_m4(r32 s) { return Scale_m4(  s,   s,   s); }
+inline m4 scale_m4(v3  s) { return scale_m4(s.x, s.y, s.z); }
+inline m4 scale_m4(v2  s) { return scale_m4(s.x, s.y, 1.f); }
+inline m4 scale_m4(r32 s) { return scale_m4(  s,   s,   s); }
 
 inline m4
-Translation_m4(r32 tx, r32 ty, r32 tz)
+translation_m4(r32 tx, r32 ty, r32 tz)
 {
     m4 matrix = {
         1.f, 0.f, 0.f, 0.f,
@@ -312,11 +312,11 @@ Translation_m4(r32 tx, r32 ty, r32 tz)
     };
     return matrix;
 }
-inline m4 Translation_m4(v3  t) { return Translation_m4(t.x, t.y, t.z); }
-inline m4 Translation_m4(r32 t) { return Translation_m4(  t,   t,   t); }
+inline m4 translation_m4(v3  t) { return translation_m4(t.x, t.y, t.z); }
+inline m4 translation_m4(r32 t) { return translation_m4(  t,   t,   t); }
 
 inline m4
-Pitch_m4(r32 delta) // Around X axis
+pitch_m4(r32 delta) // Around X axis
 {
     r32 sin = Sin(delta);
     r32 cos = Cos(delta);
@@ -330,7 +330,7 @@ Pitch_m4(r32 delta) // Around X axis
 }
 
 inline m4
-Roll_m4(r32 delta) // Around Y axis
+roll_m4(r32 delta) // Around Y axis
 {
     r32 sin = Sin(delta);
     r32 cos = Cos(delta);
@@ -344,7 +344,7 @@ Roll_m4(r32 delta) // Around Y axis
 }
 
 inline m4
-Yaw_m4(r32 delta) // Around Z axis
+yaw_m4(r32 delta) // Around Z axis
 {
     r32 sin = Sin(delta);
     r32 cos = Cos(delta);
@@ -361,18 +361,18 @@ Yaw_m4(r32 delta) // Around Z axis
  * Euler angles: (pitch, roll, yaw) in that order
 */
 inline m4
-Rotation_m4(v3 r)
+rotation_m4(v3 r)
 {
-    m4 matrix = Pitch_m4(r.x) * Roll_m4(r.y) * Yaw_m4(r.z);
+    m4 matrix = pitch_m4(r.x) * roll_m4(r.y) * yaw_m4(r.z);
     return matrix;
 }
 
 inline m4
-Camera_m4(v3 pos, v3 target, v3 up)
+camera_m4(v3 pos, v3 target, v3 up)
 {
-    v3 n = Normalize(target - pos);
-    v3 v = Normalize(cross(n, up));
-    v3 u = Normalize(cross(v, n));
+    v3 n = normalize(target - pos);
+    v3 v = normalize(cross(n, up));
+    v3 u = normalize(cross(v, n));
     r32 p_v = -dot(pos, v);
     r32 p_u = -dot(pos, u);
     r32 p_n = -dot(pos, n);
@@ -388,7 +388,7 @@ Camera_m4(v3 pos, v3 target, v3 up)
 }
 
 inline m4
-Perspective_m4(r32 fov, r32 ar, r32 n, r32 f)
+perspective_m4(r32 fov, r32 ar, r32 n, r32 f)
 {
     r32 cot = 1.f/Tan(fov/2.f);
     m4 matrix = {
@@ -401,7 +401,7 @@ Perspective_m4(r32 fov, r32 ar, r32 n, r32 f)
 }
 
 inline m4
-Ortho_m4(r32 size, r32 ar, r32 n, r32 f)
+ortho_m4(r32 size, r32 ar, r32 n, r32 f)
 {
     r32 inv = 1.f/size;
     // @todo: test this matrix
@@ -415,10 +415,10 @@ Ortho_m4(r32 size, r32 ar, r32 n, r32 f)
 }
 
 inline m4
-Transform_m4(v3 pos, v3 euler, v3 scale)
+transform_m4(v3 pos, v3 euler, v3 scale)
 {
     //m4 matrix = Translation_m4(pos) * Rotation_m4(euler) * Scale_m4(scale);
-    m4 matrix = Scale_m4(scale);
+    m4 matrix = scale_m4(scale);
     matrix.m[3][0] = pos.x;
     matrix.m[3][1] = pos.y;
     matrix.m[3][2] = pos.z;
@@ -426,7 +426,7 @@ Transform_m4(v3 pos, v3 euler, v3 scale)
 }
 
 inline m4
-WorldToLocal_m4(v3 u, v3 v, v3 n, v3 origin = {})
+world_to_local_m4(v3 u, v3 v, v3 n, v3 origin = {})
 {
     m4 matrix = {
              u.x, v.x, n.x, 0.f,
@@ -434,12 +434,12 @@ WorldToLocal_m4(v3 u, v3 v, v3 n, v3 origin = {})
              u.z, v.z, n.z, 0.f,
              0.f, 0.f, 0.f, 1.f
     };
-    matrix *= Translation_m4(-origin);
+    matrix *= translation_m4(-origin);
     return matrix;
 }
 
 inline m4
-NoTranslation_m4(m4 a)
+no_translation_m4(m4 a)
 {
     m4 result = a;
     result.col[3] = make_v4(0.f, 0.f, 0.f, 1.f);

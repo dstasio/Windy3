@@ -40,13 +40,28 @@ string_compare(char *s1, char *s2)
 }
 
 internal void
-mesh_move(Mesh *mesh, v3 position, b32 is_delta = true)
+mesh_move(Mesh *mesh, v3 pos_delta)
 {
-    if (!is_delta)
-        mesh->p = {};
+    mesh->p        += pos_delta;
+    mesh->transform = translation_m4(mesh->p);
+}
 
-    mesh->p        += position;
-    mesh->transform = Translation_m4(mesh->p);
+internal void
+mesh_set_position(Mesh *mesh, v3 pos)
+{
+    mesh->p         = pos;
+    mesh->transform = translation_m4(mesh->p);
+}
+
+internal void 
+mesh_simulate_physics(Mesh *mesh, r32 dt)
+{
+    // @todo: maybe this function should be called only _when_ physics is enabled?
+    if (!mesh->physics_enabled) return;
+
+    // @todo: movement equation
+    mesh->dp += (mesh->ddp - mesh->dp * 9.f) * dt;
+    mesh_move(mesh, mesh->dp * dt);
 }
 
 // @note: if settings is zero, phong flags is zero and the shader uses the texture
@@ -79,11 +94,11 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer,
 
                 if (wexp->version == 2)
                 {
-                    mesh_move(mesh, mesh_header->world_position);
+                    mesh_set_position(mesh, mesh_header->world_position);
                 }
                 else
                 {
-                    mesh->transform  = Identity_m4();
+                    mesh->transform  = identity_m4();
                 }
 
                 if (settings)
@@ -183,6 +198,7 @@ load_font(Platform_Font *font, Platform_Read_File *read_file, char *path, r32 he
 }
 
 
+#if 0 // @unused
 void third_person_camera(Input *input, Camera *camera, v3 target, r32 dtime)
 {
     camera->_yaw += input->mouse.dx*dtime;
@@ -197,6 +213,7 @@ void third_person_camera(Input *input, Camera *camera, v3 target, r32 dtime)
     camera->pos   += target;
     camera->target = target + make_v3(0.f, 0.f, 1.3f);
 }
+#endif
 
 void editor_camera(Input *input, Camera *camera, r32 dtime)
 {
@@ -204,9 +221,9 @@ void editor_camera(Input *input, Camera *camera, r32 dtime)
     {
         if (input->held.shift)
         {
-            v3 forward = Normalize(camera->target - camera->pos);
-            v3 right   = Normalize(cross(forward, camera->up));
-            v3 up      = Normalize(cross(right, forward));
+            v3 forward = normalize(camera->target - camera->pos);
+            v3 right   = normalize(cross(forward, camera->up));
+            v3 up      = normalize(cross(right, forward));
 
             r32 speed = 5.f;
             camera->target += input->mouse.dy*up*dtime*speed - input->mouse.dx*right*dtime*speed;
@@ -222,7 +239,7 @@ void editor_camera(Input *input, Camera *camera, r32 dtime)
     }
     else
     {
-        v3 forward = Normalize(camera->target - camera->pos);
+        v3 forward = normalize(camera->target - camera->pos);
         camera->target += input->mouse.wheel*dtime*forward;
         camera->pos    += input->mouse.wheel*dtime*forward;
     }
@@ -230,7 +247,7 @@ void editor_camera(Input *input, Camera *camera, r32 dtime)
     camera->pos.z  = Sin(camera->_pitch);
     camera->pos.x  = Cos(camera->_yaw) * Cos(camera->_pitch);
     camera->pos.y  = Sin(camera->_yaw) * Cos(camera->_pitch);
-    camera->pos    = Normalize(camera->pos)*camera->_radius;
+    camera->pos    = normalize(camera->pos)*camera->_radius;
     camera->pos   += camera->target;
 }
 
@@ -261,15 +278,15 @@ raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
         v3 p2 = mesh->transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+1]))));
         v3 p3 = mesh->transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+2]))));
 
-        v3 n = Normalize(cross(((p2) - (p1)), ((p3) - (p1))));
+        v3 n = normalize(cross(((p2) - (p1)), ((p3) - (p1))));
         if (dot(n, dir) < 0)
         {
-            v3 u = Normalize(cross( n, ((p2) - (p1))));
-            v3 v = Normalize(cross( u, n));
-            m4 face_local_transform = WorldToLocal_m4(u, v, n, (p1));
+            v3 u = normalize(cross( n, ((p2) - (p1))));
+            v3 v = normalize(cross( u, n));
+            m4 face_local_transform = world_to_local_m4(u, v, n, (p1));
 
             v3 local_start = face_local_transform * from;
-            v3 local_dir   = NoTranslation_m4(face_local_transform) *  dir;
+            v3 local_dir   = no_translation_m4(face_local_transform) *  dir;
             r32 dir_steps  = - local_start.z / local_dir.z;
             if (dir_steps >= 0)
             {
@@ -289,7 +306,7 @@ raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
                     (dot(cross(p2_p3, p2_in), n) > 0) &&
                     (dot(cross(p3_p1, p3_in), n) > 0))
                 {
-                    r32 dist = Length_Sq(from - world_incident_point);
+                    r32 dist = length_Sq(from - world_incident_point);
 
                     if ((dist > Square(min_distance)) && (dist < Square(max_distance)))
                     {
@@ -318,13 +335,13 @@ raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
 // @todo: move aspect ratio variable (maybe into Camera/Renderer struct)
 void draw_level(Platform_Renderer *renderer, Level *level, Platform_Shader *shader, Camera *camera, r32 ar)
 {
-    m4 cam_space_transform    = Camera_m4(camera->pos, camera->target, camera->up);
-    m4 screen_space_transform = Perspective_m4(camera->fov, ar, camera->min_z, camera->max_z);
+    m4 cam_space_transform    = camera_m4(camera->pos, camera->target, camera->up);
+    m4 screen_space_transform = perspective_m4(camera->fov, ar, camera->min_z, camera->max_z);
     if (camera->is_ortho)
     {
         camera->ortho_scale = 5.f;
         camera->max_z = 500.f;
-        screen_space_transform = Ortho_m4(camera->ortho_scale, ar, camera->min_z, camera->max_z);
+        screen_space_transform = ortho_m4(camera->ortho_scale, ar, camera->min_z, camera->max_z);
     }
     renderer->draw_mesh(0, 0, shader, &cam_space_transform, &screen_space_transform, &level->lights[0], &camera->pos, 0);
 
@@ -612,6 +629,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
         state->current_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/level_0.wexp", state->phong_shader);
         state->player = find_mesh(state->current_level, "Player");
+        state->player->physics_enabled = 1;
         //mesh_A = find_mesh(state->current_level, "Cube_A");
         //mesh_B = find_mesh(state->current_level, "Cube_B");
         //mesh_C = find_mesh(state->current_level, "Cube_C");
@@ -666,21 +684,14 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             active_camera = &state->game_camera;
 
             r32 speed = input->held.space ? 10.f : 3.f;
-            v3  movement = {};
-            v3  cam_forward = Normalize(state->game_camera.target - state->game_camera.pos);
-            v3  cam_right   = Normalize(cross(cam_forward, state->game_camera.up));
-            if (input->held.w)     movement += make_v3(cam_forward.xy);
-            if (input->held.s)     movement -= make_v3(cam_forward.xy);
-            if (input->held.d)     movement += make_v3(cam_right.xy);
-            if (input->held.a)     movement -= make_v3(cam_right.xy);
-            if (input->held.e)     movement += state->game_camera.up;
-            if (input->held.q)     movement -= state->game_camera.up;
-            if (movement)
-            {
-                mesh_move(state->player, Normalize(movement)*speed*dtime);
-            }
-
-            //third_person_camera(input, &state->game_camera, state->player->p, dtime);
+            v3  cam_forward = state->game_camera.target - state->game_camera.pos;
+            v3  cam_right   = cross(cam_forward, state->game_camera.up);
+            state->player->ddp = {};
+            if (input->held.w)     state->player->ddp += 100.f * normalize(make_v3(cam_forward.xy));
+            if (input->held.s)     state->player->ddp -= 100.f * normalize(make_v3(cam_forward.xy));
+            if (input->held.d)     state->player->ddp += 100.f * normalize(make_v3(cam_right.xy));
+            if (input->held.a)     state->player->ddp -= 100.f * normalize(make_v3(cam_right.xy));
+            mesh_simulate_physics(state->player, dtime);
         }
         else if (*gamemode == GAMEMODE_EDITOR)
         {
@@ -707,7 +718,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 {
                     move_mask = {};
                     state->selected->p = moving_start_position;
-                    state->selected->transform = Translation_m4(state->selected->p);
+                    state->selected->transform = translation_m4(state->selected->p);
                 }
                 else if (input->pressed.mouse_left)
                 {
@@ -715,9 +726,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 }
                 else
                 {
-                    v3 forward = Normalize(active_camera->target - active_camera->pos);
-                    v3 right   = Normalize(cross(forward, active_camera->up));
-                    v3 up      = Normalize(cross(right, forward));
+                    v3 forward = normalize(active_camera->target - active_camera->pos);
+                    v3 right   = normalize(cross(forward, active_camera->up));
+                    v3 up      = normalize(cross(right, forward));
 
                     v3 movement = input->mouse.dx*right - input->mouse.dy*up;
                     movement /= dot((state->selected->p - active_camera->pos), forward);
@@ -738,9 +749,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 if (input->pressed.mouse_left)
                 {
                     state->selected = 0;
-                    v3 forward = Normalize(active_camera->target - active_camera->pos);
-                    v3 right   = Normalize(cross(forward, active_camera->up));
-                    v3 up      = Normalize(cross(right, forward));
+                    v3 forward = normalize(active_camera->target - active_camera->pos);
+                    v3 right   = normalize(cross(forward, active_camera->up));
+                    v3 up      = normalize(cross(right, forward));
 
                     r32 least_hit_distance = 0.f;
                     v3  click_p = {};
@@ -750,7 +761,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     click_dir.z = active_camera->min_z;
                     click_dir = click_dir.x*right + click_dir.y*up + click_dir.z*forward;
                     click_p = active_camera->pos + click_dir;
-                    click_dir = Normalize(click_dir);
+                    click_dir = normalize(click_dir);
 
                     for (Mesh *mesh = state->current_level->objects; 
                          (mesh - state->current_level->objects) < state->current_level->n_objects;
@@ -813,12 +824,21 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 #endif
     renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
 
+    snprintf(debug_text, 128, "\n  P: X%.2f Y%.2f Z%.2f",   state->player->p.x,   state->player->p.y,   state->player->p.z);
+    renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
+
+    snprintf(debug_text, 128, "\n\n dP: X%.2f Y%.2f Z%.2f",  state->player->dp.x,  state->player->dp.y,  state->player->dp.z);
+    renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
+
+    snprintf(debug_text, 128, "\n\n\nddP: X%.2f Y%.2f Z%.2f", state->player->ddp.x, state->player->ddp.y, state->player->ddp.z);
+    renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
+
     {
-        m4 camera = Camera_m4(active_camera->pos, active_camera->target, active_camera->up);
-        m4 screen = Perspective_m4(active_camera->fov, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
+        m4 camera = camera_m4(active_camera->pos, active_camera->target, active_camera->up);
+        m4 screen = perspective_m4(active_camera->fov, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
         if (active_camera->is_ortho)
         {
-            screen = Ortho_m4(active_camera->ortho_scale, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
+            screen = ortho_m4(active_camera->ortho_scale, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
         }
 
 #if WINDY_DEBUG

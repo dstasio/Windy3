@@ -430,7 +430,7 @@ inline PLATFORM_DRAW_RECT(d3d11_draw_rect)
     pos.x   =  (pos.x*2.f - 1.f);
     pos.y   = -(pos.y*2.f - 1.f);
 
-    matrix_buffer[0] = Translation_m4(pos.x, pos.y, 0)*Scale_m4(size*2.f);
+    matrix_buffer[0] = translation_m4(pos.x, pos.y, 0)*scale_m4(size*2.f);
     d11->context->Unmap(d11->matrix_buff, 0);
 
     d11->context->OMSetDepthStencilState(d11->nodepth_nostencil_state, 1);
@@ -446,8 +446,8 @@ PLATFORM_DRAW_LINE(d3d11_draw_line)
 {
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
 
-    local_persist m4 camera = Identity_m4();
-    local_persist m4 screen = Identity_m4();
+    local_persist m4 camera = identity_m4();
+    local_persist m4 screen = identity_m4();
     if (camera_transform)
         camera = *camera_transform;
     if (screen_transform)
@@ -576,8 +576,8 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
 {
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
 
-    local_persist m4 camera = Identity_m4();
-    local_persist m4 screen = Identity_m4();
+    local_persist m4 camera = identity_m4();
+    local_persist m4 screen = identity_m4();
     if (in_camera)
     {
         camera = *in_camera;

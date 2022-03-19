@@ -43,6 +43,7 @@ struct Mesh
     Platform_Mesh_Buffers buffers;
     char *name;
 
+    b32 physics_enabled;
     m4 transform;
     v3 p;
     v3 dp;
