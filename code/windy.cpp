@@ -692,6 +692,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             if (input->held.d)     state->player->ddp += 100.f * normalize(make_v3(cam_right.xy));
             if (input->held.a)     state->player->ddp -= 100.f * normalize(make_v3(cam_right.xy));
             mesh_simulate_physics(state->player, dtime);
+
+            active_camera->pos.x = state->player->p.x;
+            active_camera->target.x = state->player->p.x;
         }
         else if (*gamemode == GAMEMODE_EDITOR)
         {
