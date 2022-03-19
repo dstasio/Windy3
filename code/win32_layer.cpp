@@ -429,6 +429,7 @@ WinMain(
                             key_down(VK_SHIFT,   shift);
                             key_down(VK_CONTROL, ctrl);
                             key_down(VK_ESCAPE,  esc);
+                            key_down(VK_TAB,     tab);
                             key_down(VK_MENU,    alt);
                         } break;
 
@@ -453,6 +454,7 @@ WinMain(
                             key_up(VK_SHIFT,   shift);
                             key_up(VK_CONTROL, ctrl);
                             key_up(VK_ESCAPE,  esc);
+                            key_up(VK_TAB,     tab);
                             key_up(VK_MENU,    alt);
                         } break;
 
@@ -501,7 +503,7 @@ WinMain(
                             DispatchMessage(&Message);
                         } break;
                     }
-                    if (input.pressed.esc)
+                    if (input.pressed.tab)
                     {
                         if (gamemode == GAMEMODE_GAME)
                         {
@@ -513,6 +515,11 @@ WinMain(
                             gamemode = GAMEMODE_GAME;
                             ShowCursor(false);
                         }
+                    }
+                    if (input.pressed.esc)
+                    {
+                        global_running = false;
+                        return 0;
                     }
                 }
                 Assert(QueryPerformanceCounter((LARGE_INTEGER *)&current_performance_counter));

@@ -224,6 +224,7 @@ struct Input_Keyboard
     u32 ctrl;
     u32 alt;
     u32 esc;
+    u32 tab;
 
     u32 mouse_middle;
     u32 mouse_left;
