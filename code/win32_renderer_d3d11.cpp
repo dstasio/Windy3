@@ -16,7 +16,7 @@ cat(char *src0, char *src1, char *dest)
     *dest = '\0';
 }
 
-void d3d11_enable_constant_buffer(ID3D11Buffer *buffer, u32 slot, bool vertex_shader, bool pixel_shader)
+internal inline void d3d11_enable_constant_buffer(ID3D11Buffer *buffer, u32 slot, bool vertex_shader, bool pixel_shader)
 {
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
 
@@ -655,24 +655,18 @@ PLATFORM_RENDERER_INTERNAL_SANDBOX_CALL(d3d11_internal_sandbox_call)
 {
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
 
-#if 0
-    D3D11_MAPPED_SUBRESOURCE matrices_map = {};
-    d11->context->Map(d11->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+    {
+        D3D11_MAPPED_SUBRESOURCE matrices_map = {};
+        d11->context->Map(d11->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
 
-    m4 *matrix_buffer = (m4 *)matrices_map.pData;
+        m4 *matrix_buffer = (m4 *)matrices_map.pData;
+        matrix_buffer[1] = *camera_matrix;
+        matrix_buffer[2] = *projection_matrix;
+        d11->context->Unmap(d11->matrix_buff, 0);
 
-    size.x /= (r32)global_width;
-    size.y /= (r32)global_height;
-    pos.x  /= (r32)global_width;
-    pos.y  /= (r32)global_height;
-    pos.x   =  (pos.x*2.f - 1.f);
-    pos.y   = -(pos.y*2.f - 1.f);
+        d3d11_enable_constant_buffer(d11->matrix_buff, 0, true, false);
+    }
 
-    matrix_buffer[0] = translation_m4(pos.x, pos.y, 0)*scale_m4(size*2.f);
-    d11->context->Unmap(d11->matrix_buff, 0);
-
-    d3d11_enable_constant_buffer(d11->matrix_buff, 0, true, false);
-#endif
     d11->context->OMSetDepthStencilState(d11->nodepth_nostencil_state, 1);
     d11->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 

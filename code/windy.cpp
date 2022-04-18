@@ -825,8 +825,13 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     renderer->set_depth_stencil(true, false, 1);
 
 #if WINDY_INTERNAL
-    renderer->set_active_shader(state->background_shader);
-    renderer->internal_sandbox_call();
+    {
+        m4 cam_space_transform    = camera_m4(active_camera->pos, active_camera->target, active_camera->up);
+        m4 screen_space_transform = perspective_m4(active_camera->fov, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
+        renderer->set_active_shader(state->background_shader);
+        renderer->set_active_texture(&state->tex_sky);
+        renderer->internal_sandbox_call(&cam_space_transform, &screen_space_transform);
+    }
 #endif
 
     renderer->set_active_texture(&state->tex_white);

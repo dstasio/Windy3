@@ -158,7 +158,7 @@ typedef PLATFORM_SET_DEPTH_STENCIL(Platform_Set_Depth_Stencil);
 
 
 #if WINDY_INTERNAL
-#define PLATFORM_RENDERER_INTERNAL_SANDBOX_CALL(name) void name()
+#define PLATFORM_RENDERER_INTERNAL_SANDBOX_CALL(name) void name(m4 *camera_matrix, m4 *projection_matrix)
 typedef PLATFORM_RENDERER_INTERNAL_SANDBOX_CALL(Platform_Renderer_Sandbox_Call);
 #endif
 
