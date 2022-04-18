@@ -804,7 +804,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 #endif
     renderer->set_render_targets();
 
-    renderer->clear(CLEAR_COLOR|CLEAR_DEPTH, {0.06f, 0.1f, 0.15f}, 1.f, 1);
+    renderer->clear(CLEAR_COLOR|CLEAR_DEPTH, {0.4f, 0.7f, 0.9f}, 1.f, 1);
     renderer->set_depth_stencil(true, false, 1);
 
     renderer->set_active_texture(&state->tex_white);
