@@ -68,6 +68,7 @@ struct Game_State
 {
     Platform_Shader  *phong_shader;
     Platform_Shader  *font_shader;
+    Platform_Shader  *background_shader;
 
     Level *current_level;
     Mesh *selected;
@@ -76,6 +77,7 @@ struct Game_State
 
     Platform_Texture  tex_white;
     Platform_Texture  tex_yellow;
+    Platform_Texture  tex_sky;
     Platform_Font     inconsolata;
 
     m4 cam_matrix;

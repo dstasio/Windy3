@@ -157,6 +157,11 @@ typedef PLATFORM_SET_RENDER_TARGETS(Platform_Set_Render_Targets);
 typedef PLATFORM_SET_DEPTH_STENCIL(Platform_Set_Depth_Stencil);
 
 
+#if WINDY_INTERNAL
+#define PLATFORM_RENDERER_INTERNAL_SANDBOX_CALL(name) void name()
+typedef PLATFORM_RENDERER_INTERNAL_SANDBOX_CALL(Platform_Renderer_Sandbox_Call);
+#endif
+
 // (0,0) = Top-Left; (global_width,global_height) = Bottom-Right
 // @todo: test sub-pixel placement with AA.
 #define PLATFORM_DRAW_RECT(name) void name(Platform_Shader *shader, v2 size, v2 pos)
@@ -185,13 +190,17 @@ struct Platform_Renderer
     Platform_Set_Active_Mesh    *set_active_mesh;
     Platform_Set_Active_Texture *set_active_texture;
     Platform_Set_Active_Shader  *set_active_shader;
-    Platform_Set_Render_Targets  *set_render_targets;
-    Platform_Set_Depth_Stencil   *set_depth_stencil;
+    Platform_Set_Render_Targets *set_render_targets;
+    Platform_Set_Depth_Stencil  *set_depth_stencil;
 
     Platform_Draw_Rect *draw_rect;
     Platform_Draw_Text *draw_text;
     Platform_Draw_Mesh *draw_mesh;
     Platform_Draw_Line *draw_line;
+
+#if WINDY_INTERNAL
+    Platform_Renderer_Sandbox_Call *internal_sandbox_call;
+#endif
 
     Platform_Mesh_Buffers  square;
     Platform_Shader        debug_shader;

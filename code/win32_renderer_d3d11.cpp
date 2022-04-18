@@ -576,6 +576,8 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
 {
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
 
+    d11->context->OMSetDepthStencilState(d11->depth_nostencil_state, 1);
+
     local_persist m4 camera = identity_m4();
     local_persist m4 screen = identity_m4();
     if (in_camera)
@@ -647,3 +649,33 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
         Assert(eye);
     }
 }
+
+#if WINDY_INTERNAL
+PLATFORM_RENDERER_INTERNAL_SANDBOX_CALL(d3d11_internal_sandbox_call)
+{
+    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+
+#if 0
+    D3D11_MAPPED_SUBRESOURCE matrices_map = {};
+    d11->context->Map(d11->matrix_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &matrices_map);
+
+    m4 *matrix_buffer = (m4 *)matrices_map.pData;
+
+    size.x /= (r32)global_width;
+    size.y /= (r32)global_height;
+    pos.x  /= (r32)global_width;
+    pos.y  /= (r32)global_height;
+    pos.x   =  (pos.x*2.f - 1.f);
+    pos.y   = -(pos.y*2.f - 1.f);
+
+    matrix_buffer[0] = translation_m4(pos.x, pos.y, 0)*scale_m4(size*2.f);
+    d11->context->Unmap(d11->matrix_buff, 0);
+
+    d3d11_enable_constant_buffer(d11->matrix_buff, 0, true, false);
+#endif
+    d11->context->OMSetDepthStencilState(d11->nodepth_nostencil_state, 1);
+    d11->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+    d11->context->Draw(4, 0);
+}
+#endif

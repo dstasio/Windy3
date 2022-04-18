@@ -343,6 +343,7 @@ void draw_level(Platform_Renderer *renderer, Level *level, Platform_Shader *shad
         camera->max_z = 500.f;
         screen_space_transform = ortho_m4(camera->ortho_scale, ar, camera->min_z, camera->max_z);
     }
+
     renderer->draw_mesh(0, 0, shader, &cam_space_transform, &screen_space_transform, &level->lights[0], &camera->pos, 0);
 
     for (Mesh *mesh = level->objects; 
@@ -588,6 +589,18 @@ gjk_intersection(Mesh *x, Mesh *y)
     return intersection;
 }
 
+internal b32
+check_mesh_collision(Mesh *mesh, Level *level)
+{
+    for (u32 mesh_index = 0; mesh_index < level->n_objects; ++mesh_index)
+    {
+        auto *other_mesh = &level->objects[mesh_index];
+        if (mesh == other_mesh) continue;
+        if (gjk_intersection(mesh, other_mesh)) return true;
+    }
+    return false;
+}
+
 // @todo: move gamemode to game layer
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
@@ -609,11 +622,13 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         // Shaders
         //
         // @todo: remove need for pre-allocation
-        state->phong_shader = push_struct(&volatile_pool, Platform_Shader);
-        state->font_shader  = push_struct(&volatile_pool, Platform_Shader);
-        renderer->reload_shader(state->phong_shader, "phong");
-        renderer->reload_shader( state->font_shader, "fonts");
-        renderer->reload_shader(&renderer->debug_shader, "debug");
+        state->phong_shader       = push_struct(&volatile_pool, Platform_Shader);
+        state->font_shader        = push_struct(&volatile_pool, Platform_Shader);
+        state->background_shader  = push_struct(&volatile_pool, Platform_Shader);
+        renderer->reload_shader(    state->     phong_shader, "phong");
+        renderer->reload_shader(    state->      font_shader, "fonts");
+        renderer->reload_shader(    state->background_shader, "background");
+        renderer->reload_shader(&renderer->     debug_shader, "debug");
 
         Platform_Phong_Settings phong_settings = {};
         phong_settings.flags = PHONG_FLAG_SOLIDCOLOR;
@@ -623,8 +638,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         phong_settings.flags = PHONG_FLAG_SOLIDCOLOR;
         phong_settings.color = {0.8f, 0.f, 0.2f};
         //state->player = load_mesh(renderer, memory->read_file, "assets/player.wexp",      &state->current_level, state->phong_shader, &phong_settings);
-        state->tex_white   = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_white.bmp");
-        state->tex_yellow  = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_yellow.bmp");
+        state->tex_white  = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_white.bmp");
+        state->tex_yellow = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_yellow.bmp");
+        state->tex_sky    = load_texture(renderer, &volatile_pool, memory->read_file, "assets/spiaggia_di_mondello_1k.bmp");
         renderer->init_square_mesh(state->font_shader);
 
         state->current_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/level_0.wexp", state->phong_shader);
@@ -798,14 +814,20 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     }
 
 #if WINDY_INTERNAL
-    renderer->reload_shader(state->phong_shader, "phong");
-    renderer->reload_shader( state->font_shader, "fonts");
-    renderer->reload_shader(&renderer->debug_shader, "debug");
+    renderer->reload_shader(    state->     phong_shader, "phong");
+    renderer->reload_shader(    state->      font_shader, "fonts");
+    renderer->reload_shader(    state->background_shader, "background");
+    renderer->reload_shader(&renderer->     debug_shader, "debug");
 #endif
     renderer->set_render_targets();
 
     renderer->clear(CLEAR_COLOR|CLEAR_DEPTH, {0.4f, 0.7f, 0.9f}, 1.f, 1);
     renderer->set_depth_stencil(true, false, 1);
+
+#if WINDY_INTERNAL
+    renderer->set_active_shader(state->background_shader);
+    renderer->internal_sandbox_call();
+#endif
 
     renderer->set_active_texture(&state->tex_white);
 
@@ -822,18 +844,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     char debug_text[128] = {};
     snprintf(debug_text, 128, "FPS: %.2f", 1.f/dtime);
 #if 0
-    if (gjk_intersection(mesh_C, mesh_A))
+    if (check_mesh_collision(state->player, state->current_level))
         snprintf(debug_text, 128, "FPS: %.2f INTERSECTION", 1.f/dtime);
 #endif
-    renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
-
-    snprintf(debug_text, 128, "\n  P: X%.2f Y%.2f Z%.2f",   state->player->p.x,   state->player->p.y,   state->player->p.z);
-    renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
-
-    snprintf(debug_text, 128, "\n\n dP: X%.2f Y%.2f Z%.2f",  state->player->dp.x,  state->player->dp.y,  state->player->dp.z);
-    renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
-
-    snprintf(debug_text, 128, "\n\n\nddP: X%.2f Y%.2f Z%.2f", state->player->ddp.x, state->player->ddp.y, state->player->ddp.z);
     renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
 
     {
