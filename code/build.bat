@@ -19,10 +19,10 @@ set CommonLinkerFlags=-incremental:no -opt:ref user32.lib
 REM set RendererExports=-EXPORT:win32_load_d3d11 -EXPORT:d3d11_reload_shader -EXPORT:d3d11_load_wexp
 REM user32.lib gdi32.lib winmm.lib
 
-REM 32-bit build
+:: 32-bit build
 REM cl %CommonCompilerFlags% "%proj_root%\code\win32_handmade.cpp" /link -subsystem:windows,5.1 %CommonLinkerFlags%
 
-REM 64-bit build
+:: 64-bit build
 del *.pdb > NUL 2> NUL
 cl %CommonCompilerFlags% "%proj_root%\code\windy.cpp" -Fmwindy.map -LD /link -incremental:no /PDB:windy_%random%.pdb -EXPORT:WindyUpdateAndRender
 cl %CommonCompilerFlags% "%proj_root%\code\win32_layer.cpp" -Fmwin32_windy.map /link %CommonLinkerFlags% d3d11.lib
@@ -31,25 +31,26 @@ popd REM .\build
 
 pushd ".\rundata\assets"
 
-set name=phong
-fxc -nologo -Tvs_5_0 -DVERTEX_HLSL=1 -DPIXEL_HLSL=0 "%proj_root%\code\%name%.hlsl" -Fo%name%v.tmp
-fxc -nologo -Tps_5_0 -DVERTEX_HLSL=0 -DPIXEL_HLSL=1 "%proj_root%\code\%name%.hlsl" -Fo%name%p.tmp
-move /Y "%name%v.tmp" "%name%.vsh"
-move /Y "%name%p.tmp" "%name%.psh"
-
-set name=fonts
-fxc -nologo -Tvs_5_0 -DVERTEX_HLSL=1 -DPIXEL_HLSL=0 "%proj_root%\code\%name%.hlsl" -Fo%name%v.tmp
-fxc -nologo -Tps_5_0 -DVERTEX_HLSL=0 -DPIXEL_HLSL=1 "%proj_root%\code\%name%.hlsl" -Fo%name%p.tmp
-move /Y "%name%v.tmp" "%name%.vsh"
-move /Y "%name%p.tmp" "%name%.psh"
-
-set name=debug
-fxc -nologo -Tvs_5_0 -DVERTEX_HLSL=1 -DPIXEL_HLSL=0 "%proj_root%\code\%name%.hlsl" -Fo%name%v.tmp
-fxc -nologo -Tps_5_0 -DVERTEX_HLSL=0 -DPIXEL_HLSL=1 "%proj_root%\code\%name%.hlsl" -Fo%name%p.tmp
-move /Y "%name%v.tmp" "%name%.vsh"
-move /Y "%name%p.tmp" "%name%.psh"
+call :compile_shader phong
+call :compile_shader fonts
+call :compile_shader debug
+call :compile_shader background
 
 popd REM .\rundata\assets
 popd REM %proj_root
-ENDLOCAL
+EXIT /B 0
+
+
+:: Functions
+
+:compile_shader
+SETLOCAL
+set name=%~1
+echo(
+echo Compiling shader '%name%'...
+fxc -nologo -Tvs_5_0 -WX -DVERTEX_HLSL=1 -DPIXEL_HLSL=0 "%proj_root%\code\%name%.hlsl" -Fo%name%v.tmp
+fxc -nologo -Tps_5_0 -WX -DVERTEX_HLSL=0 -DPIXEL_HLSL=1 "%proj_root%\code\%name%.hlsl" -Fo%name%p.tmp
+move /Y "%name%v.tmp" "%name%.vsh" >nul
+move /Y "%name%p.tmp" "%name%.psh" >nul
+EXIT /B 0
 
