@@ -20,10 +20,10 @@ main(uint vert_ID : SV_VertexID)
     VS_OUTPUT output;
     output.color = float4(0.f, 0.f, 0.f, 1.f);
     float3 ps[] = {
-        {-1.f, -1.f, 0.f},
-        { 1.f, -1.f, 0.f},
-        {-1.f,  1.f, 0.f},
-        { 1.f,  1.f, 0.f},
+        {-1.f, -1.f, 0.f},     //  2 —— 3
+        { 1.f, -1.f, 0.f},     //  | \  |
+        {-1.f,  1.f, 0.f},     //  |  \ |
+        { 1.f,  1.f, 0.f},     //  0 —— 1
     };
     float4 cols[] = {
         {1.f, 1.f, 1.f, 1.f},
