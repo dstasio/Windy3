@@ -633,7 +633,8 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
 
             d3d11_enable_constant_buffer(d11->settings_buff, 1, false, true);
             d11->context->Map(d11->settings_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &settings_map);
-            Platform_Phong_Settings *gpu = (Platform_Phong_Settings *)settings_map.pData;
+
+            gpu = (Platform_Phong_Settings *)settings_map.pData;
             gpu->flags = PHONG_FLAG_SOLIDCOLOR|PHONG_FLAG_UNLIT;
             gpu->color = {1.f, 0.f, 1.f};
             d11->context->Unmap(d11->settings_buff, 0);

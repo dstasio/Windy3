@@ -19,7 +19,11 @@
 //#include <d3d10.h>
 
 #if WINDY_INTERNAL
-#define output_string(s, ...)        {char Buffer[100];sprintf_s(Buffer, s, __VA_ARGS__);OutputDebugStringA(Buffer);}
+#define __INTERNAL_DISABLE_WARNINGS  _Pragma("warning(push)") \
+                                     _Pragma("warning(disable : 456)") /* -> declaration of 'identifier' hides previous local declaration */
+#define __INTERNAL_RESET_WARNINGS    _Pragma("warning(pop)")
+
+#define output_string(s, ...)        {__INTERNAL_DISABLE_WARNINGS char Buffer[100];sprintf_s(Buffer, s, __VA_ARGS__);OutputDebugStringA(Buffer); __INTERNAL_RESET_WARNINGS}
 #define throw_error_and_exit(e, ...) {output_string(" ------------------------------[ERROR] " ## e, __VA_ARGS__); getchar(); global_error = true;}
 #define throw_error(e, ...)           output_string(" ------------------------------[ERROR] " ## e, __VA_ARGS__)
 #define inform(i, ...)                output_string(" ------------------------------[INFO] " ## i, __VA_ARGS__)
