@@ -601,6 +601,32 @@ check_mesh_collision(Mesh *mesh, Level *level)
     return false;
 }
 
+
+struct Screen_To_World_Result {
+    v3 pos;
+    v3 dir;
+};
+
+Screen_To_World_Result screen_space_to_world(Camera *camera, r32 screen_ar, v2 screen_point)
+{
+    Screen_To_World_Result result = {};
+
+    v3 forward = normalize(camera->target - camera->pos);
+    v3 right   = normalize(cross(forward, camera->up));
+    v3 up      = normalize(cross(right, forward));
+
+    result.dir.x =  ((screen_point.x*2.f) - 1.f) * Tan(camera->fov/2.f) * screen_ar;
+    result.dir.y = -((screen_point.y*2.f) - 1.f) * Tan(camera->fov/2.f);
+    result.dir.z =  1.f;
+    result.dir  *= camera->min_z;
+
+    result.dir = result.dir.x*right + result.dir.y*up + result.dir.z*forward;
+    result.pos = camera->pos + result.dir;
+    result.dir = normalize(result.dir);
+
+    return result;
+}
+
 // @todo: move gamemode to game layer
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
@@ -768,25 +794,15 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 if (input->pressed.mouse_left)
                 {
                     state->selected = 0;
-                    v3 forward = normalize(active_camera->target - active_camera->pos);
-                    v3 right   = normalize(cross(forward, active_camera->up));
-                    v3 up      = normalize(cross(right, forward));
-
                     r32 least_hit_distance = 0.f;
-                    v3  click_p = {};
-                    v3  click_dir = {};
-                    click_dir.x =  ((input->mouse.x*2.f) - 1.f) * Tan(active_camera->fov/2.f) * ((r32)width/(r32)height) * active_camera->min_z;
-                    click_dir.y = -((input->mouse.y*2.f) - 1.f) * Tan(active_camera->fov/2.f) * active_camera->min_z;
-                    click_dir.z = active_camera->min_z;
-                    click_dir = click_dir.x*right + click_dir.y*up + click_dir.z*forward;
-                    click_p = active_camera->pos + click_dir;
-                    click_dir = normalize(click_dir);
+
+                    Screen_To_World_Result click = screen_space_to_world(active_camera, ((r32)width/(r32)height), input->mouse.p);
 
                     for (Mesh *mesh = state->current_level->objects; 
                          (mesh - state->current_level->objects) < state->current_level->n_objects;
                          mesh += 1)
                     {
-                        r32 hit_distance = raycast(mesh, click_p, click_dir, active_camera->min_z, active_camera->max_z);
+                        r32 hit_distance = raycast(mesh, click.pos, click.dir, active_camera->min_z, active_camera->max_z);
                         if ((hit_distance > 0) && (!least_hit_distance || (hit_distance < least_hit_distance)))
                         {
                             state->selected = mesh;

@@ -25,6 +25,21 @@ inline r32 Square(r32 x)
     return result;
 }
 
+inline r32 abs(r32 x)
+{
+    if (x < 0)  return -x;
+    return x;
+}
+
+inline bool equal(r32 a, r32 b)
+{
+    // @todo: proper float comparison here
+    constexpr r32 epsilon = 0.005f;
+
+    bool result = abs(a - b) <= epsilon;
+    return result;
+}
+
 //
 // Vector 2 ----------------------------------------------------------
 //
@@ -180,6 +195,15 @@ dot(v4 a, v4 b)
 // Column Major
 // @todo: maybe add m4t (matrix4 transposed)?
 
+inline bool equal(m4 a, m4 b)
+{
+    for (int index = 0; index < 16; ++index) {
+        if (!equal(a.arr[index], b.arr[index]))  return false;
+    }
+
+    return true;
+}
+
 inline m4
 identity_m4()
 {
@@ -193,44 +217,21 @@ identity_m4()
 }
 
 inline m4
-transpose(m4 a)
+transpose(m4 *a)
 {
     m4 matrix = {
-        a.m[0][0], a.m[1][0], a.m[2][0], a.m[3][0],
-        a.m[0][1], a.m[1][1], a.m[2][1], a.m[3][1],
-        a.m[0][2], a.m[1][2], a.m[2][2], a.m[3][2],
-        a.m[0][3], a.m[1][3], a.m[2][3], a.m[3][3]
+        a->m[0][0], a->m[1][0], a->m[2][0], a->m[3][0],
+        a->m[0][1], a->m[1][1], a->m[2][1], a->m[3][1],
+        a->m[0][2], a->m[1][2], a->m[2][2], a->m[3][2],
+        a->m[0][3], a->m[1][3], a->m[2][3], a->m[3][3]
     };
     return matrix;
 }
 
-#if 0
-inline m4
-Invert(m4 A)
-{
-    m4 I = Identity_m4();
-
-    i32 pivot_index = 0;
-//    for (i32 col = 0; col < 4; ++col)
-    while (1)
-    {
-        u32 col_index = 0;
-        while (A.col[col_index] == 0)
-        {
-            // @todo
-        }
-
-        col_index += 1;
-    }
-
-    return I;
-}
-#endif
-
 v4 operator*(m4 a, v4 b)
 {
     v4 result = {};
-    a = transpose(a);  // column-major to row-major
+    a = transpose(&a);  // column-major to row-major
 
     result.x = dot(a.col[0], b);
     result.y = dot(a.col[1], b);
@@ -248,7 +249,7 @@ v3 operator*(m4 a, v3 b)
 m4 operator*(m4 a, m4 b)
 {
     m4 matrix = {};
-    a = transpose(a);
+    a = transpose(&a);
 
     for(u32 row_index = 0;
         row_index < 4;
@@ -268,6 +269,61 @@ m4 &operator*=(m4 &a, m4 b)
 {
     a = a*b;
     return a;
+}
+
+inline m4
+invert(m4 a)
+{
+    m4 result = {};
+
+    r64 A2323 = (r64)a.m[2][2] * (r64)a.m[3][3] - (r64)a.m[2][3] * (r64)a.m[3][2];
+    r64 A1323 = (r64)a.m[2][1] * (r64)a.m[3][3] - (r64)a.m[2][3] * (r64)a.m[3][1];
+    r64 A1223 = (r64)a.m[2][1] * (r64)a.m[3][2] - (r64)a.m[2][2] * (r64)a.m[3][1];
+    r64 A0323 = (r64)a.m[2][0] * (r64)a.m[3][3] - (r64)a.m[2][3] * (r64)a.m[3][0];
+    r64 A0223 = (r64)a.m[2][0] * (r64)a.m[3][2] - (r64)a.m[2][2] * (r64)a.m[3][0];
+    r64 A0123 = (r64)a.m[2][0] * (r64)a.m[3][1] - (r64)a.m[2][1] * (r64)a.m[3][0];
+    r64 A2313 = (r64)a.m[1][2] * (r64)a.m[3][3] - (r64)a.m[1][3] * (r64)a.m[3][2];
+    r64 A1313 = (r64)a.m[1][1] * (r64)a.m[3][3] - (r64)a.m[1][3] * (r64)a.m[3][1];
+    r64 A1213 = (r64)a.m[1][1] * (r64)a.m[3][2] - (r64)a.m[1][2] * (r64)a.m[3][1];
+    r64 A2312 = (r64)a.m[1][2] * (r64)a.m[2][3] - (r64)a.m[1][3] * (r64)a.m[2][2];
+    r64 A1312 = (r64)a.m[1][1] * (r64)a.m[2][3] - (r64)a.m[1][3] * (r64)a.m[2][1];
+    r64 A1212 = (r64)a.m[1][1] * (r64)a.m[2][2] - (r64)a.m[1][2] * (r64)a.m[2][1];
+    r64 A0313 = (r64)a.m[1][0] * (r64)a.m[3][3] - (r64)a.m[1][3] * (r64)a.m[3][0];
+    r64 A0213 = (r64)a.m[1][0] * (r64)a.m[3][2] - (r64)a.m[1][2] * (r64)a.m[3][0];
+    r64 A0312 = (r64)a.m[1][0] * (r64)a.m[2][3] - (r64)a.m[1][3] * (r64)a.m[2][0];
+    r64 A0212 = (r64)a.m[1][0] * (r64)a.m[2][2] - (r64)a.m[1][2] * (r64)a.m[2][0];
+    r64 A0113 = (r64)a.m[1][0] * (r64)a.m[3][1] - (r64)a.m[1][1] * (r64)a.m[3][0];
+    r64 A0112 = (r64)a.m[1][0] * (r64)a.m[2][1] - (r64)a.m[1][1] * (r64)a.m[2][0];
+
+    r64 det = ( (r64)a.m[0][0] * ((r64)a.m[1][1] * A2323 - (r64)a.m[1][2] * A1323 + (r64)a.m[1][3] * A1223) 
+               -(r64)a.m[0][1] * ((r64)a.m[1][0] * A2323 - (r64)a.m[1][2] * A0323 + (r64)a.m[1][3] * A0223) 
+               +(r64)a.m[0][2] * ((r64)a.m[1][0] * A1323 - (r64)a.m[1][1] * A0323 + (r64)a.m[1][3] * A0123) 
+               -(r64)a.m[0][3] * ((r64)a.m[1][0] * A1223 - (r64)a.m[1][1] * A0223 + (r64)a.m[1][2] * A0123));
+    det = 1.0 / det;
+
+    result.m[0][0] = (r32)(det *  ((r64)a.m[1][1] * A2323 - (r64)a.m[1][2] * A1323 + (r64)a.m[1][3] * A1223));
+    result.m[0][1] = (r32)(det * -((r64)a.m[0][1] * A2323 - (r64)a.m[0][2] * A1323 + (r64)a.m[0][3] * A1223));
+    result.m[0][2] = (r32)(det *  ((r64)a.m[0][1] * A2313 - (r64)a.m[0][2] * A1313 + (r64)a.m[0][3] * A1213));
+    result.m[0][3] = (r32)(det * -((r64)a.m[0][1] * A2312 - (r64)a.m[0][2] * A1312 + (r64)a.m[0][3] * A1212));
+    result.m[1][0] = (r32)(det * -((r64)a.m[1][0] * A2323 - (r64)a.m[1][2] * A0323 + (r64)a.m[1][3] * A0223));
+    result.m[1][1] = (r32)(det *  ((r64)a.m[0][0] * A2323 - (r64)a.m[0][2] * A0323 + (r64)a.m[0][3] * A0223));
+    result.m[1][2] = (r32)(det * -((r64)a.m[0][0] * A2313 - (r64)a.m[0][2] * A0313 + (r64)a.m[0][3] * A0213));
+    result.m[1][3] = (r32)(det *  ((r64)a.m[0][0] * A2312 - (r64)a.m[0][2] * A0312 + (r64)a.m[0][3] * A0212));
+    result.m[2][0] = (r32)(det *  ((r64)a.m[1][0] * A1323 - (r64)a.m[1][1] * A0323 + (r64)a.m[1][3] * A0123));
+    result.m[2][1] = (r32)(det * -((r64)a.m[0][0] * A1323 - (r64)a.m[0][1] * A0323 + (r64)a.m[0][3] * A0123));
+    result.m[2][2] = (r32)(det *  ((r64)a.m[0][0] * A1313 - (r64)a.m[0][1] * A0313 + (r64)a.m[0][3] * A0113));
+    result.m[2][3] = (r32)(det * -((r64)a.m[0][0] * A1312 - (r64)a.m[0][1] * A0312 + (r64)a.m[0][3] * A0112));
+    result.m[3][0] = (r32)(det * -((r64)a.m[1][0] * A1223 - (r64)a.m[1][1] * A0223 + (r64)a.m[1][2] * A0123));
+    result.m[3][1] = (r32)(det *  ((r64)a.m[0][0] * A1223 - (r64)a.m[0][1] * A0223 + (r64)a.m[0][2] * A0123));
+    result.m[3][2] = (r32)(det * -((r64)a.m[0][0] * A1213 - (r64)a.m[0][1] * A0213 + (r64)a.m[0][2] * A0113));
+    result.m[3][3] = (r32)(det *  ((r64)a.m[0][0] * A1212 - (r64)a.m[0][1] * A0212 + (r64)a.m[0][2] * A0112));
+
+#if WINDY_INTERNAL
+    m4 test_identity = a * result;
+    Assert(equal(test_identity, identity_m4()));
+#endif
+
+    return result;
 }
 
 inline m4

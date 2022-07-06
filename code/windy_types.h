@@ -68,6 +68,7 @@ union v4
 union m4
 {
     r32 m[4][4];
+    r32 arr[16];
     v4  col [4];
 };
 
