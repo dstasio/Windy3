@@ -85,10 +85,10 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer,
             while(mesh_header->signature == 0x6D57)   // If signature is 'Wm', current object is a mesh
             {
                 Mesh *mesh = &level->objects[level->n_objects];
-                mesh->buffers.vertex_data  = byte_offset(mesh_header, mesh_header->vertex_data_offset);
-                mesh->buffers.index_data   = byte_offset(mesh_header, mesh_header->index_data_offset);
-                mesh->buffers.vertex_count = (mesh_header->index_data_offset - mesh_header->vertex_data_offset) / WEXP_VERTEX_SIZE;
-                mesh->buffers.index_count  = truncate_to_u16((mesh_header->name_offset  - mesh_header->index_data_offset) / WEXP_INDEX_SIZE);
+                mesh->buffers.vertex_data   = byte_offset(mesh_header, mesh_header->vertex_data_offset);
+                mesh->buffers. index_data   = byte_offset(mesh_header, mesh_header->index_data_offset);
+                mesh->buffers.vertex_count  = (mesh_header->index_data_offset - mesh_header->vertex_data_offset) / WEXP_VERTEX_SIZE;
+                mesh->buffers. index_count  = truncate_to_u16((mesh_header->name_offset  - mesh_header->index_data_offset) / WEXP_INDEX_SIZE);
                 mesh->buffers.vertex_stride = WEXP_VERTEX_SIZE;
                 mesh->name = (char *)byte_offset(mesh_header, mesh_header->name_offset);
 
@@ -609,12 +609,16 @@ struct Screen_To_World_Result {
 
 Screen_To_World_Result screen_space_to_world(Camera *camera, r32 screen_ar, v2 screen_point)
 {
+    // 0, 0 -> Top Left
+    // 1, 1 -> Bot Right
+
     Screen_To_World_Result result = {};
 
     v3 forward = normalize(camera->target - camera->pos);
     v3 right   = normalize(cross(forward, camera->up));
     v3 up      = normalize(cross(right, forward));
 
+    // @todo: tangent here can be cached
     result.dir.x =  ((screen_point.x*2.f) - 1.f) * Tan(camera->fov/2.f) * screen_ar;
     result.dir.y = -((screen_point.y*2.f) - 1.f) * Tan(camera->fov/2.f);
     result.dir.z =  1.f;
@@ -837,16 +841,18 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 #endif
     renderer->set_render_targets();
 
-    renderer->clear(CLEAR_COLOR|CLEAR_DEPTH, {0.4f, 0.7f, 0.9f}, 1.f, 1);
+    renderer->clear(CLEAR_COLOR|CLEAR_DEPTH, {1.f, 0.f, 1.f}, 1.f, 1);
     renderer->set_depth_stencil(true, false, 1);
 
 #if WINDY_INTERNAL
     {
-        m4 cam_space_transform    = camera_m4(active_camera->pos, active_camera->target, active_camera->up);
-        m4 screen_space_transform = perspective_m4(active_camera->fov, (r32)width/(r32)height, active_camera->min_z, active_camera->max_z);
-        renderer->set_active_shader(state->background_shader);
+        Screen_To_World_Result tl = screen_space_to_world(active_camera, ((r32)width/(r32)height), {0.f, 0.f});
+        Screen_To_World_Result br = screen_space_to_world(active_camera, ((r32)width/(r32)height), {1.f, 1.f});
+        Screen_To_World_Result tr = screen_space_to_world(active_camera, ((r32)width/(r32)height), {1.f, 0.f});
+        Screen_To_World_Result bl = screen_space_to_world(active_camera, ((r32)width/(r32)height), {0.f, 1.f});
+
         renderer->set_active_texture(&state->tex_sky);
-        renderer->internal_sandbox_call(&cam_space_transform, &screen_space_transform);
+        renderer->internal_sandbox_call(state->background_shader, tl.dir, br.dir, tr.dir, bl.dir);
     }
 #endif
 
