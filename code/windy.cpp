@@ -346,7 +346,7 @@ void draw_level(Platform_Renderer *renderer, Level *level, Platform_Shader *shad
         screen_space_transform = ortho_m4(camera->ortho_scale, ar, camera->min_z, camera->max_z);
     }
 
-    renderer->draw_mesh(0, 0, shader, &cam_space_transform, &screen_space_transform, &level->lights[0], &camera->pos, 0);
+    renderer->draw_mesh(0, 0, shader, &cam_space_transform, &screen_space_transform, &level->lights, &camera->pos, 0);
 
     for (Mesh *mesh = level->objects; 
          (mesh - level->objects) < level->n_objects;
@@ -713,8 +713,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
         //state->sun.color = {1.f,  1.f,  1.f};
         //state->sun.dir   = {0.f, -1.f, -1.f};
-        state->current_level->lights[0].color = {1.f,  1.f, 0.9f};
-        state->current_level->lights[0].p     = {0.f, -5.f, 7.f};
+        state->current_level->lights.type [0].t = PHONG_LIGHT_POINT;
+        state->current_level->lights.color[0] = {1.f,  1.f, 0.9f};
+        state->current_level->lights.pos  [0] = {0.f, -5.f, 7.f};
+        state->current_level->lights.light_count = 1;
+
         memory->is_initialized = true;
     }
 

@@ -57,7 +57,7 @@ struct Level
 {
     // @todo: use pointers for meshes
     Mesh objects[MAX_LEVEL_OBJECTS];
-    Platform_Light_Buffer lights[MAX_LEVEL_LIGHTS];
+    Platform_Light_Buffer lights;
     u32  n_objects;
     u32  n_lights;
 

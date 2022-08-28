@@ -42,14 +42,21 @@ struct Platform_Debug_Shader_Settings
 };
 #pragma pack(pop)
 
-// @todo @cleanup: TEMPORARY HACK
+// @todo @cleanup: There could be a way to not send a bunch of zeroes every frame (?)
 struct Platform_Light_Buffer
 {
-    v3 color;
-    r32 pad0_; // 16 bytes
-    v3 p;      // 28 bytes
-    r32 pad1_;
-    v3 eye;    // 40 bytes
+    u32 light_count;
+    v3  eye;
+
+    struct {
+        u32 t;
+        u32 _pad0;
+        u32 _pad1;
+        u32 _pad2;
+    } type[PHONG_MAX_LIGHTS];
+
+    v4  color[PHONG_MAX_LIGHTS]; // These are v3 + 4 bytes of padding
+    v4  pos  [PHONG_MAX_LIGHTS];
 };
 
 struct Input_File

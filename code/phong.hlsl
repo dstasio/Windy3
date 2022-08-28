@@ -49,9 +49,12 @@ struct PS_OUTPUT
 
 cbuffer Lights: register(b0)
 {
-    float3 color;
-    float3 lightpos;
+    uint   light_count;
     float3 eye;
+
+    uint   light_type [PHONG_MAX_LIGHTS];
+    float3 light_color[PHONG_MAX_LIGHTS];
+    float3 lightpos   [PHONG_MAX_LIGHTS];
 }
 
 cbuffer Settings: register(b1)
@@ -63,8 +66,8 @@ cbuffer Settings: register(b1)
 Texture2D SampleTexture;
 
 
-float4
-light(float3 color, float3 dir, float3 eyedir, float3 normal)
+float3
+light_intensity(float3 color, float3 dir, float3 eyedir, float3 normal)
 {
     float diffuse_coeff = dot(dir, normal);
     float diffuse_mask = sign(diffuse_coeff);
@@ -74,7 +77,7 @@ light(float3 color, float3 dir, float3 eyedir, float3 normal)
     float ambient = 0.1f + 0.1f * diffuse_shadow;
     float diffuse = diffuse_light;
     float specular = pow(max(dot(reflect(-dir, normal), eyedir), 0.0f), 512);
-    return float4(color*(ambient+diffuse+specular*0.2f), 1.f);
+    return color*(ambient+diffuse+specular*0.2f);
 }
 
 PS_OUTPUT
@@ -83,14 +86,29 @@ main(VS_OUTPUT input)
     PS_OUTPUT output; 
     float3 normal = normalize(input.normal);
     float3 eyedir = normalize(eye - input.world_pos);
-    float3 lightdir = normalize(lightpos - input.world_pos);
-    output.color = float4(1.f, 1.f, 1.f, 1.f);
+
+    float3 final_lighting = float3(0.f, 0.f, 0.f);
     if (!(flags & PHONG_FLAG_UNLIT))
-        output.color = light(color, lightdir, eyedir, normal);
+    {
+        for (uint light_index = 0; light_index < light_count; ++light_index) {
+            float3 light_dir;
+            if (light_type[light_index] == PHONG_LIGHT_POINT)
+                light_dir = normalize(lightpos[light_index] - input.world_pos);
+            else // light_type[light_index] == PHONG_LIGHT_DIRECTIONAL
+                light_dir = lightpos[light_index];
+
+            final_lighting += light_intensity(light_color[light_index], light_dir, eyedir, normal);
+        }
+    }
+    else {
+        final_lighting = float3(1.f, 1.f, 1.f);
+    }
+
     if (flags & PHONG_FLAG_SOLIDCOLOR)
-        output.color *= float4(solid_color, 1.f);
+        output.color = float4(final_lighting, 1.f) * float4(solid_color, 1.f);
     else
-        output.color *= SampleTexture.Sample(TextureSamplerState, input.txc);
+        output.color = float4(final_lighting, 1.f) * SampleTexture.Sample(TextureSamplerState, input.txc);
+
     return(output);
 }
 

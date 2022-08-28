@@ -157,12 +157,12 @@ PLATFORM_LOAD_RENDERER(win32_load_d3d11)
     d11->device->CreateBuffer(&MatrixBufferDesc, 0, &d11->matrix_buff);
 
     D3D11_BUFFER_DESC light_buff_desc = {};
-    light_buff_desc.ByteWidth = 16*3;
+    light_buff_desc.ByteWidth = sizeof(Platform_Light_Buffer);
     light_buff_desc.Usage = D3D11_USAGE_DYNAMIC;
     light_buff_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     light_buff_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     light_buff_desc.MiscFlags = 0;
-    light_buff_desc.StructureByteStride = sizeof(v3);
+    light_buff_desc.StructureByteStride = 0;
     d11->device->CreateBuffer(&light_buff_desc, 0, &d11->light_buff);
 
     D3D11_BUFFER_DESC settings_buff_desc = {};
@@ -593,11 +593,17 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
         D3D11_MAPPED_SUBRESOURCE lights_map = {};
         global_renderer->set_active_shader(shader);
         d3d11_enable_constant_buffer(d11->light_buff, 0, false, true);
+
+        // @todo: clear to zero unused memory in this buffer
         d11->context->Map(d11->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
         Platform_Light_Buffer *lights_mapped = (Platform_Light_Buffer *)lights_map.pData;
-        lights_mapped->color = light->color;
-        lights_mapped->p     = light->p;
-        lights_mapped->eye   = *eye;
+        lights_mapped->eye         = *eye;
+        lights_mapped->light_count = light->light_count;
+
+        lights_mapped->type[0]  = light->type[0];
+        lights_mapped->color[0] = light->color[0];
+        lights_mapped->pos[0]   = light->pos[0];
+
         d11->context->Unmap(d11->light_buff, 0);
     }
 
