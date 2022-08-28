@@ -46,8 +46,8 @@
 
 global b32 global_running;
 global b32 global_error;
-global u32 global_width = 1280;
-global u32 global_height = 720;
+global u32 global_width = 1380;
+global u32 global_height = 900;
 global Platform_Renderer *global_renderer;
 
 inline u64

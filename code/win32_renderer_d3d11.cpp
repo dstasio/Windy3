@@ -357,6 +357,7 @@ inline PLATFORM_SET_ACTIVE_MESH(d3d11_set_active_mesh)
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
     ID3D11InputLayout *in_layout = (ID3D11InputLayout *)buffers->platform;
 
+    // @important: The stride here MUST be filled in correctly!
     u32 offsets = 0;
     u32 stride = buffers->vertex_stride;
     d11->context->IASetVertexBuffers(0, 1, (ID3D11Buffer **)&buffers->vertex_buffer, &stride, &offsets);
@@ -654,73 +655,5 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
 #if WINDY_INTERNAL
 PLATFORM_RENDERER_INTERNAL_SANDBOX_CALL(d3d11_internal_sandbox_call)
 {
-    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
-
-    static ID3D11InputLayout *in_layout     = 0;
-    static ID3D11Buffer      *vertex_buffer = 0;
-
-    local_persist bool initialized = false;
-    if (!initialized) {
-        D3D11_INPUT_ELEMENT_DESC in_desc[] = {
-            {"POSITION",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-            {"SV_VertexID", 0, DXGI_FORMAT_R32_UINT,        0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
-        };
-
-        d11->device->CreateInputLayout(in_desc, 1, shader->vertex_file.data, shader->vertex_file.size, &in_layout);
-
-        //
-        // vertex buffer
-        //
-        D3D11_BUFFER_DESC vert_buff_desc     = {};
-        vert_buff_desc.ByteWidth             = sizeof(r32) * 3 * 4;
-        vert_buff_desc.Usage                 = D3D11_USAGE_DYNAMIC;
-        vert_buff_desc.BindFlags             = D3D11_BIND_VERTEX_BUFFER;
-        vert_buff_desc.CPUAccessFlags        = D3D11_CPU_ACCESS_WRITE;
-        vert_buff_desc.StructureByteStride   = sizeof(r32) * 3;
-        d11->device->CreateBuffer(&vert_buff_desc, 0, &vertex_buffer);
-
-        initialized = true;
-    }
-
-    d3d11_set_active_shader(shader);
-    d11->context->IASetInputLayout(in_layout);
-
-    
-    {
-        D3D11_MAPPED_SUBRESOURCE mapped_vertex_buffer = {};
-
-        d11->context->Map(vertex_buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_vertex_buffer);
-
-        r32 *mapped_vertices_components = (r32 *)mapped_vertex_buffer.pData;
-
-        mapped_vertices_components[ 0] = bl.x; // Bot-Left X
-        mapped_vertices_components[ 1] = bl.y; // Bot-Left Y
-        mapped_vertices_components[ 2] = bl.z; // Bot-Left Z
-
-        mapped_vertices_components[ 3] = br.x; // Bot-Right X
-        mapped_vertices_components[ 4] = br.y; // Bot-Right Y
-        mapped_vertices_components[ 5] = br.z; // Bot-Right Z
-
-        mapped_vertices_components[ 6] = tl.x; // Top-Left X
-        mapped_vertices_components[ 7] = tl.y; // Top-Left Y
-        mapped_vertices_components[ 8] = tl.z; // Top-Left Z
-
-        mapped_vertices_components[ 9] = tr.x; // Top-Right X
-        mapped_vertices_components[10] = tr.y; // Top-Right Y
-        mapped_vertices_components[11] = tr.z; // Top-Right Z
-
-        d11->context->Unmap(vertex_buffer, 0);
-
-    }
-
-    u32 offsets = 0;
-    u32 stride  = 0;
-    d11->context->IASetVertexBuffers(0, 1, &vertex_buffer, &stride, &offsets);
-
-    d11->context->OMSetDepthStencilState(d11->nodepth_nostencil_state, 1);
-    d11->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-
-    d11->context->Draw(4, 0);
-
 }
 #endif

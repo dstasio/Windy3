@@ -20,6 +20,8 @@ r32 global_mouse_sensitivity = 50.f;
 //global Mesh *mesh_B;
 //global Mesh *mesh_C;
 
+#define HEX_COLOR(hex) {(r32)(((hex) & 0xFF0000) >> 16) / 255.f, (r32)(((hex) & 0xFF00) >> 8) / 255.f, (r32)((hex) & 0xFF) / 255.f}
+
 internal inline b32
 string_compare(char *s1, char *s2)
 {
@@ -670,7 +672,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         //state->player = load_mesh(renderer, memory->read_file, "assets/player.wexp",      &state->current_level, state->phong_shader, &phong_settings);
         state->tex_white  = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_white.bmp");
         state->tex_yellow = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_yellow.bmp");
-        state->tex_sky    = load_texture(renderer, &volatile_pool, memory->read_file, "assets/spiaggia_di_mondello_1k.bmp");
         renderer->init_square_mesh(state->font_shader);
 
         state->current_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/level_0.wexp", state->phong_shader);
@@ -841,20 +842,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 #endif
     renderer->set_render_targets();
 
-    renderer->clear(CLEAR_COLOR|CLEAR_DEPTH, {1.f, 0.f, 1.f}, 1.f, 1);
+    renderer->clear(CLEAR_COLOR|CLEAR_DEPTH, HEX_COLOR(0x80d5f2), 1.f, 1);
     renderer->set_depth_stencil(true, false, 1);
-
-#if WINDY_INTERNAL
-    {
-        Screen_To_World_Result tl = screen_space_to_world(active_camera, ((r32)width/(r32)height), {0.f, 0.f});
-        Screen_To_World_Result br = screen_space_to_world(active_camera, ((r32)width/(r32)height), {1.f, 1.f});
-        Screen_To_World_Result tr = screen_space_to_world(active_camera, ((r32)width/(r32)height), {1.f, 0.f});
-        Screen_To_World_Result bl = screen_space_to_world(active_camera, ((r32)width/(r32)height), {0.f, 1.f});
-
-        renderer->set_active_texture(&state->tex_sky);
-        renderer->internal_sandbox_call(state->background_shader, tl.dir, br.dir, tr.dir, bl.dir);
-    }
-#endif
 
     renderer->set_active_texture(&state->tex_white);
 
