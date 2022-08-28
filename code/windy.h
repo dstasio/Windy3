@@ -18,6 +18,8 @@
 #define byte_offset(base, offset) ((u8*)(base) + (offset))
 inline u16 truncate_to_u16(u32 v) {assert(v <= 0xFFFF); return (u16)v; };
 
+#define Foru(a, b) for(u32 it = (a); it <= (b); it += 1)
+
 struct Camera
 {
     v3 pos;

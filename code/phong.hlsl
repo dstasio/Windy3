@@ -91,13 +91,13 @@ main(VS_OUTPUT input)
     if (!(flags & PHONG_FLAG_UNLIT))
     {
         for (uint light_index = 0; light_index < light_count; ++light_index) {
-            float3 light_dir;
+            float3 inv_light_dir;
             if (light_type[light_index] == PHONG_LIGHT_POINT)
-                light_dir = normalize(lightpos[light_index] - input.world_pos);
+                inv_light_dir = normalize(lightpos[light_index] - input.world_pos);
             else // light_type[light_index] == PHONG_LIGHT_DIRECTIONAL
-                light_dir = lightpos[light_index];
+                inv_light_dir = -lightpos[light_index];
 
-            final_lighting += light_intensity(light_color[light_index], light_dir, eyedir, normal);
+            final_lighting += light_intensity(light_color[light_index], inv_light_dir, eyedir, normal);
         }
     }
     else {

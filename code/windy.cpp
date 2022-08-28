@@ -711,15 +711,31 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->editor_camera._yaw        = PI/2.f;
         state->editor_camera._pivot      = state->player->p;
 
-        //state->sun.color = {1.f,  1.f,  1.f};
-        //state->sun.dir   = {0.f, -1.f, -1.f};
-        state->current_level->lights.type [0].t = PHONG_LIGHT_POINT;
-        state->current_level->lights.color[0] = {1.f,  1.f, 0.9f};
-        state->current_level->lights.pos  [0] = {0.f, -5.f, 7.f};
-        state->current_level->lights.light_count = 1;
+        state->current_level->lights.light_count = 0;
+
+        state->current_level->lights.type [0].t = PHONG_LIGHT_DIRECTIONAL;
+        state->current_level->lights.color[0] = {0.9f,  0.9f, 0.9f};
+        state->current_level->lights.pos  [0] = make_v4(normalize({0.3f, 0.9f, -1.0f})); // this is actually direction
+        state->current_level->lights.light_count += 1;
+
+        state->current_level->lights.type [1].t = PHONG_LIGHT_DIRECTIONAL;
+        state->current_level->lights.color[1] = {0.2f,  0.2f, 0.17f};
+        state->current_level->lights.pos  [1] = make_v4(normalize({-0.3f, -0.9f, 1.0f})); // this is actually direction
+        state->current_level->lights.light_count += 1;
+
+        state->current_level->lights.type [2].t = PHONG_LIGHT_POINT;
+        state->current_level->lights.color[2] = {0.3f,  0.07f, 0.1f};
+        state->current_level->lights.pos  [2] = {0.f, 5.f, 7.f};
+        state->current_level->lights.light_count += 1;
+
+        state->current_level->lights.type [3].t = PHONG_LIGHT_POINT;
+        state->current_level->lights.color[3] = {0.05f,  0.1f, 0.23f};
+        state->current_level->lights.pos  [3] = {15.f, 0.f, 5.f};
+        state->current_level->lights.light_count += 1;
 
         memory->is_initialized = true;
     }
+
 
     //
     // ---------------------------------------------------------------
@@ -857,6 +873,22 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         {
             renderer->draw_mesh(&state->selected->buffers, &state->selected->transform, state->phong_shader, 0, 0, 0, 0, 1);
         }
+
+#if 0
+        { // Debug Light visualization
+            Platform_Phong_Settings prev_settings = state->player->buffers.settings;
+            state->player->buffers.settings.flags = PHONG_FLAG_UNLIT | PHONG_FLAG_SOLIDCOLOR;
+            Foru(0, state->current_level->lights.light_count - 1) {
+                if (state->current_level->lights.type[it].t != PHONG_LIGHT_POINT) continue;
+
+                state->player->buffers.settings.color = make_v3(state->current_level->lights.color[it]);
+                m4 transform = transform_m4(make_v3(state->current_level->lights.pos[it]), {}, {0.5f, 0.5f, 0.5f});
+
+                renderer->draw_mesh(&state->player->buffers, &transform, state->phong_shader, 0, 0, 0, 0, 1);
+            }
+            state->player->buffers.settings = prev_settings;
+        }
+#endif
     }
 
 

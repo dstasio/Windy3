@@ -594,15 +594,19 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
         global_renderer->set_active_shader(shader);
         d3d11_enable_constant_buffer(d11->light_buff, 0, false, true);
 
-        // @todo: clear to zero unused memory in this buffer
         d11->context->Map(d11->light_buff, 0, D3D11_MAP_WRITE_DISCARD, 0, &lights_map);
         Platform_Light_Buffer *lights_mapped = (Platform_Light_Buffer *)lights_map.pData;
+
+        SecureZeroMemory(lights_mapped, sizeof(Platform_Light_Buffer));
+
         lights_mapped->eye         = *eye;
         lights_mapped->light_count = light->light_count;
 
-        lights_mapped->type[0]  = light->type[0];
-        lights_mapped->color[0] = light->color[0];
-        lights_mapped->pos[0]   = light->pos[0];
+        Foru(0, light->light_count - 1) {
+            lights_mapped->type [it]  = light->type[it];
+            lights_mapped->color[it] = light->color[it];
+            lights_mapped->pos  [it]   = light->pos[it];
+        }
 
         d11->context->Unmap(d11->light_buff, 0);
     }
