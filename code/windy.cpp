@@ -55,15 +55,38 @@ mesh_set_position(Mesh *mesh, v3 pos)
     mesh->transform = translation_m4(mesh->p);
 }
 
+#define GRAVITY       300.f
+#define JUMP_FORCE    700.f
+#define MAX_JUMP_TIME   0.15f
+
 internal void 
 mesh_simulate_physics(Mesh *mesh, r32 dt)
 {
     // @todo: maybe this function should be called only _when_ physics is enabled?
     if (!mesh->physics_enabled) return;
 
+    local_persist r32 jump_time_accumulator = 0.f;
+
+    if (mesh->ddp.z > 0.f)
+    {
+        jump_time_accumulator += dt;
+
+        if (jump_time_accumulator >= MAX_JUMP_TIME)
+            mesh->ddp.z = 0.f;
+    }
+
+    if (mesh->p.z > 0.f)  mesh->ddp.z -= GRAVITY;
+
     // @todo: movement equation
     mesh->dp += (mesh->ddp - mesh->dp * 9.f) * dt;
     mesh_move(mesh, mesh->dp * dt);
+
+    if (mesh->p.z < 0.f)
+    {
+        mesh->p.z             = 0.f;
+        mesh->dp.z            = 0.f;
+        jump_time_accumulator = 0.f;
+    }
 }
 
 // @note: if settings is zero, phong flags is zero and the shader uses the texture
@@ -656,10 +679,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         // @todo: remove need for pre-allocation
         state->phong_shader       = push_struct(&volatile_pool, Platform_Shader);
         state->font_shader        = push_struct(&volatile_pool, Platform_Shader);
-        state->background_shader  = push_struct(&volatile_pool, Platform_Shader);
         renderer->reload_shader(    state->     phong_shader, "phong");
         renderer->reload_shader(    state->      font_shader, "fonts");
-        renderer->reload_shader(    state->background_shader, "background");
         renderer->reload_shader(&renderer->     debug_shader, "debug");
 
         Platform_Phong_Settings phong_settings = {};
@@ -757,6 +778,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             if (input->held.s)     state->player->ddp -= 100.f * normalize(make_v3(cam_forward.xy));
             if (input->held.d)     state->player->ddp += 100.f * normalize(make_v3(cam_right.xy));
             if (input->held.a)     state->player->ddp -= 100.f * normalize(make_v3(cam_right.xy));
+            if (input->held.space) state->player->ddp += JUMP_FORCE * make_v3(0.f, 0.f, 1.f);
             mesh_simulate_physics(state->player, dtime);
 
             active_camera->pos.x = state->player->p.x;
@@ -856,7 +878,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 #if WINDY_INTERNAL
     renderer->reload_shader(    state->     phong_shader, "phong");
     renderer->reload_shader(    state->      font_shader, "fonts");
-    renderer->reload_shader(    state->background_shader, "background");
     renderer->reload_shader(&renderer->     debug_shader, "debug");
 #endif
     renderer->set_render_targets();

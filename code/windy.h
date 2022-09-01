@@ -70,7 +70,6 @@ struct Game_State
 {
     Platform_Shader  *phong_shader;
     Platform_Shader  *font_shader;
-    Platform_Shader  *background_shader;
 
     Level *current_level;
     Mesh *selected;
