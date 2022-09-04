@@ -55,40 +55,6 @@ mesh_set_position(Mesh *mesh, v3 pos)
     mesh->transform = translation_m4(mesh->p);
 }
 
-#define GRAVITY       300.f
-#define JUMP_FORCE    700.f
-#define MAX_JUMP_TIME   0.15f
-
-internal void 
-mesh_simulate_physics(Mesh *mesh, r32 dt)
-{
-    // @todo: maybe this function should be called only _when_ physics is enabled?
-    if (!mesh->physics_enabled) return;
-
-    local_persist r32 jump_time_accumulator = 0.f;
-
-    if (mesh->ddp.z > 0.f)
-    {
-        jump_time_accumulator += dt;
-
-        if (jump_time_accumulator >= MAX_JUMP_TIME)
-            mesh->ddp.z = 0.f;
-    }
-
-    if (mesh->p.z > 0.f)  mesh->ddp.z -= GRAVITY;
-
-    // @todo: movement equation
-    mesh->dp += (mesh->ddp - mesh->dp * 9.f) * dt;
-    mesh_move(mesh, mesh->dp * dt);
-
-    if (mesh->p.z < 0.f)
-    {
-        mesh->p.z             = 0.f;
-        mesh->dp.z            = 0.f;
-        jump_time_accumulator = 0.f;
-    }
-}
-
 // @note: if settings is zero, phong flags is zero and the shader uses the texture
 //        bound at rendering time
 internal Level *
@@ -276,7 +242,7 @@ void editor_camera(Input *input, Camera *camera, r32 dtime)
     camera->pos   += camera->target;
 }
 
-#if 1
+#if 0
 struct Light_Buffer
 {
     v3 color;
@@ -287,13 +253,19 @@ struct Light_Buffer
 };
 #endif
 
+struct Raycast_Result
+{
+    b32 hit;
+    r32 dist_sq;
+};
+
 // @todo: Better algorithm
 // @todo: take Mesh struct as parameter, and use its transform matrix
 //
-internal r32
+internal Raycast_Result
 raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
 {
-    r32 hit_sq = 0.f;
+    Raycast_Result result = {};
 
     v3 *verts    = (v3  *)mesh->buffers.vertex_data;
     u16 *indices = (u16 *)mesh->buffers.index_data;
@@ -335,9 +307,10 @@ raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
 
                     if ((dist > Square(min_distance)) && (dist < Square(max_distance)))
                     {
-                        if (!hit_sq || (dist < hit_sq))
+                        if (!result.hit || (dist < result.dist_sq))
                         {
-                            hit_sq = dist;
+                            result.dist_sq = dist;
+                            result.hit = true;
 
 #if WINDY_DEBUG
                             DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0] = world_incident_point;
@@ -354,8 +327,12 @@ raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
         }
     }
 
-    return Sqrt(hit_sq);
+    return result;
 }
+
+#define GRAVITY       300.f
+#define JUMP_FORCE    700.f
+#define MAX_JUMP_TIME   0.15f
 
 // @todo: move aspect ratio variable (maybe into Camera/Renderer struct)
 void draw_level(Platform_Renderer *renderer, Level *level, Platform_Shader *shader, Camera *camera, r32 ar)
@@ -711,7 +688,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         // camera set-up
         //
         // @todo: init camera _radius _pitch _yaw from position and target
-        state->game_camera.pos         = {0.f, -17.f, 11.f};
+        state->game_camera.pos         = {0.f, -30.f, 18.f};
         state->game_camera.target      = {0.f,  0.f, 0.f};
         state->game_camera.up          = {0.f,  0.f, 1.f};
         state->game_camera.fov         = DegToRad*50.f;
@@ -757,7 +734,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         memory->is_initialized = true;
     }
 
-
     //
     // ---------------------------------------------------------------
     //
@@ -768,21 +744,90 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 //        input->mouse.pos *= global_mouse_sensitivity;
         if (*gamemode == GAMEMODE_GAME) 
         {
+            Mesh *player = state->player;
+            local_persist r32 jump_time_accumulator = 0.f;
+
             active_camera = &state->game_camera;
 
             r32 speed = input->held.space ? 10.f : 3.f;
             v3  cam_forward = state->game_camera.target - state->game_camera.pos;
             v3  cam_right   = cross(cam_forward, state->game_camera.up);
-            state->player->ddp = {};
-            if (input->held.w)     state->player->ddp += 100.f * normalize(make_v3(cam_forward.xy));
-            if (input->held.s)     state->player->ddp -= 100.f * normalize(make_v3(cam_forward.xy));
-            if (input->held.d)     state->player->ddp += 100.f * normalize(make_v3(cam_right.xy));
-            if (input->held.a)     state->player->ddp -= 100.f * normalize(make_v3(cam_right.xy));
-            if (input->held.space) state->player->ddp += JUMP_FORCE * make_v3(0.f, 0.f, 1.f);
-            mesh_simulate_physics(state->player, dtime);
+            player->ddp = {};
+            if (input->held.w)     player->ddp += 100.f * normalize(make_v3(cam_forward.xy));
+            if (input->held.s)     player->ddp -= 100.f * normalize(make_v3(cam_forward.xy));
+            if (input->held.d)     player->ddp += 100.f * normalize(make_v3(cam_right.xy));
+            if (input->held.a)     player->ddp -= 100.f * normalize(make_v3(cam_right.xy));
 
-            active_camera->pos.x = state->player->p.x;
-            active_camera->target.x = state->player->p.x;
+            bool is_on_ground = true;
+            {
+                Raycast_Result least_hit = {};
+                for (Mesh *level_mesh = state->current_level->objects; 
+                     (level_mesh - state->current_level->objects) < state->current_level->n_objects;
+                     level_mesh += 1)
+                {
+                    if (level_mesh == player) continue;
+
+                    Raycast_Result hit = raycast(level_mesh, player->p, {0.f, 0.f, -1.f}, 0.01f, 1.f);
+                    if ((hit.hit) && (!least_hit.hit || (hit.dist_sq < least_hit.dist_sq)))
+                    {
+                        least_hit = hit;
+
+#if WINDY_DEBUG
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+0] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0];
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+1] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+1];
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+2] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+2];
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+3] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+3];
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+4] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+4];
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+5] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+5];
+#endif
+                    }
+                }
+
+                is_on_ground = least_hit.hit;
+            }
+
+            if (input->held.space) {
+                /*if (is_on_ground)*/ player->ddp += JUMP_FORCE * make_v3(0.f, 0.f, 1.f);
+            }
+
+            player->ddp.z -= GRAVITY;
+
+            if ((player->ddp.z < 0.f) && is_on_ground) {
+                player->dp.z = 0.f;
+                player->ddp.z = 0.f;
+            }
+
+
+            // simulating player physics
+            if (player->physics_enabled)
+            {
+
+#if 0
+                if (player->ddp.z > 0.f)
+                {
+                    jump_time_accumulator += dtime;
+
+                    if (jump_time_accumulator >= MAX_JUMP_TIME)
+                        player->ddp.z = 0.f;
+                }
+#endif
+
+
+                // @todo: movement equation
+                player->dp += (player->ddp - player->dp * 9.f) * dtime;
+                mesh_move(player, player->dp * dtime);
+
+                if (player->p.z < 0.f)
+                {
+                    player->p.z           = 0.f;
+                    player->dp.z          = 0.f;
+                    jump_time_accumulator = 0.f;
+                }
+
+            }
+
+            active_camera->pos.x = player->p.x;
+            active_camera->target.x = player->p.x;
         }
         else if (*gamemode == GAMEMODE_EDITOR)
         {
@@ -848,11 +893,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                          (mesh - state->current_level->objects) < state->current_level->n_objects;
                          mesh += 1)
                     {
-                        r32 hit_distance = raycast(mesh, click.pos, click.dir, active_camera->min_z, active_camera->max_z);
-                        if ((hit_distance > 0) && (!least_hit_distance || (hit_distance < least_hit_distance)))
+                        Raycast_Result hit = raycast(mesh, click.pos, click.dir, active_camera->min_z, active_camera->max_z);
+                        if ((hit.hit) && (!least_hit_distance || (hit.dist_sq < least_hit_distance)))
                         {
                             state->selected = mesh;
-                            least_hit_distance = hit_distance;
+                            least_hit_distance = hit.dist_sq;
 
 #if WINDY_DEBUG
                             DEBUG_buffer[DEBUG_BUFFER_raycast+0] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0];
