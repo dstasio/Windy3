@@ -257,6 +257,8 @@ struct Raycast_Result
 {
     b32 hit;
     r32 dist_sq;
+
+    v3  normal;
 };
 
 // @todo: Better algorithm
@@ -309,8 +311,9 @@ raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
                     {
                         if (!result.hit || (dist < result.dist_sq))
                         {
-                            result.dist_sq = dist;
-                            result.hit = true;
+                            result.dist_sq   = dist;
+                            result.hit       = true;
+                            result.normal    = n;
 
 #if WINDY_DEBUG
                             DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0] = world_incident_point;
@@ -758,44 +761,18 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             if (input->held.d)     player->ddp += 100.f * normalize(make_v3(cam_right.xy));
             if (input->held.a)     player->ddp -= 100.f * normalize(make_v3(cam_right.xy));
 
-            bool is_on_ground = true;
-            {
-                Raycast_Result least_hit = {};
-                for (Mesh *level_mesh = state->current_level->objects; 
-                     (level_mesh - state->current_level->objects) < state->current_level->n_objects;
-                     level_mesh += 1)
-                {
-                    if (level_mesh == player) continue;
-
-                    Raycast_Result hit = raycast(level_mesh, player->p, {0.f, 0.f, -1.f}, 0.01f, 1.f);
-                    if ((hit.hit) && (!least_hit.hit || (hit.dist_sq < least_hit.dist_sq)))
-                    {
-                        least_hit = hit;
-
-#if WINDY_DEBUG
-                        DEBUG_buffer[DEBUG_BUFFER_raycast+0] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0];
-                        DEBUG_buffer[DEBUG_BUFFER_raycast+1] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+1];
-                        DEBUG_buffer[DEBUG_BUFFER_raycast+2] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+2];
-                        DEBUG_buffer[DEBUG_BUFFER_raycast+3] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+3];
-                        DEBUG_buffer[DEBUG_BUFFER_raycast+4] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+4];
-                        DEBUG_buffer[DEBUG_BUFFER_raycast+5] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+5];
-#endif
-                    }
-                }
-
-                is_on_ground = least_hit.hit;
-            }
-
             if (input->held.space) {
                 /*if (is_on_ground)*/ player->ddp += JUMP_FORCE * make_v3(0.f, 0.f, 1.f);
             }
 
             player->ddp.z -= GRAVITY;
 
+#if 0
             if ((player->ddp.z < 0.f) && is_on_ground) {
-                player->dp.z = 0.f;
+                player->dp.z = -(Sqrt(least_hit.dist_sq) - GROUND_MARGIN + 0.005f) / dtime;
                 player->ddp.z = 0.f;
             }
+#endif
 
 
             // simulating player physics
@@ -814,8 +791,46 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
 
                 // @todo: movement equation
+                v3 player_prev_p = player->p;
+
                 player->dp += (player->ddp - player->dp * 9.f) * dtime;
                 mesh_move(player, player->dp * dtime);
+
+                // Ground raycast
+                bool is_on_ground = true;
+                Raycast_Result least_hit = {};
+                {
+                    for (Mesh *level_mesh = state->current_level->objects; 
+                         (level_mesh - state->current_level->objects) < state->current_level->n_objects;
+                         level_mesh += 1)
+                    {
+                        if (level_mesh == player) continue;
+
+#define GROUND_MARGIN 0.01f
+                        Raycast_Result hit = raycast(level_mesh, player_prev_p, {0.f, 0.f, -1.f}, 0.f, player->p.z - player_prev_p.z);
+                        if ((hit.hit) && (!least_hit.hit || (hit.dist_sq < least_hit.dist_sq)))
+                        {
+                            least_hit = hit;
+
+#if WINDY_DEBUG
+                            DEBUG_buffer[DEBUG_BUFFER_raycast+0] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0];
+                            DEBUG_buffer[DEBUG_BUFFER_raycast+1] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+1];
+                            DEBUG_buffer[DEBUG_BUFFER_raycast+2] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+2];
+                            DEBUG_buffer[DEBUG_BUFFER_raycast+3] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+3];
+                            DEBUG_buffer[DEBUG_BUFFER_raycast+4] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+4];
+                            DEBUG_buffer[DEBUG_BUFFER_raycast+5] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+5];
+#endif
+                        }
+                    }
+
+                    is_on_ground = least_hit.hit;
+                }
+
+                if (player->ddp.z < 0.f && is_on_ground)
+                {
+                    player->p.z = player_prev_p.z - Sqrt(least_hit.dist_sq) + GROUND_MARGIN;
+                    player->dp.z = 0.f;
+                }
 
                 if (player->p.z < 0.f)
                 {
