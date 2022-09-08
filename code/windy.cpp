@@ -678,6 +678,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->current_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/level_0.wexp", state->phong_shader);
         state->player = find_mesh(state->current_level, "Player");
         state->player->physics_enabled = 1;
+        state->player->p.z = 0.1f;
         //mesh_A = find_mesh(state->current_level, "Cube_A");
         //mesh_B = find_mesh(state->current_level, "Cube_B");
         //mesh_C = find_mesh(state->current_level, "Cube_C");
@@ -762,8 +763,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             if (input->held.a)     player->ddp -= 100.f * normalize(make_v3(cam_right.xy));
 
             if (input->held.space) {
-                /*if (is_on_ground)*/ player->ddp += JUMP_FORCE * make_v3(0.f, 0.f, 1.f);
+                player->ddp += JUMP_FORCE * make_v3(0.f, 0.f, 1.f);
+                jump_time_accumulator += dtime;
             }
+
+            //if (jump_time_accumulator >= MAX_JUMP_TIME)  player->ddp.z = 0.f;
 
             player->ddp.z -= GRAVITY;
 
@@ -832,12 +836,18 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     player->dp.z = 0.f;
                 }
 
+                if (jump_time_accumulator >= MAX_JUMP_TIME) {
+                    jump_time_accumulator = 0.f;
+                }
+
+#if 0
                 if (player->p.z < 0.f)
                 {
                     player->p.z           = 0.f;
                     player->dp.z          = 0.f;
                     jump_time_accumulator = 0.f;
                 }
+#endif
 
             }
 
