@@ -333,10 +333,6 @@ raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
     return result;
 }
 
-#define GRAVITY       300.f
-#define JUMP_FORCE    700.f
-#define MAX_JUMP_TIME   0.15f
-
 // @todo: move aspect ratio variable (maybe into Camera/Renderer struct)
 void draw_level(Platform_Renderer *renderer, Level *level, Platform_Shader *shader, Camera *camera, r32 ar)
 {
@@ -762,38 +758,22 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             if (input->held.d)     player->ddp += 100.f * normalize(make_v3(cam_right.xy));
             if (input->held.a)     player->ddp -= 100.f * normalize(make_v3(cam_right.xy));
 
+#define GRAVITY       400.f
+#define JUMP_FORCE    900.f
+#define MAX_JUMP_TIME   0.2f
+
             if (input->held.space) {
                 player->ddp += JUMP_FORCE * make_v3(0.f, 0.f, 1.f);
                 jump_time_accumulator += dtime;
             }
 
-            //if (jump_time_accumulator >= MAX_JUMP_TIME)  player->ddp.z = 0.f;
+            if (jump_time_accumulator >= MAX_JUMP_TIME)  player->ddp.z = 0.f;
 
             player->ddp.z -= GRAVITY;
-
-#if 0
-            if ((player->ddp.z < 0.f) && is_on_ground) {
-                player->dp.z = -(Sqrt(least_hit.dist_sq) - GROUND_MARGIN + 0.005f) / dtime;
-                player->ddp.z = 0.f;
-            }
-#endif
-
 
             // simulating player physics
             if (player->physics_enabled)
             {
-
-#if 0
-                if (player->ddp.z > 0.f)
-                {
-                    jump_time_accumulator += dtime;
-
-                    if (jump_time_accumulator >= MAX_JUMP_TIME)
-                        player->ddp.z = 0.f;
-                }
-#endif
-
-
                 // @todo: movement equation
                 v3 player_prev_p = player->p;
 
@@ -816,7 +796,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                         {
                             least_hit = hit;
 
-#if WINDY_DEBUG
+#if 0 && WINDY_DEBUG
                             DEBUG_buffer[DEBUG_BUFFER_raycast+0] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0];
                             DEBUG_buffer[DEBUG_BUFFER_raycast+1] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+1];
                             DEBUG_buffer[DEBUG_BUFFER_raycast+2] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+2];
@@ -834,20 +814,12 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 {
                     player->p.z = player_prev_p.z - Sqrt(least_hit.dist_sq) + GROUND_MARGIN;
                     player->dp.z = 0.f;
+                    jump_time_accumulator = 0.f;
                 }
 
                 if (jump_time_accumulator >= MAX_JUMP_TIME) {
-                    jump_time_accumulator = 0.f;
+                    //jump_time_accumulator = 0.f;
                 }
-
-#if 0
-                if (player->p.z < 0.f)
-                {
-                    player->p.z           = 0.f;
-                    player->dp.z          = 0.f;
-                    jump_time_accumulator = 0.f;
-                }
-#endif
 
             }
 
