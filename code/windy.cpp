@@ -206,42 +206,6 @@ void third_person_camera(Input *input, Camera *camera, v3 target, r32 dtime)
 }
 #endif
 
-void editor_camera(Input *input, Camera *camera, r32 dtime)
-{
-    if (input->held.mouse_middle)
-    {
-        if (input->held.shift)
-        {
-            v3 forward = normalize(camera->target - camera->pos);
-            v3 right   = normalize(cross(forward, camera->up));
-            v3 up      = normalize(cross(right, forward));
-
-            r32 speed = 5.f;
-            camera->target += input->mouse.dy*up*dtime*speed - input->mouse.dx*right*dtime*speed;
-            camera->pos    += input->mouse.dy*up*dtime*speed - input->mouse.dx*right*dtime*speed;
-        }
-        else
-        {
-            camera->_yaw -= input->mouse.dx*PI*dtime;
-            camera->_pitch += input->mouse.dy*dtime;
-//            camera->_pitch  = Clamp(camera->_pitch, -PI/2.1f, PI/2.1f);
-            camera->_radius -= input->mouse.wheel*0.1f*dtime;
-        }
-    }
-    else
-    {
-        v3 forward = normalize(camera->target - camera->pos);
-        camera->target += input->mouse.wheel*dtime*forward;
-        camera->pos    += input->mouse.wheel*dtime*forward;
-    }
-
-    camera->pos.z  = Sin(camera->_pitch);
-    camera->pos.x  = Cos(camera->_yaw) * Cos(camera->_pitch);
-    camera->pos.y  = Sin(camera->_yaw) * Cos(camera->_pitch);
-    camera->pos    = normalize(camera->pos)*camera->_radius;
-    camera->pos   += camera->target;
-}
-
 #if 0
 struct Light_Buffer
 {
@@ -749,14 +713,13 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
             active_camera = &state->game_camera;
 
-            r32 speed = input->held.space ? 10.f : 3.f;
-            v3  cam_forward = state->game_camera.target - state->game_camera.pos;
-            v3  cam_right   = cross(cam_forward, state->game_camera.up);
+            v3 cam_forward = state->game_camera.target - state->game_camera.pos;
+            v3 cam_right   = cross(cam_forward, state->game_camera.up);
             player->ddp = {};
-            if (input->held.w)     player->ddp += 100.f * normalize(make_v3(cam_forward.xy));
-            if (input->held.s)     player->ddp -= 100.f * normalize(make_v3(cam_forward.xy));
-            if (input->held.d)     player->ddp += 100.f * normalize(make_v3(cam_right.xy));
-            if (input->held.a)     player->ddp -= 100.f * normalize(make_v3(cam_right.xy));
+            if (input->held.up)     player->ddp += 150.f * normalize(make_v3(cam_forward.xy));
+            if (input->held.down)   player->ddp -= 150.f * normalize(make_v3(cam_forward.xy));
+            if (input->held.right)  player->ddp += 150.f * normalize(make_v3(cam_right.xy));
+            if (input->held.left)   player->ddp -= 150.f * normalize(make_v3(cam_right.xy));
 
 #define GRAVITY       400.f
 #define JUMP_FORCE    900.f
@@ -909,7 +872,39 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 }
             }
 
-            editor_camera(input, &state->editor_camera, dtime);
+            if (input->held.mouse_middle || input->held.mouse_right)
+            {
+                if (input->held.shift)
+                {
+                    v3 forward = normalize(active_camera->target - active_camera->pos);
+                    v3 right   = normalize(cross(forward, active_camera->up));
+                    v3 up      = normalize(cross(right, forward));
+
+                    r32 speed = 5.f;
+                    active_camera->target += input->mouse.dy*up*dtime*speed - input->mouse.dx*right*dtime*speed;
+                    active_camera->pos    += input->mouse.dy*up*dtime*speed - input->mouse.dx*right*dtime*speed;
+                }
+                else
+                {
+                    active_camera->_yaw -= input->mouse.dx*PI*dtime;
+                    active_camera->_pitch += input->mouse.dy*dtime;
+                    //            active_camera->_pitch  = Clamp(active_camera->_pitch, -PI/2.1f, PI/2.1f);
+                    active_camera->_radius -= input->mouse.wheel*0.1f*dtime;
+                }
+            }
+            else
+            {
+                v3 forward = normalize(active_camera->target - active_camera->pos);
+                active_camera->target += input->mouse.wheel*dtime*forward;
+                active_camera->pos    += input->mouse.wheel*dtime*forward;
+            }
+
+            active_camera->pos.z  = Sin(active_camera->_pitch);
+            active_camera->pos.x  = Cos(active_camera->_yaw) * Cos(active_camera->_pitch);
+            active_camera->pos.y  = Sin(active_camera->_yaw) * Cos(active_camera->_pitch);
+            active_camera->pos    = normalize(active_camera->pos)*active_camera->_radius;
+            active_camera->pos   += active_camera->target;
+
         }
         else //if (*gamemode == GAMEMODE_MENU)
         {
