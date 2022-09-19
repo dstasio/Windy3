@@ -40,16 +40,28 @@ struct Camera
     v3 _pivot;   // Used for editor camera
 };
 
-struct Entity
-{
-    Platform_Mesh_Buffers buffers;
-    char *name;
+enum Entity_Type {
+    ENTITY_UNRESPONSIVE = 0,
+    ENTITY_MOVABLE,
+};
 
+struct Entity_Movable {
     b32 physics_enabled;
     m4 transform;
+
+    // @todo: p in entity base?
     v3 p;
     v3 dp;
     v3 ddp;
+};
+
+struct Entity
+{
+    Entity_Type            type;
+    Platform_Mesh_Buffers  buffers;
+    char                  *name;
+
+    Entity_Movable movable;
 };
 
 #define MAX_LEVEL_OBJECTS 20

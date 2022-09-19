@@ -44,15 +44,15 @@ string_compare(char *s1, char *s2)
 internal void
 mesh_move(Entity *mesh, v3 pos_delta)
 {
-    mesh->p        += pos_delta;
-    mesh->transform = translation_m4(mesh->p);
+    mesh->movable.p        += pos_delta;
+    mesh->movable.transform = translation_m4(mesh->movable.p);
 }
 
 internal void
 mesh_set_position(Entity *mesh, v3 pos)
 {
-    mesh->p         = pos;
-    mesh->transform = translation_m4(mesh->p);
+    mesh->movable.p         = pos;
+    mesh->movable.transform = translation_m4(mesh->movable.p);
 }
 
 // @note: if settings is zero, phong flags is zero and the shader uses the texture
@@ -89,7 +89,7 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer,
                 }
                 else
                 {
-                    mesh->transform  = identity_m4();
+                    mesh->movable.transform  = identity_m4();
                 }
 
                 if (settings)
@@ -237,9 +237,9 @@ raycast(Entity *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
     u16 *indices = (u16 *)mesh->buffers.index_data;
     for (u32 i = 0; i < mesh->buffers.index_count; i += 3)
     {
-        v3 p1 = mesh->transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i  ]))));
-        v3 p2 = mesh->transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+1]))));
-        v3 p3 = mesh->transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+2]))));
+        v3 p1 = mesh->movable.transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i  ]))));
+        v3 p2 = mesh->movable.transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+1]))));
+        v3 p3 = mesh->movable.transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+2]))));
 
         v3 n = normalize(cross(((p2) - (p1)), ((p3) - (p1))));
         if (dot(n, dir) < 0)
@@ -315,7 +315,7 @@ void draw_level(Platform_Renderer *renderer, Level *level, Platform_Shader *shad
          (mesh - level->objects) < level->n_objects;
          mesh += 1)
     {
-        renderer->draw_mesh(&mesh->buffers, &mesh->transform, 0, 0, 0, 0, 0, 0);
+        renderer->draw_mesh(&mesh->buffers, &mesh->movable.transform, 0, 0, 0, 0, 0, 0);
     }
 }
 
@@ -343,7 +343,7 @@ gjk_get_farthest_along_direction(v3 dir, Entity *m)
         }
     }
 
-    farthest += m->p;
+    farthest += m->movable.p;
     return farthest;
 }
 
@@ -637,8 +637,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
         state->current_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/level_0.wexp", state->phong_shader);
         state->player = find_mesh(state->current_level, "Player");
-        state->player->physics_enabled = 1;
-        state->player->p.z = 0.1f;
+        state->player->movable.physics_enabled = 1;
+        state->player->movable.p.z = 0.1f;
         //mesh_A = find_mesh(state->current_level, "Cube_A");
         //mesh_B = find_mesh(state->current_level, "Cube_B");
         //mesh_C = find_mesh(state->current_level, "Cube_C");
@@ -671,7 +671,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->editor_camera._radius     = 2.5f;
         state->editor_camera._pitch      = 1.f;
         state->editor_camera._yaw        = PI/2.f;
-        state->editor_camera._pivot      = state->player->p;
+        state->editor_camera._pivot      = state->player->movable.p;
 
         state->current_level->lights.light_count = 0;
 
@@ -715,33 +715,33 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
             v3 cam_forward = state->game_camera.target - state->game_camera.pos;
             v3 cam_right   = cross(cam_forward, state->game_camera.up);
-            player->ddp = {};
-            if (input->held.up)     player->ddp += 150.f * normalize(make_v3(cam_forward.xy));
-            if (input->held.down)   player->ddp -= 150.f * normalize(make_v3(cam_forward.xy));
-            if (input->held.right)  player->ddp += 150.f * normalize(make_v3(cam_right.xy));
-            if (input->held.left)   player->ddp -= 150.f * normalize(make_v3(cam_right.xy));
+            player->movable.ddp = {};
+            if (input->held.up)     player->movable.ddp += 150.f * normalize(make_v3(cam_forward.xy));
+            if (input->held.down)   player->movable.ddp -= 150.f * normalize(make_v3(cam_forward.xy));
+            if (input->held.right)  player->movable.ddp += 150.f * normalize(make_v3(cam_right.xy));
+            if (input->held.left)   player->movable.ddp -= 150.f * normalize(make_v3(cam_right.xy));
 
 #define GRAVITY       400.f
 #define JUMP_FORCE    900.f
 #define MAX_JUMP_TIME   0.2f
 
             if (input->held.space) {
-                player->ddp += JUMP_FORCE * make_v3(0.f, 0.f, 1.f);
+                player->movable.ddp += JUMP_FORCE * make_v3(0.f, 0.f, 1.f);
                 jump_time_accumulator += dtime;
             }
 
-            if (jump_time_accumulator >= MAX_JUMP_TIME)  player->ddp.z = 0.f;
+            if (jump_time_accumulator >= MAX_JUMP_TIME)  player->movable.ddp.z = 0.f;
 
-            player->ddp.z -= GRAVITY;
+            player->movable.ddp.z -= GRAVITY;
 
             // simulating player physics
-            if (player->physics_enabled)
+            if (player->movable.physics_enabled)
             {
                 // @todo: movement equation
-                v3 player_prev_p = player->p;
+                v3 player_prev_p = player->movable.p;
 
-                player->dp += (player->ddp - player->dp * 9.f) * dtime;
-                mesh_move(player, player->dp * dtime);
+                player->movable.dp += (player->movable.ddp - player->movable.dp * 9.f) * dtime;
+                mesh_move(player, player->movable.dp * dtime);
 
                 // Ground raycast
                 bool is_on_ground = true;
@@ -754,7 +754,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                         if (level_mesh == player) continue;
 
 #define GROUND_MARGIN 0.01f
-                        Raycast_Result hit = raycast(level_mesh, player_prev_p, {0.f, 0.f, -1.f}, 0.f, player->p.z - player_prev_p.z);
+                        Raycast_Result hit = raycast(level_mesh, player_prev_p, {0.f, 0.f, -1.f}, 0.f, player->movable.p.z - player_prev_p.z);
                         if ((hit.hit) && (!least_hit.hit || (hit.dist_sq < least_hit.dist_sq)))
                         {
                             least_hit = hit;
@@ -773,10 +773,10 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     is_on_ground = least_hit.hit;
                 }
 
-                if (player->ddp.z < 0.f && is_on_ground)
+                if (player->movable.ddp.z < 0.f && is_on_ground)
                 {
-                    player->p.z = player_prev_p.z - Sqrt(least_hit.dist_sq) + GROUND_MARGIN;
-                    player->dp.z = 0.f;
+                    player->movable.p.z = player_prev_p.z - Sqrt(least_hit.dist_sq) + GROUND_MARGIN;
+                    player->movable.dp.z = 0.f;
                     jump_time_accumulator = 0.f;
                 }
 
@@ -786,8 +786,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
             }
 
-            active_camera->pos.x = player->p.x;
-            active_camera->target.x = player->p.x;
+            active_camera->pos.x = player->movable.p.x;
+            active_camera->target.x = player->movable.p.x;
         }
         else if (*gamemode == GAMEMODE_EDITOR)
         {
@@ -800,7 +800,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 if (input->pressed.g)
                 {
                     move_mask = make_v3(!move_mask);
-                    if (move_mask)  moving_start_position = state->selected->p;
+                    if (move_mask)  moving_start_position = state->selected->movable.p;
                 }
             }
 
@@ -813,8 +813,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 if (input->pressed.mouse_right)
                 {
                     move_mask = {};
-                    state->selected->p = moving_start_position;
-                    state->selected->transform = translation_m4(state->selected->p);
+                    state->selected->movable.p = moving_start_position;
+                    state->selected->movable.transform = translation_m4(state->selected->movable.p);
                 }
                 else if (input->pressed.mouse_left)
                 {
@@ -827,7 +827,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     v3 up      = normalize(cross(right, forward));
 
                     v3 movement = input->mouse.dx*right - input->mouse.dy*up;
-                    movement /= dot((state->selected->p - active_camera->pos), forward);
+                    movement /= dot((state->selected->movable.p - active_camera->pos), forward);
                     movement.x *= move_mask.x;
                     movement.y *= move_mask.y;
                     movement.z *= move_mask.z;
@@ -929,7 +929,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     {
         if (state->selected)
         {
-            renderer->draw_mesh(&state->selected->buffers, &state->selected->transform, state->phong_shader, 0, 0, 0, 0, 1);
+            renderer->draw_mesh(&state->selected->buffers, &state->selected->movable.transform, state->phong_shader, 0, 0, 0, 0, 1);
         }
 
 #if 0
