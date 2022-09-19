@@ -16,9 +16,9 @@ v3 DEBUG_buffer[DEBUG_BUFFER_new*2] = {};
 #endif
 
 r32 global_mouse_sensitivity = 50.f;
-//global Mesh *mesh_A;
-//global Mesh *mesh_B;
-//global Mesh *mesh_C;
+//global Entity *mesh_A;
+//global Entity *mesh_B;
+//global Entity *mesh_C;
 
 #define HEX_COLOR(hex) {(r32)(((hex) & 0xFF0000) >> 16) / 255.f, (r32)(((hex) & 0xFF00) >> 8) / 255.f, (r32)((hex) & 0xFF) / 255.f}
 
@@ -42,14 +42,14 @@ string_compare(char *s1, char *s2)
 }
 
 internal void
-mesh_move(Mesh *mesh, v3 pos_delta)
+mesh_move(Entity *mesh, v3 pos_delta)
 {
     mesh->p        += pos_delta;
     mesh->transform = translation_m4(mesh->p);
 }
 
 internal void
-mesh_set_position(Mesh *mesh, v3 pos)
+mesh_set_position(Entity *mesh, v3 pos)
 {
     mesh->p         = pos;
     mesh->transform = translation_m4(mesh->p);
@@ -75,7 +75,7 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer,
             Wexp_Mesh_Header *mesh_header = (Wexp_Mesh_Header *)(wexp + 1);
             while(mesh_header->signature == 0x6D57)   // If signature is 'Wm', current object is a mesh
             {
-                Mesh *mesh = &level->objects[level->n_objects];
+                Entity *mesh = &level->objects[level->n_objects];
                 mesh->buffers.vertex_data   = byte_offset(mesh_header, mesh_header->vertex_data_offset);
                 mesh->buffers. index_data   = byte_offset(mesh_header, mesh_header->index_data_offset);
                 mesh->buffers.vertex_count  = (mesh_header->index_data_offset - mesh_header->vertex_data_offset) / WEXP_VERTEX_SIZE;
@@ -122,10 +122,10 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer,
 
 // Searches for a mesh with the given name
 // If none is found, returns 0
-internal Mesh *
+internal Entity *
 find_mesh(Level *level, char *name)
 {
-    Mesh *result = 0;
+    Entity *result = 0;
     for (u32 mesh_index = 0;
          (!result) && (mesh_index < level->n_objects);
          ++mesh_index)
@@ -226,10 +226,10 @@ struct Raycast_Result
 };
 
 // @todo: Better algorithm
-// @todo: take Mesh struct as parameter, and use its transform matrix
+// @todo: take Entity struct as parameter, and use its transform matrix
 //
 internal Raycast_Result
-raycast(Mesh *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
+raycast(Entity *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
 {
     Raycast_Result result = {};
 
@@ -311,7 +311,7 @@ void draw_level(Platform_Renderer *renderer, Level *level, Platform_Shader *shad
 
     renderer->draw_mesh(0, 0, shader, &cam_space_transform, &screen_space_transform, &level->lights, &camera->pos, 0);
 
-    for (Mesh *mesh = level->objects; 
+    for (Entity *mesh = level->objects; 
          (mesh - level->objects) < level->n_objects;
          mesh += 1)
     {
@@ -323,7 +323,7 @@ void draw_level(Platform_Renderer *renderer, Level *level, Platform_Shader *shad
 
 // @todo: support rotations
 internal v3
-gjk_get_farthest_along_direction(v3 dir, Mesh *m)
+gjk_get_farthest_along_direction(v3 dir, Entity *m)
 {
     void  *vertices = m->buffers.vertex_data;
     u32  n_vertices = m->buffers.vertex_count;
@@ -526,7 +526,7 @@ gjk_do_simplex(v3 *simplex, u32 *simplex_count, v3 *out_dir)
 
 // @todo: support rotations
 internal b32
-gjk_intersection(Mesh *x, Mesh *y)
+gjk_intersection(Entity *x, Entity *y)
 {
     b32 intersection = 0;
 
@@ -555,7 +555,7 @@ gjk_intersection(Mesh *x, Mesh *y)
 }
 
 internal b32
-check_mesh_collision(Mesh *mesh, Level *level)
+check_mesh_collision(Entity *mesh, Level *level)
 {
     for (u32 mesh_index = 0; mesh_index < level->n_objects; ++mesh_index)
     {
@@ -708,7 +708,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 //        input->mouse.pos *= global_mouse_sensitivity;
         if (*gamemode == GAMEMODE_GAME) 
         {
-            Mesh *player = state->player;
+            Entity *player = state->player;
             local_persist r32 jump_time_accumulator = 0.f;
 
             active_camera = &state->game_camera;
@@ -747,7 +747,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 bool is_on_ground = true;
                 Raycast_Result least_hit = {};
                 {
-                    for (Mesh *level_mesh = state->current_level->objects; 
+                    for (Entity *level_mesh = state->current_level->objects; 
                          (level_mesh - state->current_level->objects) < state->current_level->n_objects;
                          level_mesh += 1)
                     {
@@ -849,7 +849,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
                     Screen_To_World_Result click = screen_space_to_world(active_camera, ((r32)width/(r32)height), input->mouse.p);
 
-                    for (Mesh *mesh = state->current_level->objects; 
+                    for (Entity *mesh = state->current_level->objects; 
                          (mesh - state->current_level->objects) < state->current_level->n_objects;
                          mesh += 1)
                     {

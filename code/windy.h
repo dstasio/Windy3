@@ -40,7 +40,7 @@ struct Camera
     v3 _pivot;   // Used for editor camera
 };
 
-struct Mesh
+struct Entity
 {
     Platform_Mesh_Buffers buffers;
     char *name;
@@ -54,16 +54,16 @@ struct Mesh
 
 #define MAX_LEVEL_OBJECTS 20
 #define MAX_LEVEL_LIGHTS  10
-// @todo: Mesh struct should keep all the info needed for rendering
+// @todo: Entity struct should keep all the info needed for rendering
 struct Level
 {
     // @todo: use pointers for meshes
-    Mesh objects[MAX_LEVEL_OBJECTS];
+    Entity objects[MAX_LEVEL_OBJECTS];
     Platform_Light_Buffer lights;
     u32  n_objects;
     u32  n_lights;
 
-    Mesh &last_obj() {return objects[n_objects - 1];};
+    Entity &last_obj() {return objects[n_objects - 1];};
 };
  
 struct Game_State
@@ -72,9 +72,9 @@ struct Game_State
     Platform_Shader  *font_shader;
 
     Level *current_level;
-    Mesh *selected;
-    Mesh *env;
-    Mesh *player;
+    Entity *selected;
+    Entity *env;
+    Entity *player;
 
     Platform_Texture  tex_white;
     Platform_Texture  tex_yellow;
