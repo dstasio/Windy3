@@ -413,6 +413,7 @@ WinMain(
                 {
                     switch(Message.message)
                     {
+                        case WM_SYSKEYDOWN:
                         case WM_KEYDOWN:
                         {
                             key_down(VK_UP,      up);
@@ -438,6 +439,7 @@ WinMain(
                             key_down(VK_MENU,    alt);
                         } break;
 
+                        case WM_SYSKEYUP:
                         case WM_KEYUP:
                         {
                             key_up(VK_UP,      up);
@@ -461,16 +463,6 @@ WinMain(
                             key_up(VK_ESCAPE,  esc);
                             key_up(VK_TAB,     tab);
                             key_up(VK_MENU,    alt);
-                        } break;
-
-                        case WM_SYSKEYDOWN:
-                        {
-                            key_down(VK_MENU, alt);
-                        } break;
-
-                        case WM_SYSKEYUP:
-                        {
-                            key_up(VK_MENU, alt);
                         } break;
 
 #define WINDY_WIN32_MOUSE_SENSITIVITY 1000.f

@@ -838,7 +838,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 {
                     active_camera->is_ortho = !active_camera->is_ortho;
                 }
-                if (input->pressed.mouse_left)
+                if (input->pressed.mouse_left && !input->held.alt)
                 {
                     state->selected = 0;
                     r32 least_hit_distance = 0.f;
@@ -868,6 +868,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 }
             }
 
+            if (input->held.shift)
+                printf("not");
+
             if (input->held.mouse_middle || (input->held.alt && input->held.mouse_left))
             {
                 if (input->held.shift)
@@ -888,7 +891,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     active_camera->_radius -= input->mouse.wheel*0.1f*dtime;
                 }
             }
-            else
+            else if (input->mouse.wheel)
             {
                 v3 forward = normalize(active_camera->target - active_camera->pos);
                 active_camera->target += input->mouse.wheel*dtime*forward;
