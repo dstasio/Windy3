@@ -47,12 +47,12 @@ enum Entity_Type {
 
 struct Entity_Movable {
     b32 physics_enabled;
-    m4 transform;
+    m4  transform;
 
     // @todo: p in entity base?
-    v3 p;
-    v3 dp;
-    v3 ddp;
+    v3  p;
+    v3  dp;
+    v3  ddp;
 };
 
 struct Entity
@@ -84,9 +84,11 @@ struct Game_State
     Platform_Shader  *font_shader;
 
     Level *current_level;
+    Level *  arrow_level;
     Entity *selected;
     Entity *env;
     Entity *player;
+    Entity *debug_arrow;
 
     Platform_Texture  tex_white;
     Platform_Texture  tex_yellow;

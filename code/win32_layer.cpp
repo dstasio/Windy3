@@ -262,7 +262,6 @@ LRESULT CALLBACK WindyProc(
     return(Result);
 }
 
-
 int
 WinMain(
     HINSTANCE Instance,
@@ -407,6 +406,7 @@ WinMain(
 
             Assert(QueryPerformanceCounter((LARGE_INTEGER *)&current_performance_counter));
             r32 dtime = (r32)(current_performance_counter - last_performance_counter) / (r32)performance_counter_frequency;
+
             while(dtime <= target_ms_per_frame)
             {
                 while(PeekMessageA(&Message, MainWindow, 0, 0, PM_REMOVE))
@@ -461,6 +461,16 @@ WinMain(
                             key_up(VK_ESCAPE,  esc);
                             key_up(VK_TAB,     tab);
                             key_up(VK_MENU,    alt);
+                        } break;
+
+                        case WM_SYSKEYDOWN:
+                        {
+                            key_down(VK_MENU, alt);
+                        } break;
+
+                        case WM_SYSKEYUP:
+                        {
+                            key_up(VK_MENU, alt);
                         } break;
 
 #define WINDY_WIN32_MOUSE_SENSITIVITY 1000.f

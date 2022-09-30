@@ -1,4 +1,6 @@
 
+Separate files for meshes and levels. (arrow_level should not exist)
+
 // Level = load_level("")
 // add_meshes_to_level(level, "")
 // *player_model = search_mesh_in_level(level, "player")

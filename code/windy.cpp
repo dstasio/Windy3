@@ -16,9 +16,6 @@ v3 DEBUG_buffer[DEBUG_BUFFER_new*2] = {};
 #endif
 
 r32 global_mouse_sensitivity = 50.f;
-//global Entity *mesh_A;
-//global Entity *mesh_B;
-//global Entity *mesh_C;
 
 #define HEX_COLOR(hex) {(r32)(((hex) & 0xFF0000) >> 16) / 255.f, (r32)(((hex) & 0xFF00) >> 8) / 255.f, (r32)((hex) & 0xFF) / 255.f}
 
@@ -123,7 +120,7 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer,
 // Searches for a mesh with the given name
 // If none is found, returns 0
 internal Entity *
-find_mesh(Level *level, char *name)
+find_mesh_checked(Level *level, char *name)
 {
     Entity *result = 0;
     for (u32 mesh_index = 0;
@@ -133,6 +130,8 @@ find_mesh(Level *level, char *name)
         if (string_compare(name, level->objects[mesh_index].name))
             result = &level->objects[mesh_index];
     }
+
+    Assert(result);
     return result;
 }
 
@@ -635,16 +634,14 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->tex_yellow = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_yellow.bmp");
         renderer->init_square_mesh(state->font_shader);
 
+        state->arrow_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/debug/arrow.wexp", state->phong_shader);
+        state->debug_arrow = find_mesh_checked(state->arrow_level, "Arrow");
+
         state->current_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/level_0.wexp", state->phong_shader);
-        state->player = find_mesh(state->current_level, "Player");
+        state->player        = find_mesh_checked(state->current_level, "Player");
+        state->player->type = ENTITY_MOVABLE;
         state->player->movable.physics_enabled = 1;
         state->player->movable.p.z = 0.1f;
-        //mesh_A = find_mesh(state->current_level, "Cube_A");
-        //mesh_B = find_mesh(state->current_level, "Cube_B");
-        //mesh_C = find_mesh(state->current_level, "Cube_C");
-        //Assert(mesh_A);
-        //Assert(mesh_B);
-        //Assert(mesh_C);
 
         load_font(&state->inconsolata, memory->read_file, "assets/Inconsolata.ttf", 32);
 
@@ -705,7 +702,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     Camera *active_camera = 0;
     { // Input Processing.
         input->mouse.dp *= global_mouse_sensitivity;
-//        input->mouse.pos *= global_mouse_sensitivity;
         if (*gamemode == GAMEMODE_GAME) 
         {
             Entity *player = state->player;
@@ -872,7 +868,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 }
             }
 
-            if (input->held.mouse_middle || input->held.mouse_right)
+            if (input->held.mouse_middle || (input->held.alt && input->held.mouse_left))
             {
                 if (input->held.shift)
                 {
@@ -930,6 +926,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         if (state->selected)
         {
             renderer->draw_mesh(&state->selected->buffers, &state->selected->movable.transform, state->phong_shader, 0, 0, 0, 0, 1);
+
+            renderer->draw_mesh(&state->debug_arrow->buffers, &state->selected->movable.transform, state->phong_shader, 0, 0, 0, 0, 0);
         }
 
 #if 0
