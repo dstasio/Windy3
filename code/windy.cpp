@@ -622,14 +622,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         renderer->reload_shader(    state->      font_shader, "fonts");
         renderer->reload_shader(&renderer->     debug_shader, "debug");
 
-        Platform_Phong_Settings phong_settings = {};
-        phong_settings.flags = PHONG_FLAG_SOLIDCOLOR;
-        phong_settings.color = {0.2f, 0.3f, 0.6f};
-        //load_mesh(renderer, memory->read_file, "assets/testpoly.wexp", &state->current_level, state->phong_shader, &phong_settings);
-        //state->env    = load_mesh(renderer, memory->read_file, "assets/environment.wexp", &state->current_level, state->phong_shader);
-        phong_settings.flags = PHONG_FLAG_SOLIDCOLOR;
-        phong_settings.color = {0.8f, 0.f, 0.2f};
-        //state->player = load_mesh(renderer, memory->read_file, "assets/player.wexp",      &state->current_level, state->phong_shader, &phong_settings);
         state->tex_white  = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_white.bmp");
         state->tex_yellow = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_yellow.bmp");
         renderer->init_square_mesh(state->font_shader);
