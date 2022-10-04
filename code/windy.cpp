@@ -64,55 +64,44 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer,
     Level *level = push_struct(mempool, Level);
     Input_File wexp_file = read_file(path);
     Wexp_Header *wexp = (Wexp_Header *)wexp_file.data;
-    if (wexp->signature == 0x7857)  // 'Wx'
+
+    Assert(wexp->signature != 0x7877) // 'wx': old wexp file
+    Assert(wexp->version == 2);
+
+    Assert(wexp->signature == 0x7857);  // 'Wx': new wexp file
+
+    // wexp->mesh_count
+    Wexp_Mesh_Header *mesh_header = (Wexp_Mesh_Header *)(wexp + 1);
+    while(mesh_header->signature == 0x6D57)   // If signature is 'Wm', current object is a mesh
     {
-        if (wexp->version < 3)
+        Entity *mesh = &level->objects[level->n_objects];
+        mesh->buffers.vertex_data   = byte_offset(mesh_header, mesh_header->vertex_data_offset);
+        mesh->buffers. index_data   = byte_offset(mesh_header, mesh_header->index_data_offset);
+        mesh->buffers.vertex_count  = (mesh_header->index_data_offset - mesh_header->vertex_data_offset) / WEXP_VERTEX_SIZE;
+        mesh->buffers. index_count  = truncate_to_u16((mesh_header->name_offset  - mesh_header->index_data_offset) / WEXP_INDEX_SIZE);
+        mesh->buffers.vertex_stride = WEXP_VERTEX_SIZE;
+        mesh->name = (char *)byte_offset(mesh_header, mesh_header->name_offset);
+
+        if (wexp->version == 2)
         {
-            // wexp->mesh_count
-            Wexp_Mesh_Header *mesh_header = (Wexp_Mesh_Header *)(wexp + 1);
-            while(mesh_header->signature == 0x6D57)   // If signature is 'Wm', current object is a mesh
-            {
-                Entity *mesh = &level->objects[level->n_objects];
-                mesh->buffers.vertex_data   = byte_offset(mesh_header, mesh_header->vertex_data_offset);
-                mesh->buffers. index_data   = byte_offset(mesh_header, mesh_header->index_data_offset);
-                mesh->buffers.vertex_count  = (mesh_header->index_data_offset - mesh_header->vertex_data_offset) / WEXP_VERTEX_SIZE;
-                mesh->buffers. index_count  = truncate_to_u16((mesh_header->name_offset  - mesh_header->index_data_offset) / WEXP_INDEX_SIZE);
-                mesh->buffers.vertex_stride = WEXP_VERTEX_SIZE;
-                mesh->name = (char *)byte_offset(mesh_header, mesh_header->name_offset);
-
-                if (wexp->version == 2)
-                {
-                    mesh_set_position(mesh, mesh_header->world_position);
-                }
-                else
-                {
-                    mesh->movable.transform  = identity_m4();
-                }
-
-                if (settings)
-                    mesh->buffers.settings = *settings;
-
-                renderer->init_mesh(&mesh->buffers, shader);
-
-                level->n_objects += 1;
-                mesh_header = (Wexp_Mesh_Header *)byte_offset(mesh_header, mesh_header->next_elem_offset);
-            }
+            mesh_set_position(mesh, mesh_header->world_position);
         }
         else
         {
-            // @todo: Log
+            Assert(0);
+            mesh->movable.transform  = identity_m4();
         }
-    }
-    else if (wexp->signature == 0x7877) // 'wx'
-    {
-        // Legacy wexp file
-        Assert(0);
-    }
-    else
-    {
-        // @todo: Log
+
+        if (settings)
+            mesh->buffers.settings = *settings;
+
+        renderer->init_mesh(&mesh->buffers, shader);
+
+        level->n_objects += 1;
+        mesh_header = (Wexp_Mesh_Header *)byte_offset(mesh_header, mesh_header->next_elem_offset);
     }
 
+    // @todo: we don't close the file because we point our mesh data to the file.
 //    close_file(&wexp_file);
     return level;
 }
@@ -652,17 +641,17 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->game_camera.max_z       = 1000.f;
         state->game_camera.is_ortho    = 0;
 
-        state->editor_camera.pos         = {0.f, -3.f, 2.f};
-        state->editor_camera.target      = {0.f,  0.f, 0.f};
-        state->editor_camera.up          = {0.f,  0.f, 1.f};
+        state->editor_camera.pos         = {-6.17f, 2.3f, 7.f};
+        state->editor_camera.target      = {-4.f, 2.4f, 6.f};
+        state->editor_camera.up          = { 0.f,  0.f, 1.f};
         state->editor_camera.fov         = DegToRad*60.f;
         state->editor_camera.min_z       = 0.01f;
         state->editor_camera.max_z       = 100.f;
         state->editor_camera.is_ortho    = 0;
         state->editor_camera.ortho_scale = 20.f;
         state->editor_camera._radius     = 2.5f;
-        state->editor_camera._pitch      = 1.f;
-        state->editor_camera._yaw        = PI/2.f;
+        state->editor_camera._pitch      = 0.453010529f;
+        state->editor_camera._yaw        = 2.88975f;
         state->editor_camera._pivot      = state->player->movable.p;
 
         state->current_level->lights.light_count = 0;
@@ -835,8 +824,10 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 }
                 if (input->pressed.mouse_left && !input->held.alt)
                 {
+                    Entity *_prev_selected = state->selected;
+
                     state->selected = 0;
-                    r32 least_hit_distance = 0.f;
+                    r32 least_hit_distance_sq = 0.f;
 
                     Screen_To_World_Result click = screen_space_to_world(active_camera, ((r32)width/(r32)height), input->mouse.p);
 
@@ -844,13 +835,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                          (entity - state->current_level->objects) < state->current_level->n_objects;
                          entity += 1)
                     {
-                        if (entity->type == ENTITY_UI) continue;
-
                         Raycast_Result hit = raycast(entity, click.pos, click.dir, active_camera->min_z, active_camera->max_z);
-                        if ((hit.hit) && (!least_hit_distance || (hit.dist_sq < least_hit_distance)))
+                        if ((hit.hit) && (!least_hit_distance_sq || (hit.dist_sq < least_hit_distance_sq)))
                         {
                             state->selected = entity;
-                            least_hit_distance = hit.dist_sq;
+                            least_hit_distance_sq = hit.dist_sq;
 
 #if WINDY_DEBUG
                             DEBUG_buffer[DEBUG_BUFFER_raycast+0] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0];
@@ -862,6 +851,20 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 #endif
                         }
                     }
+
+                    if (state->selected)
+                    {
+                        state->debug_arrow->movable.transform = state->selected->movable.transform;
+                    }
+
+                    // @todo: for now we manually add raycasts against entities which are not in the level.
+                    Raycast_Result hit = raycast(state->debug_arrow, click.pos, click.dir, active_camera->min_z, active_camera->max_z);
+                    if ((hit.hit) && (!least_hit_distance_sq || (hit.dist_sq < least_hit_distance_sq)))
+                    {
+                        state->selected = _prev_selected;
+                        least_hit_distance_sq = hit.dist_sq;
+                    }
+
                 }
             }
 
@@ -927,7 +930,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         {
             renderer->draw_mesh(&state->selected->buffers, &state->selected->movable.transform, state->phong_shader, 0, 0, 0, 0, 1);
 
-            renderer->draw_mesh(&state->debug_arrow->buffers, &state->selected->movable.transform, state->phong_shader, 0, 0, 0, 0, 0);
+            Assert(state->selected->type != ENTITY_UI);
+            renderer->draw_mesh(&state->debug_arrow->buffers, &state->debug_arrow->movable.transform, state->phong_shader, 0, 0, 0, 0, 0);
         }
 
 #if 0
