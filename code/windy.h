@@ -43,6 +43,8 @@ struct Camera
 enum Entity_Type {
     ENTITY_UNRESPONSIVE = 0,
     ENTITY_MOVABLE,
+
+    ENTITY_UI,
 };
 
 struct Entity_Movable {

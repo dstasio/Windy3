@@ -25,7 +25,7 @@
 #pragma pack(push, 16)
 struct Platform_Phong_Settings
 {
-    u32 flags;
+    u32 flags; // @note: see hlsl_defines.h for available flags
     v3  color;
 };
 #pragma pack(pop)

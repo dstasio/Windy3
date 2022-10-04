@@ -613,7 +613,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         renderer->load_renderer(renderer);
 
         //
-        // Shaders
+        // Shaders and meshes/entities
         //
         // @todo: remove need for pre-allocation
         state->phong_shader       = push_struct(&volatile_pool, Platform_Shader);
@@ -628,6 +628,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
         state->arrow_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/debug/arrow.wexp", state->phong_shader);
         state->debug_arrow = find_mesh_checked(state->arrow_level, "Arrow");
+        state->debug_arrow->type = ENTITY_UI;
+        state->debug_arrow->buffers.settings.flags = (PHONG_FLAG_UNLIT | PHONG_FLAG_SOLIDCOLOR);
+        state->debug_arrow->buffers.settings.color = {0.f, .5f, .9f};
 
         state->current_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/level_0.wexp", state->phong_shader);
         state->player        = find_mesh_checked(state->current_level, "Player");
@@ -837,14 +840,16 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
                     Screen_To_World_Result click = screen_space_to_world(active_camera, ((r32)width/(r32)height), input->mouse.p);
 
-                    for (Entity *mesh = state->current_level->objects; 
-                         (mesh - state->current_level->objects) < state->current_level->n_objects;
-                         mesh += 1)
+                    for (Entity *entity = state->current_level->objects; 
+                         (entity - state->current_level->objects) < state->current_level->n_objects;
+                         entity += 1)
                     {
-                        Raycast_Result hit = raycast(mesh, click.pos, click.dir, active_camera->min_z, active_camera->max_z);
+                        if (entity->type == ENTITY_UI) continue;
+
+                        Raycast_Result hit = raycast(entity, click.pos, click.dir, active_camera->min_z, active_camera->max_z);
                         if ((hit.hit) && (!least_hit_distance || (hit.dist_sq < least_hit_distance)))
                         {
-                            state->selected = mesh;
+                            state->selected = entity;
                             least_hit_distance = hit.dist_sq;
 
 #if WINDY_DEBUG
