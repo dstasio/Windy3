@@ -88,13 +88,12 @@ struct Game_State
     Platform_Shader  *font_shader;
 
     Level *current_level;
-    Level *  arrow_level;
+    Level *  gizmo_level;
 
     Entity *selected;
     b32     is_mouse_dragging; // true if mouse is being held down
 
     Entity *player;
-    Entity *debug_arrow;
 
     Platform_Texture  tex_white;
     Platform_Texture  tex_yellow;

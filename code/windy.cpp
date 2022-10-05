@@ -615,11 +615,24 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->tex_yellow = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_yellow.bmp");
         renderer->init_square_mesh(state->font_shader);
 
-        state->arrow_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/debug/arrow.wexp", state->phong_shader);
-        state->debug_arrow = find_mesh_checked(state->arrow_level, "Arrow");
-        state->debug_arrow->type = ENTITY_UI;
-        state->debug_arrow->buffers.settings.flags = (PHONG_FLAG_UNLIT | PHONG_FLAG_SOLIDCOLOR);
-        state->debug_arrow->buffers.settings.color = {0.f, .5f, .9f};
+        { // Editor Gizmo
+            state->gizmo_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/debug/gizmo.wexp", state->phong_shader);
+
+            Entity *arrow_x = find_mesh_checked(state->gizmo_level, "X");
+            arrow_x->type                   = ENTITY_UI;
+            arrow_x->buffers.settings.flags = (PHONG_FLAG_UNLIT | PHONG_FLAG_SOLIDCOLOR);
+            arrow_x->buffers.settings.color = {.9f, .1f, 0.f};
+
+            Entity *arrow_y = find_mesh_checked(state->gizmo_level, "Y");
+            arrow_y->type                   = ENTITY_UI;
+            arrow_y->buffers.settings.flags = (PHONG_FLAG_UNLIT | PHONG_FLAG_SOLIDCOLOR);
+            arrow_y->buffers.settings.color = {.1f, .9f, 0.2f};
+
+            Entity *arrow_z = find_mesh_checked(state->gizmo_level, "Z");
+            arrow_z->type                   = ENTITY_UI;
+            arrow_z->buffers.settings.flags = (PHONG_FLAG_UNLIT | PHONG_FLAG_SOLIDCOLOR);
+            arrow_z->buffers.settings.color = {0.1f, .3f, .9f};
+        }
 
         state->current_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/level_0.wexp", state->phong_shader);
         state->player        = find_mesh_checked(state->current_level, "Player");
@@ -769,6 +782,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             active_camera->pos.x = player->movable.p.x;
             active_camera->target.x = player->movable.p.x;
         }
+#if WINDY_INTERNAL
         else if (*gamemode == GAMEMODE_EDITOR)
         {
             active_camera = &state->editor_camera;
@@ -787,21 +801,37 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 }
 
                 Assert(state->selected->type != ENTITY_UI);
-                state->debug_arrow->movable.transform = state->selected->movable.transform;
 
                 // @todo: for now we manually trigger raycasts against entities which are not in the level.
                 //        should this be changed?
-                Raycast_Result hit = raycast(state->debug_arrow, deprojected_mouse.pos, deprojected_mouse.dir, active_camera->min_z, active_camera->max_z);
-                if (hit.hit)
+                bool arrow_already_hit = false;
+                for (Entity *entity = state->gizmo_level->objects; 
+                     (entity - state->gizmo_level->objects) < state->gizmo_level->n_objects;
+                     entity += 1)
                 {
-                    // selected the arrow, so we move the entity that was selected at the previous frame
-                    //state->selected = _prev_selected;
-                    debug_arrow_dist_sq = hit.dist_sq;
+                    entity->movable.transform = state->selected->movable.transform;
 
-                    if (input->held.mouse_left && !state->is_mouse_dragging)
-                        move_mask = {0.f, 0.f, 1.f};
+                    if (arrow_already_hit)
+                        continue;
+
+                    Raycast_Result hit = raycast(entity, deprojected_mouse.pos, deprojected_mouse.dir, active_camera->min_z, active_camera->max_z);
+                    if (hit.hit)
+                    {
+                        debug_arrow_dist_sq = hit.dist_sq;
+
+                        if (input->held.mouse_left && !state->is_mouse_dragging) {
+                            if      (string_compare("X", entity->name))
+                                move_mask = {1.f, 0.f, 0.f};
+                            else if (string_compare("Y", entity->name))
+                                move_mask = {0.f, 1.f, 0.f};
+                            else if (string_compare("Z", entity->name))
+                                move_mask = {0.f, 0.f, 1.f};
+                            else { Assert(0); }
+                        }
+
+                        arrow_already_hit = true;
+                    }
                 }
-
             }
 
             if (move_mask)
@@ -907,6 +937,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             active_camera->pos   += active_camera->target;
 
         }
+#endif // WINDY_INTERNAL
         else //if (*gamemode == GAMEMODE_MENU)
         {
         }
@@ -932,7 +963,12 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         {
             renderer->draw_mesh(&state->selected->buffers, &state->selected->movable.transform, state->phong_shader, 0, 0, 0, 0, 1, 1);
 
-            renderer->draw_mesh(&state->debug_arrow->buffers, &state->debug_arrow->movable.transform, state->phong_shader, 0, 0, 0, 0, 0, 0);
+            for (Entity *entity = state->gizmo_level->objects; 
+                 (entity - state->gizmo_level->objects) < state->gizmo_level->n_objects;
+                 entity += 1)
+            {
+                renderer->draw_mesh(&entity->buffers, &entity->movable.transform, state->phong_shader, 0, 0, 0, 0, 0, 0);
+            }
         }
 
 #if 0
