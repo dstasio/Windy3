@@ -393,9 +393,26 @@ inline PLATFORM_SET_DEPTH_STENCIL(d3d11_set_depth_stencil)
     if (depth_enable)
     {
         if (stencil_enable)
+        {
+            Assert(0);
+        }
+        else
+        {
             state = d11->depth_nostencil_state;
+        }
     }
-    d11->context->OMSetDepthStencilState(d11->depth_nostencil_state, 1);
+    else
+    {
+        if (stencil_enable)
+        {
+            Assert(0);
+        }
+        else
+        {
+            state = d11->nodepth_nostencil_state;
+        }
+    }
+    d11->context->OMSetDepthStencilState(state, stencil_ref_value);
 }
 
 inline PLATFORM_CLEAR(d3d11_clear)
@@ -577,7 +594,7 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
 {
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
 
-    d11->context->OMSetDepthStencilState(d11->depth_nostencil_state, 1);
+    //d11->context->OMSetDepthStencilState(d11->depth_nostencil_state, 1);
 
     local_persist m4 camera = identity_m4();
     local_persist m4 screen = identity_m4();

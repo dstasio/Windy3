@@ -87,8 +87,10 @@ struct Game_State
 
     Level *current_level;
     Level *  arrow_level;
+
     Entity *selected;
-    Entity *env;
+    b32     is_mouse_dragging; // true if mouse is being held down
+
     Entity *player;
     Entity *debug_arrow;
 

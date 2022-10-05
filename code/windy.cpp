@@ -775,6 +775,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             local_persist v3 move_mask = {};
             local_persist v3 moving_start_position = {};
 
+            Screen_To_World_Result deprojected_mouse = screen_space_to_world(active_camera, ((r32)width/(r32)height), input->mouse.p);
+            r32 debug_arrow_dist_sq = 0.f;
+
             if (state->selected)
             {
                 if (input->pressed.g)
@@ -782,6 +785,23 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     move_mask = make_v3(!move_mask);
                     if (move_mask)  moving_start_position = state->selected->movable.p;
                 }
+
+                Assert(state->selected->type != ENTITY_UI);
+                state->debug_arrow->movable.transform = state->selected->movable.transform;
+
+                // @todo: for now we manually trigger raycasts against entities which are not in the level.
+                //        should this be changed?
+                Raycast_Result hit = raycast(state->debug_arrow, deprojected_mouse.pos, deprojected_mouse.dir, active_camera->min_z, active_camera->max_z);
+                if (hit.hit)
+                {
+                    // selected the arrow, so we move the entity that was selected at the previous frame
+                    //state->selected = _prev_selected;
+                    debug_arrow_dist_sq = hit.dist_sq;
+
+                    if (input->held.mouse_left && !state->is_mouse_dragging)
+                        move_mask = {0.f, 0.f, 1.f};
+                }
+
             }
 
             if (move_mask)
@@ -829,13 +849,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     state->selected = 0;
                     r32 least_hit_distance_sq = 0.f;
 
-                    Screen_To_World_Result click = screen_space_to_world(active_camera, ((r32)width/(r32)height), input->mouse.p);
-
                     for (Entity *entity = state->current_level->objects; 
                          (entity - state->current_level->objects) < state->current_level->n_objects;
                          entity += 1)
                     {
-                        Raycast_Result hit = raycast(entity, click.pos, click.dir, active_camera->min_z, active_camera->max_z);
+                        Raycast_Result hit = raycast(entity, deprojected_mouse.pos, deprojected_mouse.dir, active_camera->min_z, active_camera->max_z);
                         if ((hit.hit) && (!least_hit_distance_sq || (hit.dist_sq < least_hit_distance_sq)))
                         {
                             state->selected = entity;
@@ -852,24 +870,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                         }
                     }
 
-                    if (state->selected)
-                    {
-                        state->debug_arrow->movable.transform = state->selected->movable.transform;
-                    }
-
-                    // @todo: for now we manually add raycasts against entities which are not in the level.
-                    Raycast_Result hit = raycast(state->debug_arrow, click.pos, click.dir, active_camera->min_z, active_camera->max_z);
-                    if ((hit.hit) && (!least_hit_distance_sq || (hit.dist_sq < least_hit_distance_sq)))
-                    {
-                        state->selected = _prev_selected;
-                        least_hit_distance_sq = hit.dist_sq;
-                    }
-
                 }
             }
-
-            if (input->held.shift)
-                printf("not");
 
             if (input->held.mouse_middle || (input->held.alt && input->held.mouse_left))
             {
@@ -909,7 +911,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         {
         }
 
-    }
+        state->is_mouse_dragging = input->held.mouse_left;
+    } // End Input Processing.
 
 #if WINDY_INTERNAL
     renderer->reload_shader(    state->     phong_shader, "phong");
@@ -930,8 +933,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         {
             renderer->draw_mesh(&state->selected->buffers, &state->selected->movable.transform, state->phong_shader, 0, 0, 0, 0, 1);
 
-            Assert(state->selected->type != ENTITY_UI);
+            renderer->set_depth_stencil(false, false, 1);
             renderer->draw_mesh(&state->debug_arrow->buffers, &state->debug_arrow->movable.transform, state->phong_shader, 0, 0, 0, 0, 0);
+            renderer->set_depth_stencil(true, false, 1);
         }
 
 #if 0
