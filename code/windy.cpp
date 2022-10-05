@@ -74,28 +74,28 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer,
     Wexp_Mesh_Header *mesh_header = (Wexp_Mesh_Header *)(wexp + 1);
     while(mesh_header->signature == 0x6D57)   // If signature is 'Wm', current object is a mesh
     {
-        Entity *mesh = &level->objects[level->n_objects];
-        mesh->buffers.vertex_data   = byte_offset(mesh_header, mesh_header->vertex_data_offset);
-        mesh->buffers. index_data   = byte_offset(mesh_header, mesh_header->index_data_offset);
-        mesh->buffers.vertex_count  = (mesh_header->index_data_offset - mesh_header->vertex_data_offset) / WEXP_VERTEX_SIZE;
-        mesh->buffers. index_count  = truncate_to_u16((mesh_header->name_offset  - mesh_header->index_data_offset) / WEXP_INDEX_SIZE);
-        mesh->buffers.vertex_stride = WEXP_VERTEX_SIZE;
-        mesh->name = (char *)byte_offset(mesh_header, mesh_header->name_offset);
+        Entity *entity = &level->objects[level->n_objects];
+        entity->buffers.vertex_data   = byte_offset(mesh_header, mesh_header->vertex_data_offset);
+        entity->buffers. index_data   = byte_offset(mesh_header, mesh_header->index_data_offset);
+        entity->buffers.vertex_count  = (mesh_header->index_data_offset - mesh_header->vertex_data_offset) / WEXP_VERTEX_SIZE;
+        entity->buffers. index_count  = truncate_to_u16((mesh_header->name_offset  - mesh_header->index_data_offset) / WEXP_INDEX_SIZE);
+        entity->buffers.vertex_stride = WEXP_VERTEX_SIZE;
+        entity->name = (char *)byte_offset(mesh_header, mesh_header->name_offset);
 
         if (wexp->version == 2)
         {
-            mesh_set_position(mesh, mesh_header->world_position);
+            mesh_set_position(entity, mesh_header->world_position);
         }
         else
         {
             Assert(0);
-            mesh->movable.transform  = identity_m4();
+            entity->movable.transform  = identity_m4();
         }
 
         if (settings)
-            mesh->buffers.settings = *settings;
+            entity->buffers.settings = *settings;
 
-        renderer->init_mesh(&mesh->buffers, shader);
+        renderer->init_mesh(&entity->buffers, shader);
 
         level->n_objects += 1;
         mesh_header = (Wexp_Mesh_Header *)byte_offset(mesh_header, mesh_header->next_elem_offset);
@@ -297,13 +297,13 @@ void draw_level(Platform_Renderer *renderer, Level *level, Platform_Shader *shad
         screen_space_transform = ortho_m4(camera->ortho_scale, ar, camera->min_z, camera->max_z);
     }
 
-    renderer->draw_mesh(0, 0, shader, &cam_space_transform, &screen_space_transform, &level->lights, &camera->pos, 0);
+    renderer->draw_mesh(0, 0, shader, &cam_space_transform, &screen_space_transform, &level->lights, &camera->pos, 0, 1);
 
     for (Entity *mesh = level->objects; 
          (mesh - level->objects) < level->n_objects;
          mesh += 1)
     {
-        renderer->draw_mesh(&mesh->buffers, &mesh->movable.transform, 0, 0, 0, 0, 0, 0);
+        renderer->draw_mesh(&mesh->buffers, &mesh->movable.transform, 0, 0, 0, 0, 0, 0, 1);
     }
 }
 
@@ -922,7 +922,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     renderer->set_render_targets();
 
     renderer->clear(CLEAR_COLOR|CLEAR_DEPTH, HEX_COLOR(0x80d5f2), 1.f, 1);
-    renderer->set_depth_stencil(true, false, 1);
 
     renderer->set_active_texture(&state->tex_white);
 
@@ -931,11 +930,9 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     {
         if (state->selected)
         {
-            renderer->draw_mesh(&state->selected->buffers, &state->selected->movable.transform, state->phong_shader, 0, 0, 0, 0, 1);
+            renderer->draw_mesh(&state->selected->buffers, &state->selected->movable.transform, state->phong_shader, 0, 0, 0, 0, 1, 1);
 
-            renderer->set_depth_stencil(false, false, 1);
-            renderer->draw_mesh(&state->debug_arrow->buffers, &state->debug_arrow->movable.transform, state->phong_shader, 0, 0, 0, 0, 0);
-            renderer->set_depth_stencil(true, false, 1);
+            renderer->draw_mesh(&state->debug_arrow->buffers, &state->debug_arrow->movable.transform, state->phong_shader, 0, 0, 0, 0, 0, 0);
         }
 
 #if 0
@@ -948,7 +945,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 state->player->buffers.settings.color = make_v3(state->current_level->lights.color[it]);
                 m4 transform = transform_m4(make_v3(state->current_level->lights.pos[it]), {}, {0.5f, 0.5f, 0.5f});
 
-                renderer->draw_mesh(&state->player->buffers, &transform, state->phong_shader, 0, 0, 0, 0, 1);
+                renderer->draw_mesh(&state->player->buffers, &transform, state->phong_shader, 0, 0, 0, 0, 1, 1);
             }
             state->player->buffers.settings = prev_settings;
         }

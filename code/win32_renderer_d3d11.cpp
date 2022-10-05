@@ -594,7 +594,7 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
 {
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
 
-    //d11->context->OMSetDepthStencilState(d11->depth_nostencil_state, 1);
+    d3d11_set_depth_stencil(depth_enabled, false, 1);
 
     local_persist m4 camera = identity_m4();
     local_persist m4 screen = identity_m4();

@@ -40,14 +40,16 @@ struct Camera
     v3 _pivot;   // Used for editor camera
 };
 
-enum Entity_Type {
+enum Entity_Type
+{
     ENTITY_UNRESPONSIVE = 0,
     ENTITY_MOVABLE,
 
     ENTITY_UI,
 };
 
-struct Entity_Movable {
+struct Entity_Movable
+{
     b32 physics_enabled;
     m4  transform;
 
