@@ -272,7 +272,7 @@ WinMain(
 {
     // @todo add support for low-resolution performance counters
     // @todo maybe add support for 32-bit
-    i64 performance_counter_frequency = 0;
+    s64 performance_counter_frequency = 0;
     Assert(QueryPerformanceFrequency((LARGE_INTEGER *)&performance_counter_frequency));
     // @todo make this hardware-dependant
     r32 target_ms_per_frame = 1.f/60.f;
@@ -285,7 +285,7 @@ WinMain(
     WindyClass.lpszClassName = "WindyClass";
     ATOM Result = RegisterClassA(&WindyClass);
 
-    RECT WindowDimensions = {0, 0, (i32)global_width, (i32)global_height};
+    RECT WindowDimensions = {0, 0, (s32)global_width, (s32)global_height};
     AdjustWindowRect(&WindowDimensions, WS_OVERLAPPEDWINDOW, FALSE);
     WindowDimensions.right -= WindowDimensions.left;
     WindowDimensions.bottom -= WindowDimensions.top;
@@ -394,8 +394,8 @@ WinMain(
         MSG Message = {};
         u32 Count = 0;
 
-        i64 last_performance_counter = 0;
-        i64 current_performance_counter = 0;
+        s64 last_performance_counter = 0;
+        s64 current_performance_counter = 0;
         Assert(QueryPerformanceCounter((LARGE_INTEGER *)&last_performance_counter));
         Gamemode gamemode = GAMEMODE_GAME;
         while(global_running && !global_error)
@@ -499,8 +499,8 @@ WinMain(
                             {
                                 // @todo: doing the division here might cause problems if a window resize
                                 //        happens between frames.
-                                input.mouse.x = (r32)(((i16*)&Message.lParam)[0]) / global_width;
-                                input.mouse.y = (r32)(((i16*)&Message.lParam)[1]) / global_height;
+                                input.mouse.x = (r32)(((s16*)&Message.lParam)[0]) / global_width;
+                                input.mouse.y = (r32)(((s16*)&Message.lParam)[1]) / global_height;
                             }
                         } break;
 

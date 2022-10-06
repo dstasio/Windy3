@@ -52,6 +52,24 @@ mesh_set_position(Entity *mesh, v3 pos)
     mesh->movable.transform = translation_m4(mesh->movable.p);
 }
 
+internal void
+editor_move_entity(Entity *entity, v3 pos_delta, b32 do_snap)
+{
+    Assert(entity->_editor.is_init);
+
+    entity->_editor.real_position += pos_delta;
+
+    if (do_snap) {
+        entity->movable.p.x = floor(entity->_editor.real_position.x);
+        entity->movable.p.y = floor(entity->_editor.real_position.y);
+        entity->movable.p.z = floor(entity->_editor.real_position.z);
+    }
+    else {
+        entity->movable.p = entity->_editor.real_position;
+    }
+    entity->movable.transform = translation_m4(entity->movable.p);
+}
+
 // @note: if settings is zero, phong flags is zero and the shader uses the texture
 //        bound at rendering time
 internal Level *
@@ -82,15 +100,11 @@ new_level(Memory_Pool *mempool, Platform_Renderer *renderer,
         entity->buffers.vertex_stride = WEXP_VERTEX_SIZE;
         entity->name = (char *)byte_offset(mesh_header, mesh_header->name_offset);
 
-        if (wexp->version == 2)
-        {
-            mesh_set_position(entity, mesh_header->world_position);
-        }
-        else
-        {
-            Assert(0);
-            entity->movable.transform  = identity_m4();
-        }
+        mesh_set_position(entity, mesh_header->world_position);
+
+        entity->_editor.is_init = 1;
+        entity->_editor.real_position = entity->movable.p;
+
 
         if (settings)
             entity->buffers.settings = *settings;
@@ -257,7 +271,7 @@ raycast(Entity *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
                     (dot(cross(p2_p3, p2_in), n) > 0) &&
                     (dot(cross(p3_p1, p3_in), n) > 0))
                 {
-                    r32 dist = length_Sq(from - world_incident_point);
+                    r32 dist = length_sq(from - world_incident_point);
 
                     if ((dist > Square(min_distance)) && (dist < Square(max_distance)))
                     {
@@ -659,7 +673,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->editor_camera.up          = { 0.f,  0.f, 1.f};
         state->editor_camera.fov         = DegToRad*60.f;
         state->editor_camera.min_z       = 0.01f;
-        state->editor_camera.max_z       = 100.f;
+        state->editor_camera.max_z       = 1000.f;
         state->editor_camera.is_ortho    = 0;
         state->editor_camera.ortho_scale = 20.f;
         state->editor_camera._radius     = 2.5f;
@@ -863,7 +877,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     movement.z *= move_mask.z;
                     if (input->held.shift)
                         movement *= 0.1f;
-                    mesh_move(state->selected, movement);
+                    editor_move_entity(state->selected, movement, input->held.ctrl);
                 }
             }
             else
@@ -949,7 +963,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     renderer->reload_shader(    state->     phong_shader, "phong");
     renderer->reload_shader(    state->      font_shader, "fonts");
     renderer->reload_shader(&renderer->     debug_shader, "debug");
-#endif
+#endif // WINDY_INTERNAL
     renderer->set_render_targets();
 
     renderer->clear(CLEAR_COLOR|CLEAR_DEPTH, HEX_COLOR(0x80d5f2), 1.f, 1);
@@ -957,6 +971,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     renderer->set_active_texture(&state->tex_white);
 
     draw_level(renderer, state->current_level, state->phong_shader, active_camera, (r32)width/(r32)height);
+#if WINDY_INTERNAL
     if (*gamemode == GAMEMODE_EDITOR)
     {
         if (state->selected)
@@ -967,9 +982,12 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                  (entity - state->gizmo_level->objects) < state->gizmo_level->n_objects;
                  entity += 1)
             {
+                entity->movable.transform = state->selected->movable.transform;
+
                 renderer->draw_mesh(&entity->buffers, &entity->movable.transform, state->phong_shader, 0, 0, 0, 0, 0, 0);
             }
         }
+#endif // WINDY_INTERNAL
 
 #if 0
         { // Debug Light visualization

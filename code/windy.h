@@ -66,6 +66,16 @@ struct Entity
     char                  *name;
 
     Entity_Movable movable;
+
+#if WINDY_INTERNAL
+    struct 
+    {
+        b32 is_init;
+        v3 real_position; // used when moving the entity (in the editor)
+                          // and snapping its position to steps;
+                          // this is the "actual" position it's currently at.
+    } _editor;
+#endif
 };
 
 #define MAX_LEVEL_OBJECTS 20

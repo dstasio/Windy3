@@ -41,10 +41,10 @@ Sqrt(r32 a)
     return result;
 }
 
-inline i32
-Abs(i32 a)
+inline s32
+Abs(s32 a)
 {
-    i32 result = (a < 0) ? -1*a : a;
+    s32 result = (a < 0) ? -1*a : a;
     return result;
 }
 

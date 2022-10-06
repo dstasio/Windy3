@@ -18,7 +18,7 @@
 #define MAX_PATH 100
 #endif
 
-#define next_multiple_of_16(x) (16*(((i32)(x / 16))+1))
+#define next_multiple_of_16(x) (16*(((s32)(x / 16))+1))
 
 #include "hlsl_defines.h"
 // @todo: check correct alignment
@@ -259,7 +259,7 @@ struct Input_Mouse
         struct { r32 dx; r32 dy; };
         v2 dp;
     };
-    i16 wheel;
+    s16 wheel;
 };
 
 struct Input

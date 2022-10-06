@@ -520,7 +520,7 @@ d3d11_draw_char(Platform_Shader *shader, Platform_Font *font, char character, v2
     {
         // Loading character bitmap
         u8 *font_bitmap = stbtt_GetCodepointBitmap(&font->info, 0, stbtt_ScaleForPixelHeight(&font->info, font->height),
-                                                   character, (i32 *)&texture->width, (i32 *)&texture->height, 0, 0);
+                                                   character, (s32 *)&texture->width, (s32 *)&texture->height, 0, 0);
         Assert(texture->width  < 0x80000000);
         Assert(texture->height < 0x80000000);
         texture->size = texture->width*texture->height*4;
@@ -561,13 +561,13 @@ d3d11_draw_char(Platform_Shader *shader, Platform_Font *font, char character, v2
 PLATFORM_DRAW_TEXT(d3d11_draw_text)
 {
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
-    i32 ascent, descent, line_gap;
+    s32 ascent, descent, line_gap;
     stbtt_GetFontVMetrics(&font->info, &ascent, &descent, &line_gap);
-    ascent   = (i32)((r32)ascent   * font->scale);
-    descent  = (i32)((r32)descent  * font->scale);
-    line_gap = (i32)((r32)line_gap * font->scale);
+    ascent   = (s32)((r32)ascent   * font->scale);
+    descent  = (s32)((r32)descent  * font->scale);
+    line_gap = (s32)((r32)line_gap * font->scale);
     v2 pos = pivot;
-    i32 min_x, min_y, max_x, max_y;
+    s32 min_x, min_y, max_x, max_y;
     stbtt_GetFontBoundingBox(&font->info, &min_x, &min_y, &max_x, &max_y);
     v2 font_min = make_v2((r32)min_x, (r32)min_y)*font->scale;
     v2 font_max = make_v2((r32)max_x, (r32)max_y)*font->scale;

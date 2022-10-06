@@ -19,6 +19,14 @@
 //
 // Scalar ------------------------------------------------------------
 //
+inline r32 floor(r32 x)
+{
+    r32 result = (r32)((s32)x);
+    if (x < 0)
+        result -= 1.f;
+    return result;
+}
+
 inline r32 Square(r32 x)
 {
     r32 result = x*x;
@@ -145,7 +153,7 @@ cross(v3 a, v3 b)
 }
 
 inline r32
-length_Sq(v3 a)
+length_sq(v3 a)
 {
     r32 result = dot(a, a);
     return result;
@@ -154,7 +162,8 @@ length_Sq(v3 a)
 inline r32
 length(v3 a)
 {
-    r32 result = length_Sq(a);
+    r32 result = length_sq(a);
+
     if(result != 1)
     {
         result = Sqrt(result);
@@ -327,7 +336,7 @@ invert(m4 a)
 }
 
 inline m4
-flip_m4(i32 first_comp, i32 second_comp, i32 third_comp, i32 fourth_comp)
+flip_m4(s32 first_comp, s32 second_comp, s32 third_comp, s32 fourth_comp)
 {
     Assert((first_comp >= 0) && (first_comp < 4));
     Assert((second_comp >= 0) && (second_comp < 4));
