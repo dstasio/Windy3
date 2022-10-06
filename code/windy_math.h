@@ -48,6 +48,18 @@ inline bool equal(r32 a, r32 b)
     return result;
 }
 
+inline r32 clamp(r32 x, r32 min, r32 max)
+{
+    Assert(min < max);
+
+    r32 result;
+    if      (x < min) result = min;
+    else if (x > max) result = max;
+    else              result = x;
+
+    return result;
+}
+
 //
 // Vector 2 ----------------------------------------------------------
 //

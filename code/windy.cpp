@@ -306,8 +306,6 @@ void draw_level(Platform_Renderer *renderer, Level *level, Platform_Shader *shad
     m4 screen_space_transform = perspective_m4(camera->fov, ar, camera->min_z, camera->max_z);
     if (camera->is_ortho)
     {
-        camera->ortho_scale = 5.f;
-        camera->max_z = 500.f;
         screen_space_transform = ortho_m4(camera->ortho_scale, ar, camera->min_z, camera->max_z);
     }
 
@@ -939,9 +937,17 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             }
             else if (input->mouse.wheel)
             {
-                v3 forward = normalize(active_camera->target - active_camera->pos);
-                active_camera->target += input->mouse.wheel*dtime*forward;
-                active_camera->pos    += input->mouse.wheel*dtime*forward;
+                if (active_camera->is_ortho)
+                {
+                    active_camera->ortho_scale -= input->mouse.wheel*dtime;
+                    active_camera->ortho_scale = clamp(active_camera->ortho_scale, 1.f, 100.f);
+                }
+                else
+                {
+                    v3 forward = normalize(active_camera->target - active_camera->pos);
+                    active_camera->target += input->mouse.wheel*dtime*forward;
+                    active_camera->pos    += input->mouse.wheel*dtime*forward;
+                }
             }
 
             active_camera->pos.z  = Sin(active_camera->_pitch);
