@@ -579,19 +579,35 @@ Screen_To_World_Result screen_space_to_world(Camera *camera, r32 screen_ar, v2 s
 
     Screen_To_World_Result result = {};
 
-    v3 forward = normalize(camera->target - camera->pos);
-    v3 right   = normalize(cross(forward, camera->up));
-    v3 up      = normalize(cross(right, forward));
+    if (camera->is_ortho) 
+    {
+        v3 forward = normalize(camera->target - camera->pos);
+        v3 right   = normalize(cross(forward, camera->up));
+        v3 up      = normalize(cross(right, forward));
 
-    // @todo: tangent here can be cached
-    result.dir.x =  ((screen_point.x*2.f) - 1.f) * Tan(camera->fov/2.f) * screen_ar;
-    result.dir.y = -((screen_point.y*2.f) - 1.f) * Tan(camera->fov/2.f);
-    result.dir.z =  1.f;
-    result.dir  *= camera->min_z;
+        result.dir = forward;
 
-    result.dir = result.dir.x*right + result.dir.y*up + result.dir.z*forward;
-    result.pos = camera->pos + result.dir;
-    result.dir = normalize(result.dir);
+        screen_point.x /= camera->ortho_scale;// * screen_ar;
+        screen_point.y /= camera->ortho_scale;
+
+        result.pos = camera->pos + (result.dir * camera->min_z) + (screen_point.x*right + screen_point.y*up);
+    }
+    else
+    {
+        v3 forward = normalize(camera->target - camera->pos);
+        v3 right   = normalize(cross(forward, camera->up));
+        v3 up      = normalize(cross(right, forward));
+
+        // @todo: tangent here can be cached
+        result.dir.x =  ((screen_point.x*2.f) - 1.f) * Tan(camera->fov/2.f) * screen_ar;
+        result.dir.y = -((screen_point.y*2.f) - 1.f) * Tan(camera->fov/2.f);
+        result.dir.z =  1.f;
+        result.dir  *= camera->min_z;
+
+        result.dir = result.dir.x*right + result.dir.y*up + result.dir.z*forward;
+        result.pos = camera->pos + result.dir;
+        result.dir = normalize(result.dir);
+    }
 
     return result;
 }
