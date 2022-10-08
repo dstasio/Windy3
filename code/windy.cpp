@@ -574,8 +574,18 @@ struct Screen_To_World_Result {
 
 Screen_To_World_Result screen_space_to_world(Camera *camera, r32 screen_ar, v2 screen_point)
 {
-    // 0, 0 -> Top Left
-    // 1, 1 -> Bot Right
+    // screen_point:
+    //  (0, 0) -> Top Left
+    //  (1, 1) -> Bot Right
+
+    v2 clip_space_screen_point = {
+         ((screen_point.x*2.f) - 1.f),
+        -((screen_point.y*2.f) - 1.f),
+    };
+
+    // clip_space_screen_point:
+    // (-1, -1) -> Bot Left
+    // (+1, +1) -> Top Right
 
     Screen_To_World_Result result = {};
 
@@ -587,10 +597,10 @@ Screen_To_World_Result screen_space_to_world(Camera *camera, r32 screen_ar, v2 s
 
         result.dir = forward;
 
-        screen_point.x /= camera->ortho_scale;// * screen_ar;
-        screen_point.y /= camera->ortho_scale;
+        clip_space_screen_point.x *= camera->ortho_scale * screen_ar;
+        clip_space_screen_point.y *= camera->ortho_scale;
 
-        result.pos = camera->pos + (result.dir * camera->min_z) + (screen_point.x*right + screen_point.y*up);
+        result.pos = camera->pos + (result.dir * camera->min_z) + (clip_space_screen_point.x*right + clip_space_screen_point.y*up);
     }
     else
     {
@@ -599,8 +609,8 @@ Screen_To_World_Result screen_space_to_world(Camera *camera, r32 screen_ar, v2 s
         v3 up      = normalize(cross(right, forward));
 
         // @todo: tangent here can be cached
-        result.dir.x =  ((screen_point.x*2.f) - 1.f) * Tan(camera->fov/2.f) * screen_ar;
-        result.dir.y = -((screen_point.y*2.f) - 1.f) * Tan(camera->fov/2.f);
+        result.dir.x = clip_space_screen_point.x * Tan(camera->fov/2.f) * screen_ar;
+        result.dir.y = clip_space_screen_point.y * Tan(camera->fov/2.f);
         result.dir.z =  1.f;
         result.dir  *= camera->min_z;
 
@@ -998,7 +1008,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     {
         if (state->selected)
         {
-            renderer->draw_mesh(&state->selected->buffers, &state->selected->movable.transform, state->phong_shader, 0, 0, 0, 0, 1, 1);
+            renderer->draw_mesh(&state->selected->buffers, &state->selected->movable.transform, state->phong_shader, 0, 0, 0, 0, 1, true);
 
             for (Entity *entity = state->gizmo_level->objects; 
                  (entity - state->gizmo_level->objects) < state->gizmo_level->n_objects;
@@ -1006,7 +1016,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             {
                 entity->movable.transform = state->selected->movable.transform;
 
-                renderer->draw_mesh(&entity->buffers, &entity->movable.transform, state->phong_shader, 0, 0, 0, 0, 0, 0);
+                renderer->draw_mesh(&entity->buffers, &entity->movable.transform, state->phong_shader, 0, 0, 0, 0, 0, false);
+
             }
         }
 #endif // WINDY_INTERNAL
@@ -1030,7 +1041,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
 
     char debug_text[128] = {};
-    snprintf(debug_text, 128, "FPS: %.2f", 1.f/dtime);
+    snprintf(debug_text, 128, "FPS: %.2f, X: %.2f\n"
+                              "            Y: %.2f", 1.f/dtime, input->mouse.p.x, input->mouse.p.y);
 #if 0
     if (check_mesh_collision(state->player, state->current_level))
         snprintf(debug_text, 128, "FPS: %.2f INTERSECTION", 1.f/dtime);
