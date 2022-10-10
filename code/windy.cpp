@@ -232,17 +232,17 @@ struct Raycast_Result
 // @todo: take Entity struct as parameter, and use its transform matrix
 //
 internal Raycast_Result
-raycast(Entity *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
+raycast(Entity *entity, v3 from, v3 dir, r32 min_distance, r32 max_distance)
 {
     Raycast_Result result = {};
 
-    v3 *verts    = (v3  *)mesh->buffers.vertex_data;
-    u16 *indices = (u16 *)mesh->buffers.index_data;
-    for (u32 i = 0; i < mesh->buffers.index_count; i += 3)
+    v3 *verts    = (v3  *)entity->buffers.vertex_data;
+    u16 *indices = (u16 *)entity->buffers.index_data;
+    for (u32 i = 0; i < entity->buffers.index_count; i += 3)
     {
-        v3 p1 = mesh->movable.transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i  ]))));
-        v3 p2 = mesh->movable.transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+1]))));
-        v3 p3 = mesh->movable.transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+2]))));
+        v3 p1 = entity->movable.transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i  ]))));
+        v3 p2 = entity->movable.transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+1]))));
+        v3 p3 = entity->movable.transform * (*((v3 *)byte_offset(verts, WEXP_VERTEX_SIZE*(indices[i+2]))));
 
         v3 n = normalize(cross(((p2) - (p1)), ((p3) - (p1))));
         if (dot(n, dir) < 0)
@@ -832,6 +832,32 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             Screen_To_World_Result deprojected_mouse = screen_space_to_world(active_camera, ((r32)width/(r32)height), input->mouse.p);
             r32 debug_arrow_dist_sq = 0.f;
 
+            Raycast_Result current_mouse_hit          = {};
+            Entity        *current_entity_under_mouse =  0;
+            { // getting entity under mouse
+                for (Entity *entity = state->current_level->objects; 
+                     (entity - state->current_level->objects) < state->current_level->n_objects;
+                     entity += 1)
+                {
+                    Raycast_Result hit = raycast(entity, deprojected_mouse.pos, deprojected_mouse.dir, active_camera->min_z, active_camera->max_z);
+                    if ((hit.hit) && (!current_mouse_hit.hit || (hit.dist_sq < current_mouse_hit.dist_sq)))
+                    {
+                        current_entity_under_mouse = entity;
+                        current_mouse_hit          = hit;
+
+#if WINDY_DEBUG
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+0] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0];
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+1] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+1];
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+2] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+2];
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+3] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+3];
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+4] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+4];
+                        DEBUG_buffer[DEBUG_BUFFER_raycast+5] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+5];
+#endif
+                    }
+                }
+            }
+
+
             if (state->selected)
             {
                 if (input->pressed.g)
@@ -916,30 +942,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 {
                     Entity *_prev_selected = state->selected;
 
-                    state->selected = 0;
-                    r32 least_hit_distance_sq = 0.f;
-
-                    for (Entity *entity = state->current_level->objects; 
-                         (entity - state->current_level->objects) < state->current_level->n_objects;
-                         entity += 1)
-                    {
-                        Raycast_Result hit = raycast(entity, deprojected_mouse.pos, deprojected_mouse.dir, active_camera->min_z, active_camera->max_z);
-                        if ((hit.hit) && (!least_hit_distance_sq || (hit.dist_sq < least_hit_distance_sq)))
-                        {
-                            state->selected = entity;
-                            least_hit_distance_sq = hit.dist_sq;
-
-#if WINDY_DEBUG
-                            DEBUG_buffer[DEBUG_BUFFER_raycast+0] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0];
-                            DEBUG_buffer[DEBUG_BUFFER_raycast+1] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+1];
-                            DEBUG_buffer[DEBUG_BUFFER_raycast+2] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+2];
-                            DEBUG_buffer[DEBUG_BUFFER_raycast+3] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+3];
-                            DEBUG_buffer[DEBUG_BUFFER_raycast+4] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+4];
-                            DEBUG_buffer[DEBUG_BUFFER_raycast+5] = DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+5];
-#endif
-                        }
-                    }
-
+                    state->selected = current_entity_under_mouse;
                 }
             }
 
@@ -947,9 +950,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             {
                 if (!state->editor_is_rotating_view)
                 {
+#if 0
                     Raycast_Result hit = raycast(entity, deprojected_mouse.pos, deprojected_mouse.dir, active_camera->min_z, active_camera->max_z);
                     if (hit.hit)
                         active_camer->target = hit.impact_point;
+#endif
 
                     state->editor_is_rotating_view = true;
                 }
