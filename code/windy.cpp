@@ -224,6 +224,7 @@ struct Raycast_Result
     b32 hit;
     r32 dist_sq;
 
+    v3  impact_point;
     v3  normal;
 };
 
@@ -277,9 +278,10 @@ raycast(Entity *mesh, v3 from, v3 dir, r32 min_distance, r32 max_distance)
                     {
                         if (!result.hit || (dist < result.dist_sq))
                         {
-                            result.dist_sq   = dist;
-                            result.hit       = true;
-                            result.normal    = n;
+                            result.dist_sq      = dist;
+                            result.impact_point = world_incident_point;
+                            result.hit          = true;
+                            result.normal       = n;
 
 #if WINDY_DEBUG
                             DEBUG_buffer[DEBUG_BUFFER_new+DEBUG_BUFFER_raycast+0] = world_incident_point;
@@ -703,7 +705,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->editor_camera._radius     = 2.5f;
         state->editor_camera._pitch      = 0.453010529f;
         state->editor_camera._yaw        = 2.88975f;
-        state->editor_camera._pivot      = state->player->movable.p;
+        //state->editor_camera._pivot      = state->player->movable.p;
 
         state->current_level->lights.light_count = 0;
 
@@ -943,6 +945,15 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
             if (input->held.mouse_middle || (input->held.alt && input->held.mouse_left))
             {
+                if (!state->editor_is_rotating_view)
+                {
+                    Raycast_Result hit = raycast(entity, deprojected_mouse.pos, deprojected_mouse.dir, active_camera->min_z, active_camera->max_z);
+                    if (hit.hit)
+                        active_camer->target = hit.impact_point;
+
+                    state->editor_is_rotating_view = true;
+                }
+
                 if (input->held.shift)
                 {
                     v3 forward = normalize(active_camera->target - active_camera->pos);
@@ -955,24 +966,27 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 }
                 else
                 {
-                    active_camera->_yaw -= input->mouse.dx*PI*dtime;
+                    active_camera->_yaw   -= input->mouse.dx*PI*dtime;
                     active_camera->_pitch += input->mouse.dy*dtime;
                     //            active_camera->_pitch  = Clamp(active_camera->_pitch, -PI/2.1f, PI/2.1f);
                     active_camera->_radius -= input->mouse.wheel*0.1f*dtime;
                 }
             }
-            else if (input->mouse.wheel)
+            else
             {
-                if (active_camera->is_ortho)
-                {
-                    active_camera->ortho_scale -= input->mouse.wheel*dtime;
-                    active_camera->ortho_scale = clamp(active_camera->ortho_scale, 1.f, 100.f);
-                }
-                else
-                {
-                    v3 forward = normalize(active_camera->target - active_camera->pos);
-                    active_camera->target += input->mouse.wheel*dtime*forward;
-                    active_camera->pos    += input->mouse.wheel*dtime*forward;
+                state->editor_is_rotating_view = false;
+
+                if (input->mouse.wheel) {
+                    if (active_camera->is_ortho)
+                    {
+                        active_camera->ortho_scale -= input->mouse.wheel*dtime;
+                        active_camera->ortho_scale = clamp(active_camera->ortho_scale, 1.f, 100.f);
+                    }
+                    else
+                    {
+                        v3 forward = normalize(active_camera->target - active_camera->pos);
+                        active_camera->_radius -= input->mouse.wheel*dtime;
+                    }
                 }
             }
 

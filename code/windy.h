@@ -37,7 +37,7 @@ struct Camera
     r32 _pitch;
     r32 _yaw;
 
-    v3 _pivot;   // Used for editor camera
+    //v3 _pivot;   // Used for editor camera
 };
 
 enum Entity_Type
@@ -102,6 +102,7 @@ struct Game_State
 
     Entity *selected;
     b32     is_mouse_dragging; // true if mouse is being held down
+    b32     editor_is_rotating_view;
 
     Entity *player;
 
