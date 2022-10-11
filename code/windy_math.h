@@ -605,14 +605,27 @@ reciprocal(Quat q)
 }
 
 inline Quat
+inverse(Quat q)
+{
+    Quat result;
+    if (equal(length_sq(q), 1.f))
+    {
+        result = reciprocal(q);
+    }
+    else
+    {
+        result = {};
+        Assert(0);
+    }
+    return result;
+}
+
+inline Quat
 make_quaternion(r32 angle, v3 axis)
 {
     Assert(equal(length_sq(axis), 1.f));
 
-    Quat result;
-    result.x = axis.x;
-    result.y = axis.y;
-    result.z = axis.z;
+    Quat result = {axis.x, axis.y, axis.z, 0.f};
 
     r32 half_angle = angle * 0.5f;
     r32 sin        = Sin(half_angle);
@@ -625,6 +638,16 @@ make_quaternion(r32 angle, v3 axis)
     result = normalize_quaternion(result);
 
     return result;
+}
+
+inline v3
+rotate(v3 point, Quat rotation)
+{
+    Quat point_quat = {point.x, point.y, point.z, 0.f};
+    Quat result     = rotation * point_quat * inverse(rotation);
+
+    Assert(equal(result.w, 0.f));
+    return {result.x, result.y, result.z};
 }
 
 #define WINDY_MATH_H

@@ -1023,34 +1023,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
     draw_level(renderer, state->current_level, state->phong_shader, active_camera, (r32)width/(r32)height);
 
-    // ============
-    {
-        local_persist r32 angle = 0.f;
-        angle += 0.10f;
-        Quat q1     = make_quaternion(angle, {0.f, 0.f, 1.f});
-        //Quat q_step = make_quaternion(0.01f, {0.f, 0.f, 1.f}) * dtime;
-
-        //q1 = q_step * q1;
-        //q1 = normalize_quaternion(q1);
-
-        union
-        {
-            Quat q;
-            v3   p;
-        } point;
-
-        point.p = {3.f, 0.f, 0.f};
-
-        point.q = q1 * point.q * reciprocal(q1);
-
-        Platform_Mesh_Buffers bffs = state->player->buffers;
-        bffs.settings.color = {0.3f, 0.8f, 0.6f};
-        bffs.settings.flags = PHONG_FLAG_SOLIDCOLOR;
-        m4 transf = transform_m4(point.p + make_v3(0.f, 0.f, 5.f), {}, make_v3(1.f));
-        renderer->draw_mesh(&bffs, &transf, state->phong_shader, 0, 0, 0, 0, 0, true);
-    }
-    // ============
-
 #if WINDY_INTERNAL
     if (*gamemode == GAMEMODE_EDITOR)
     {
