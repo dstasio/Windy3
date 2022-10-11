@@ -1,4 +1,6 @@
 
+Visual debug routines: draw_point, draw_line etc.
+
 Separate files for meshes and levels. (arrow_level should not exist)
 
 // Level = load_level("")

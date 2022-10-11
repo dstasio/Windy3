@@ -8,6 +8,12 @@
    ======================================================================== */
 #include "windy_platform.h"
 
+#if 0
+#define Continue_Here _continue_here
+#else
+#define Continue_Here 
+#endif
+
 #if WINDY_DEBUG
 #define Assert(expr) if(!(expr)) {*(int *)0 = 0;}
 #else

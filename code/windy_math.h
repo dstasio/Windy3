@@ -523,5 +523,109 @@ no_translation_m4(m4 a)
     return result;
 }
 
+//
+// Quaternions
+//
+
+Quat operator*(Quat a, r32 b)
+{
+    Quat result = {};
+
+    result.x = a.x*b;
+    result.y = a.y*b;
+    result.z = a.z*b;
+    result.w = a.w*b;
+
+    return result;
+}
+
+Quat operator*(Quat a, Quat b)
+{
+    Quat result = {};
+
+    result.w = a.w*b.w - a.x*b.x - a.y*b.y - a.z*b.z;
+    result.x = a.w*b.x + a.x*b.w + a.y*b.z - a.z*b.y;
+    result.y = a.w*b.y - a.x*b.z + a.y*b.w + a.z*b.x;
+    result.z = a.w*b.z + a.x*b.y - a.y*b.x + a.z*b.w;
+
+    return result;
+}
+
+Quat operator/(Quat a, r32 b)
+{
+    Quat result = a;
+
+    result.x /= b;
+    result.y /= b;
+    result.z /= b;
+    result.w /= b;
+
+    return result;
+}
+
+inline r32
+length_sq(Quat q)
+{
+    r32 result = q.x*q.x + q.y*q.y + q.z*q.z + q.w*q.w;
+    return result;
+}
+
+inline r32
+length(Quat q)
+{
+    r32 result = length_sq(q);
+
+    if(result != 1)
+    {
+        result = Sqrt(result);
+    }
+    return result;
+}
+
+inline Quat
+normalize_quaternion(Quat q)
+{
+    r32 len = length(q);
+    Assert(!equal(len, 0));
+
+    Quat result = q / len;
+    return result;
+}
+
+inline Quat
+reciprocal(Quat q)
+{
+    Quat result;
+    result.x = -q.x;
+    result.y = -q.y;
+    result.z = -q.z;
+    result.w =  q.w;
+
+    return result;
+}
+
+inline Quat
+make_quaternion(r32 angle, v3 axis)
+{
+    Assert(equal(length_sq(axis), 1.f));
+
+    Quat result;
+    result.x = axis.x;
+    result.y = axis.y;
+    result.z = axis.z;
+
+    r32 half_angle = angle * 0.5f;
+    r32 sin        = Sin(half_angle);
+
+    result.w  = Cos(half_angle);
+    result.x *= sin;
+    result.y *= sin;
+    result.z *= sin;
+
+    result = normalize_quaternion(result);
+
+    return result;
+}
+
 #define WINDY_MATH_H
 #endif

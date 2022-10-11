@@ -65,6 +65,12 @@ union v4
     r32    row[4];
 };
 
+struct Quat
+{
+    r32 x, y, z;
+    r32 w;
+};
+
 union m4
 {
     r32 m[4][4];
