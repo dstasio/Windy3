@@ -256,6 +256,8 @@ struct Input_Mouse
         v2 p;
     };
     union {
+        // +dx: right; -dx: left
+        // +dy:    up; -dy: down
         struct { r32 dx; r32 dy; };
         v2 dp;
     };

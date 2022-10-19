@@ -11,6 +11,7 @@
 
 #if WINDY_DEBUG
 #define DEBUG_BUFFER_raycast  0
+#define DEBUG_BUFFER_misc     6
 #define DEBUG_BUFFER_new     10
 v3 DEBUG_buffer[DEBUG_BUFFER_new*2] = {};
 #endif
@@ -624,6 +625,9 @@ Screen_To_World_Result screen_space_to_world(Camera *camera, r32 screen_ar, v2 s
     return result;
 }
 
+internal v3  DEBUG_camera_positions[50];
+internal u32 DEBUG_counter;
+
 // @todo: move gamemode to game layer
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
@@ -702,10 +706,10 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->editor_camera.max_z       = 1000.f;
         state->editor_camera.is_ortho    = 0;
         state->editor_camera.ortho_scale = 20.f;
-        state->editor_camera._radius     = 2.5f;
-        state->editor_camera._pitch      = 0.453010529f;
-        state->editor_camera._yaw        = 2.88975f;
-        //state->editor_camera._pivot      = state->player->movable.p;
+        state->editor_camera._radius     = 8.f;
+        //state->editor_camera._pitch      = 0.453010529f;
+        //state->editor_camera._yaw        = 2.88975f;
+        state->editor_camera._pivot      = state->player->movable.p;
 
         state->current_level->lights.light_count = 0;
 
@@ -922,7 +926,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     v3 right   = normalize(cross(forward, active_camera->up));
                     v3 up      = normalize(cross(right, forward));
 
-                    v3 movement = input->mouse.dx*right - input->mouse.dy*up;
+                    v3 movement = input->mouse.dx*right + input->mouse.dy*up;
                     movement /= dot((state->selected->movable.p - active_camera->pos), forward);
                     movement.x *= move_mask.x;
                     movement.y *= move_mask.y;
@@ -971,10 +975,46 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 }
                 else
                 {
+#if 0
                     active_camera->_yaw   -= input->mouse.dx*PI*dtime;
                     active_camera->_pitch += input->mouse.dy*dtime;
                     //            active_camera->_pitch  = Clamp(active_camera->_pitch, -PI/2.1f, PI/2.1f);
                     active_camera->_radius -= input->mouse.wheel*0.1f*dtime;
+#else
+                    do_once((active_camera->pos    = {10.f, 0.f, 10.f}));
+                    //do_once((active_camera->target = { 0.f, 0.f, 0.f}));
+
+                    DEBUG_camera_positions[DEBUG_counter++] = active_camera->pos;
+                    if (DEBUG_counter == 50)
+                        DEBUG_counter = 0;
+
+                    r32 camera_yaw   = -input->mouse.dx*PI*dtime;
+                    r32 camera_pitch =  input->mouse.dy   *dtime;
+
+                    v3 camera_forward = normalize(active_camera->target - active_camera->pos);
+                    v3 camera_right   = normalize(cross(camera_forward, active_camera->up));
+
+#if 0
+                    if (dot({0.f, 0.f, 1.f}, active_camera->_pivot - active_camera->pos) > 0.98f)
+                    {
+                        camera_right = normalize(cross({0.5f, 0.f, 1.f}, active_camera->_pivot - active_camera->pos));
+                    }
+#endif
+
+                    Quat   yaw_quat = make_quaternion(camera_yaw,   {0.f, 0.f, 1.f});
+                    Quat pitch_quat = make_quaternion(camera_pitch, camera_right);
+
+                    v3 pivot_to_camera = active_camera->pos - active_camera->_pivot;
+
+                    pivot_to_camera    = rotate(pivot_to_camera, pitch_quat);
+                    pivot_to_camera    = rotate(pivot_to_camera, yaw_quat);
+
+                    active_camera->pos = active_camera->_pivot + pivot_to_camera;
+                    DEBUG_buffer[DEBUG_BUFFER_misc+0] = active_camera->_pivot + make_v3(0.f, 0.f, 5.f);
+                    DEBUG_buffer[DEBUG_BUFFER_misc+1] = DEBUG_buffer[DEBUG_BUFFER_misc+0] + camera_right*50.f;
+                    DEBUG_buffer[DEBUG_BUFFER_misc+2] = DEBUG_buffer[DEBUG_BUFFER_misc+0] + active_camera->up*50.f;
+                    //DEBUG_buffer[DEBUG_BUFFER_misc+1] *= 15.f;
+#endif
                 }
             }
             else
@@ -995,11 +1035,13 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 }
             }
 
+#if 0
             active_camera->pos.z  = Sin(active_camera->_pitch);
             active_camera->pos.x  = Cos(active_camera->_yaw) * Cos(active_camera->_pitch);
             active_camera->pos.y  = Sin(active_camera->_yaw) * Cos(active_camera->_pitch);
             active_camera->pos    = normalize(active_camera->pos)*active_camera->_radius;
             active_camera->pos   += active_camera->target;
+#endif
 
         }
 #endif // WINDY_INTERNAL
@@ -1022,6 +1064,21 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     renderer->set_active_texture(&state->tex_white);
 
     draw_level(renderer, state->current_level, state->phong_shader, active_camera, (r32)width/(r32)height);
+
+    {
+        Platform_Mesh_Buffers buff   = state->player->buffers;
+        buff.settings.flags = PHONG_FLAG_SOLIDCOLOR;
+        buff.settings.color = {0.3f, 9.f, 0.5f};
+
+        Foru(0, 49)
+        {
+            v3 debpos = DEBUG_camera_positions[it];
+            if (!debpos) continue;
+
+            m4 transf = transform_m4(debpos, {}, make_v3(1.f));
+            renderer->draw_mesh(&buff, &transf, state->phong_shader, 0, 0, 0, 0, 0, true);
+        }
+    }
 
 #if WINDY_INTERNAL
     if (*gamemode == GAMEMODE_EDITOR)
@@ -1062,7 +1119,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
     char debug_text[128] = {};
     snprintf(debug_text, 128, "FPS: %.2f, X: %.2f\n"
-                              "            Y: %.2f", 1.f/dtime, input->mouse.p.x, input->mouse.p.y);
+                              "            Y: %.2f", 1.f/dtime, input->mouse.dx, input->mouse.dy);
 #if 0
     if (check_mesh_collision(state->player, state->current_level))
         snprintf(debug_text, 128, "FPS: %.2f INTERSECTION", 1.f/dtime);
@@ -1091,6 +1148,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+3], DEBUG_buffer[DEBUG_BUFFER_raycast+4], lc, 1, 0, 0);
         renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+4], DEBUG_buffer[DEBUG_BUFFER_raycast+5], lc, 1, 0, 0);
         renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_raycast+5], DEBUG_buffer[DEBUG_BUFFER_raycast+3], lc, 1, 0, 0);
+
+        lc = {1.f, 0.f, 0.f, 1.f};
+        renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_misc+0], DEBUG_buffer[DEBUG_BUFFER_misc+1], lc, true, 0, 0);
+        lc = {0.f, 0.f, 1.f, 1.f};
+        renderer->draw_line(DEBUG_buffer[DEBUG_BUFFER_misc+0], DEBUG_buffer[DEBUG_BUFFER_misc+2], lc, true, 0, 0);
 #endif
     }
 }

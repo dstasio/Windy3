@@ -44,10 +44,10 @@
 
 // @todo, @critical: Use VirtualProtect (handmade_hero day 004) to check for freed-memory access errors
 
+#include "config.h"
+
 global b32 global_running;
 global b32 global_error;
-global u32 global_width = 1380;
-global u32 global_height = 900;
 global Platform_Renderer *global_renderer;
 
 inline u64
@@ -474,8 +474,8 @@ WinMain(
                             RAWMOUSE raw_mouse = raw_input.data.mouse;
                             if ((raw_mouse.usFlags & MOUSE_MOVE_RELATIVE) == MOUSE_MOVE_RELATIVE)
                             {
-                                input.mouse.dx = ((r32)raw_mouse.lLastX / 65535.f)*WINDY_WIN32_MOUSE_SENSITIVITY;
-                                input.mouse.dy = ((r32)raw_mouse.lLastY / 65535.f)*WINDY_WIN32_MOUSE_SENSITIVITY;
+                                input.mouse.dx =  ((r32)raw_mouse.lLastX / 65535.f)*WINDY_WIN32_MOUSE_SENSITIVITY;
+                                input.mouse.dy = -((r32)raw_mouse.lLastY / 65535.f)*WINDY_WIN32_MOUSE_SENSITIVITY;
                             }
 
                             raw_mouse_button(1, mouse_left);

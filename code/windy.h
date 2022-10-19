@@ -16,6 +16,9 @@
 
 #if WINDY_DEBUG
 #define Assert(expr) if(!(expr)) {*(int *)0 = 0;}
+
+#define do_once(expr) {local_persist bool _donce_ = false; \
+                       if (!_donce_) { expr; _donce_ = true; }}
 #else
 #define Assert(expr)
 #endif
@@ -40,10 +43,7 @@ struct Camera
     r32 ortho_scale;
 
     r32 _radius; // Variables used for third person camera
-    r32 _pitch;
-    r32 _yaw;
-
-    //v3 _pivot;   // Used for editor camera
+    v3  _pivot;   // Used for editor camera
 };
 
 enum Entity_Type
