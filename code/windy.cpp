@@ -706,7 +706,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->editor_camera.max_z       = 1000.f;
         state->editor_camera.is_ortho    = 0;
         state->editor_camera.ortho_scale = 20.f;
-        state->editor_camera._radius     = 8.f;
+        //state->editor_camera._radius     = 8.f;
         //state->editor_camera._pitch      = 0.453010529f;
         //state->editor_camera._yaw        = 2.88975f;
         state->editor_camera._pivot      = state->player->movable.p;
@@ -975,14 +975,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 }
                 else
                 {
-#if 0
-                    active_camera->_yaw   -= input->mouse.dx*PI*dtime;
-                    active_camera->_pitch += input->mouse.dy*dtime;
-                    //            active_camera->_pitch  = Clamp(active_camera->_pitch, -PI/2.1f, PI/2.1f);
-                    active_camera->_radius -= input->mouse.wheel*0.1f*dtime;
-#else
                     do_once((active_camera->pos    = {10.f, 0.f, 10.f}));
-                    //do_once((active_camera->target = { 0.f, 0.f, 0.f}));
 
                     DEBUG_camera_positions[DEBUG_counter++] = active_camera->pos;
                     if (DEBUG_counter == 50)
@@ -993,13 +986,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
                     v3 camera_forward = normalize(active_camera->target - active_camera->pos);
                     v3 camera_right   = normalize(cross(camera_forward, active_camera->up));
-
-#if 0
-                    if (dot({0.f, 0.f, 1.f}, active_camera->_pivot - active_camera->pos) > 0.98f)
-                    {
-                        camera_right = normalize(cross({0.5f, 0.f, 1.f}, active_camera->_pivot - active_camera->pos));
-                    }
-#endif
 
                     Quat   yaw_quat = make_quaternion(camera_yaw,   {0.f, 0.f, 1.f});
                     Quat pitch_quat = make_quaternion(camera_pitch, camera_right);
@@ -1013,8 +999,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     DEBUG_buffer[DEBUG_BUFFER_misc+0] = active_camera->_pivot + make_v3(0.f, 0.f, 5.f);
                     DEBUG_buffer[DEBUG_BUFFER_misc+1] = DEBUG_buffer[DEBUG_BUFFER_misc+0] + camera_right*50.f;
                     DEBUG_buffer[DEBUG_BUFFER_misc+2] = DEBUG_buffer[DEBUG_BUFFER_misc+0] + active_camera->up*50.f;
-                    //DEBUG_buffer[DEBUG_BUFFER_misc+1] *= 15.f;
-#endif
                 }
             }
             else
@@ -1030,18 +1014,10 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     else
                     {
                         v3 forward = normalize(active_camera->target - active_camera->pos);
-                        active_camera->_radius -= input->mouse.wheel*dtime;
+                        active_camera->pos += forward * (input->mouse.wheel*dtime);
                     }
                 }
             }
-
-#if 0
-            active_camera->pos.z  = Sin(active_camera->_pitch);
-            active_camera->pos.x  = Cos(active_camera->_yaw) * Cos(active_camera->_pitch);
-            active_camera->pos.y  = Sin(active_camera->_yaw) * Cos(active_camera->_pitch);
-            active_camera->pos    = normalize(active_camera->pos)*active_camera->_radius;
-            active_camera->pos   += active_camera->target;
-#endif
 
         }
 #endif // WINDY_INTERNAL

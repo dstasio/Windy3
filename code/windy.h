@@ -42,7 +42,6 @@ struct Camera
     b32 is_ortho;
     r32 ortho_scale;
 
-    r32 _radius; // Variables used for third person camera
     v3  _pivot;   // Used for editor camera
 };
 
