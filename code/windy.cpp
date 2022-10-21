@@ -628,6 +628,8 @@ Screen_To_World_Result screen_space_to_world(Camera *camera, r32 screen_ar, v2 s
 internal v3  DEBUG_camera_positions[50];
 internal u32 DEBUG_counter;
 
+internal v3 DEBUG_pivot;
+
 // @todo: move gamemode to game layer
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
@@ -710,6 +712,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         //state->editor_camera._pitch      = 0.453010529f;
         //state->editor_camera._yaw        = 2.88975f;
         state->editor_camera._pivot      = state->player->movable.p;
+        DEBUG_pivot = state->editor_camera._pivot;
 
         state->current_level->lights.light_count = 0;
 
@@ -954,11 +957,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             {
                 if (!state->editor_is_rotating_view)
                 {
-                    Continue_Here;
-#if 0
-                    if (current_mouse_hit.hit)
-                        active_camera->target = current_mouse_hit.impact_point;
-#endif
+                    if (current_mouse_hit.hit && !state->is_mouse_dragging)
+                    {
+                        active_camera->_pivot = current_mouse_hit.impact_point;
+                        DEBUG_pivot = active_camera->_pivot;
+                    }
 
                     state->editor_is_rotating_view = true;
                 }
@@ -970,8 +973,8 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     v3 up      = normalize(cross(right, forward));
 
                     r32 speed = 5.f;
-                    active_camera->target += input->mouse.dy*up*dtime*speed - input->mouse.dx*right*dtime*speed;
-                    active_camera->pos    += input->mouse.dy*up*dtime*speed - input->mouse.dx*right*dtime*speed;
+                    active_camera->target += -input->mouse.dy*up*dtime*speed - input->mouse.dx*right*dtime*speed;
+                    active_camera->pos    += -input->mouse.dy*up*dtime*speed - input->mouse.dx*right*dtime*speed;
                 }
                 else
                 {
@@ -1054,6 +1057,17 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             m4 transf = transform_m4(debpos, {}, make_v3(1.f));
             renderer->draw_mesh(&buff, &transf, state->phong_shader, 0, 0, 0, 0, 0, true);
         }
+
+        // debug: editor camera pivot
+        DEBUG_pivot = state->editor_camera._pivot;
+        m4 transf = transform_m4(DEBUG_pivot, {}, make_v3(0.3f));
+        buff.settings.color = {0.7f, 0.3f, 0.5f};
+
+        renderer->draw_mesh(&buff, &transf, state->phong_shader, 0, 0, 0, 0, 0, true);
+
+        transf = transform_m4(state->editor_camera.target, {}, make_v3(0.3f));
+        buff.settings.color = {0.3f, 0.7f, 0.5f};
+        renderer->draw_mesh(&buff, &transf, state->phong_shader, 0, 0, 0, 0, 0, true);
     }
 
 #if WINDY_INTERNAL
