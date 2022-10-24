@@ -628,8 +628,6 @@ Screen_To_World_Result screen_space_to_world(Camera *camera, r32 screen_ar, v2 s
 internal v3  DEBUG_camera_positions[50];
 internal u32 DEBUG_counter;
 
-internal v3 DEBUG_pivot;
-
 // @todo: move gamemode to game layer
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
@@ -712,7 +710,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         //state->editor_camera._pitch      = 0.453010529f;
         //state->editor_camera._yaw        = 2.88975f;
         state->editor_camera._pivot      = state->player->movable.p;
-        DEBUG_pivot = state->editor_camera._pivot;
 
         state->current_level->lights.light_count = 0;
 
@@ -957,11 +954,12 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             {
                 if (!state->editor_is_rotating_view)
                 {
+#if 0
                     if (current_mouse_hit.hit && !state->is_mouse_dragging)
                     {
                         active_camera->_pivot = current_mouse_hit.impact_point;
-                        DEBUG_pivot = active_camera->_pivot;
                     }
+#endif
 
                     state->editor_is_rotating_view = true;
                 }
@@ -993,13 +991,13 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                     Quat   yaw_quat = make_quaternion(camera_yaw,   {0.f, 0.f, 1.f});
                     Quat pitch_quat = make_quaternion(camera_pitch, camera_right);
 
+                    active_camera->_pivot = active_camera->target;
                     v3 pivot_to_camera = active_camera->pos - active_camera->_pivot;
 
                     pivot_to_camera    = rotate(pivot_to_camera, pitch_quat);
                     pivot_to_camera    = rotate(pivot_to_camera, yaw_quat);
 
                     active_camera->pos = active_camera->_pivot + pivot_to_camera;
-                    DEBUG_buffer[DEBUG_BUFFER_misc+0] = active_camera->_pivot + make_v3(0.f, 0.f, 5.f);
                     DEBUG_buffer[DEBUG_BUFFER_misc+1] = DEBUG_buffer[DEBUG_BUFFER_misc+0] + camera_right*50.f;
                     DEBUG_buffer[DEBUG_BUFFER_misc+2] = DEBUG_buffer[DEBUG_BUFFER_misc+0] + active_camera->up*50.f;
                 }
@@ -1059,8 +1057,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         }
 
         // debug: editor camera pivot
-        DEBUG_pivot = state->editor_camera._pivot;
-        m4 transf = transform_m4(DEBUG_pivot, {}, make_v3(0.3f));
+        m4 transf = transform_m4(state->editor_camera._pivot, {}, make_v3(0.3f));
         buff.settings.color = {0.7f, 0.3f, 0.5f};
 
         renderer->draw_mesh(&buff, &transf, state->phong_shader, 0, 0, 0, 0, 0, true);
