@@ -648,11 +648,13 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         // Shaders and meshes/entities
         //
         // @todo: remove need for pre-allocation
-        state->phong_shader       = push_struct(&volatile_pool, Platform_Shader);
-        state->font_shader        = push_struct(&volatile_pool, Platform_Shader);
-        renderer->reload_shader(    state->     phong_shader, "phong");
-        renderer->reload_shader(    state->      font_shader, "fonts");
-        renderer->reload_shader(&renderer->     debug_shader, "debug");
+        state-> phong_shader = push_struct(&volatile_pool, Platform_Shader);
+        state->  font_shader = push_struct(&volatile_pool, Platform_Shader);
+        state->shadow_shader = push_struct(&volatile_pool, Platform_Shader);
+        renderer->reload_shader(    state-> phong_shader, "phong");
+        renderer->reload_shader(    state->  font_shader, "fonts");
+        renderer->reload_shader(    state->shadow_shader, "shadow");
+        renderer->reload_shader(&renderer-> debug_shader, "debug");
 
         state->tex_white  = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_white.bmp");
         state->tex_yellow = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_yellow.bmp");
@@ -734,7 +736,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->current_level->lights.light_count += 1;
 
         memory->is_initialized = true;
-    }
+    } // end initialization
 
     //
     // ---------------------------------------------------------------
@@ -1026,9 +1028,10 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     } // End Input Processing.
 
 #if WINDY_INTERNAL
-    renderer->reload_shader(    state->     phong_shader, "phong");
-    renderer->reload_shader(    state->      font_shader, "fonts");
-    renderer->reload_shader(&renderer->     debug_shader, "debug");
+    renderer->reload_shader(    state-> phong_shader, "phong");
+    renderer->reload_shader(    state->  font_shader, "fonts");
+    renderer->reload_shader(    state->shadow_shader, "shadow");
+    renderer->reload_shader(&renderer-> debug_shader, "debug");
 #endif // WINDY_INTERNAL
     renderer->set_render_targets();
 
@@ -1036,6 +1039,14 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
     renderer->set_active_texture(&state->tex_white);
 
+    // 
+    // ===========================================================================================================
+    // Shadow Pass
+    
+    // render target: shadow buffer
+    // render all meshes
+
+    // 
     // ===========================================================================================================
     // Main Render Pass (Shaded)
 

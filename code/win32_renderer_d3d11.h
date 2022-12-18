@@ -18,7 +18,8 @@ struct D11_Renderer
     ID3D11RenderTargetView  *render_target_rgb;
     ID3D11DepthStencilView  *render_target_depth;
 
-    ID3D11RenderTargetView *render_target_lights[10];
+    ID3D11RenderTargetView *render_target_lights      [1];
+    ID3D11DepthStencilView *render_target_lights_depth[1];
 
     ID3D11Buffer *matrix_buff;
     ID3D11Buffer *light_buff;

@@ -80,36 +80,78 @@ PLATFORM_LOAD_RENDERER(win32_load_d3d11)
 {
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
 
-//    D3D11_VIEWPORT Viewport = {};
-//    Viewport.TopLeftX = 0;
-//    Viewport.TopLeftY = 0;
-//    Viewport.Width = (r32)global_width;
-//    Viewport.Height = (r32)global_height;
-//    Viewport.MinDepth = 0.f;
-//    Viewport.MaxDepth = 1.f;
-//    d11->context->RSSetViewports(1, &Viewport);
+#if 0
+    D3D11_VIEWPORT Viewport = {};
+    Viewport.TopLeftX = 0;
+    Viewport.TopLeftY = 0;
+    Viewport.Width = (r32)global_width;
+    Viewport.Height = (r32)global_height;
+    Viewport.MinDepth = 0.f;
+    Viewport.MaxDepth = 1.f;
+    d11->context->RSSetViewports(1, &Viewport);
 
     //
     // allocating rgb and depth buffers
     //
-//    D3D11_TEXTURE2D_DESC depth_buffer_desc = {};
-//    depth_buffer_desc.Width = global_width;
-//    depth_buffer_desc.Height = global_height;
-//    depth_buffer_desc.MipLevels = 1;
-//    depth_buffer_desc.ArraySize = 1;
-//    depth_buffer_desc.Format = DXGI_FORMAT_D32_FLOAT;
-//    depth_buffer_desc.SampleDesc.Count = 1;
-//    depth_buffer_desc.SampleDesc.Quality = 0;
-//    depth_buffer_desc.Usage = D3D11_USAGE_DEFAULT;
-//    depth_buffer_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-//    depth_buffer_desc.MiscFlags = 0;
+    D3D11_TEXTURE2D_DESC depth_buffer_desc = {};
+    depth_buffer_desc.Width = global_width;
+    depth_buffer_desc.Height = global_height;
+    depth_buffer_desc.MipLevels = 1;
+    depth_buffer_desc.ArraySize = 1;
+    depth_buffer_desc.Format = DXGI_FORMAT_D32_FLOAT;
+    depth_buffer_desc.SampleDesc.Count = 1;
+    depth_buffer_desc.SampleDesc.Quality = 0;
+    depth_buffer_desc.Usage = D3D11_USAGE_DEFAULT;
+    depth_buffer_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+    depth_buffer_desc.MiscFlags = 0;
 
-//    ID3D11Texture2D *depth_texture;
-//    d11->device->CreateTexture2D(&depth_buffer_desc, 0, &depth_texture);
-//    D3D11_DEPTH_STENCIL_VIEW_DESC depth_view_desc = {DXGI_FORMAT_D32_FLOAT, D3D11_DSV_DIMENSION_TEXTURE2D};
-//    d11->device->CreateRenderTargetView(d11->backbuffer, 0, &d11->render_target_rgb);
-//    d11->device->CreateDepthStencilView(depth_texture, &depth_view_desc, &d11->render_target_depth);
+    ID3D11Texture2D *depth_texture;
+    d11->device->CreateTexture2D(&depth_buffer_desc, 0, &depth_texture);
+    D3D11_DEPTH_STENCIL_VIEW_DESC depth_view_desc = {DXGI_FORMAT_D32_FLOAT, D3D11_DSV_DIMENSION_TEXTURE2D};
+    d11->device->CreateRenderTargetView(d11->backbuffer, 0, &d11->render_target_rgb);
+    d11->device->CreateDepthStencilView(depth_texture, &depth_view_desc, &d11->render_target_depth);
+#endif
     d3d11_resize_render_targets();
+
+    { // shadow buffers
+#define SHADOW_RESOLUTION 2048
+        // shadow depth buffer
+        D3D11_TEXTURE2D_DESC shadow_depth_texture_desc = {};
+        shadow_depth_texture_desc.Width              = SHADOW_RESOLUTION;
+        shadow_depth_texture_desc.Height             = SHADOW_RESOLUTION;
+        shadow_depth_texture_desc.MipLevels          = 1; // @todo: mips?
+        shadow_depth_texture_desc.ArraySize          = 1;
+        shadow_depth_texture_desc.Format             = DXGI_FORMAT_D32_FLOAT;
+        shadow_depth_texture_desc.SampleDesc.Count   = 1;
+        shadow_depth_texture_desc.SampleDesc.Quality = 0;
+        shadow_depth_texture_desc.Usage              = D3D11_USAGE_DEFAULT;
+        shadow_depth_texture_desc.BindFlags          = D3D11_BIND_DEPTH_STENCIL;
+        shadow_depth_texture_desc.MiscFlags          = 0;
+
+        ID3D11Texture2D *shadow_depth_texture;
+        d11->device->CreateTexture2D(&shadow_depth_texture_desc, 0, &shadow_depth_texture);
+
+        D3D11_DEPTH_STENCIL_VIEW_DESC depth_view_desc = {DXGI_FORMAT_D32_FLOAT, D3D11_DSV_DIMENSION_TEXTURE2D};
+        d11->device->CreateDepthStencilView(shadow_depth_texture, &depth_view_desc, &d11->render_target_lights_depth[0]);
+
+        // shadow "color" buffer
+        //d11->device->CreateRenderTargetView(d11->backbuffer, 0, &d11->render_target_rgb);
+        D3D11_TEXTURE2D_DESC shadow_color_texture_desc = {};
+        shadow_color_texture_desc.Width              = SHADOW_RESOLUTION;
+        shadow_color_texture_desc.Height             = SHADOW_RESOLUTION;
+        shadow_color_texture_desc.MipLevels          = 1; // @todo: mips?
+        shadow_color_texture_desc.ArraySize          = 1;
+        shadow_color_texture_desc.Format             = DXGI_FORMAT_R32_FLOAT;
+        shadow_color_texture_desc.SampleDesc.Count   = 1;
+        shadow_color_texture_desc.SampleDesc.Quality = 0;
+        shadow_color_texture_desc.Usage              = D3D11_USAGE_DEFAULT;
+        shadow_color_texture_desc.BindFlags          = D3D11_BIND_RENDER_TARGET;
+        shadow_color_texture_desc.MiscFlags          = 0;
+
+        ID3D11Texture2D *shadow_color_texture;
+        d11->device->CreateTexture2D(&shadow_color_texture_desc, 0, &shadow_color_texture);
+        d11->device->CreateRenderTargetView(shadow_color_texture, 0, &d11->render_target_lights[0]);
+    } // end shadow buffers
 
     { // Depth states.
         D3D11_DEPTH_STENCIL_DESC depth_stencil_settings;

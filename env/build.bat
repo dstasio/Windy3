@@ -33,8 +33,9 @@ pushd ".\rundata\assets"
 
 call :compile_shader phong
 call :compile_shader fonts
+call :compile_shader shadow
 call :compile_shader debug
-call :compile_shader background
+REM call :compile_shader background
 
 popd REM .\rundata\assets
 popd REM %proj_root

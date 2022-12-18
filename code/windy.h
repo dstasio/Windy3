@@ -99,8 +99,9 @@ struct Level
  
 struct Game_State
 {
-    Platform_Shader  *phong_shader;
-    Platform_Shader  *font_shader;
+    Platform_Shader  * phong_shader;
+    Platform_Shader  *  font_shader;
+    Platform_Shader  *shadow_shader;
 
     Level *current_level;
     Level *  gizmo_level;
