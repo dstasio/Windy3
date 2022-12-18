@@ -165,7 +165,8 @@ typedef PLATFORM_SET_DEPTH_STENCIL(Platform_Set_Depth_Stencil);
 
 
 #if WINDY_INTERNAL
-#define PLATFORM_RENDERER_INTERNAL_SANDBOX_CALL(name) void name(Platform_Shader *shader, v3 tl, v3 br, v3 tr, v3 bl)
+// currently used to bind and unbind shadow render targets
+#define PLATFORM_RENDERER_INTERNAL_SANDBOX_CALL(name) void name(bool enable)
 typedef PLATFORM_RENDERER_INTERNAL_SANDBOX_CALL(Platform_Renderer_Sandbox_Call);
 #endif
 

@@ -699,6 +699,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->game_camera.max_z       = 1000.f;
         state->game_camera.is_ortho    = 0;
 
+#if 0
         state->editor_camera.pos         = {-6.17f, 2.3f, 7.f};
         state->editor_camera.target      = {-4.f, 2.4f, 6.f};
         state->editor_camera.up          = { 0.f,  0.f, 1.f};
@@ -707,6 +708,17 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->editor_camera.max_z       = 1000.f;
         state->editor_camera.is_ortho    = 0;
         state->editor_camera.ortho_scale = 20.f;
+#else
+        state->editor_camera.pos         = normalize({0.3f, 0.9f, -1.0f});
+        state->editor_camera.target      = state->editor_camera.pos;
+        state->editor_camera.pos *= -15.f;
+        state->editor_camera.up          = { 0.f,  0.f, 1.f};
+        state->editor_camera.fov         = DegToRad*60.f;
+        state->editor_camera.min_z       = 0.01f;
+        state->editor_camera.max_z       = 1000.f;
+        state->editor_camera.is_ortho    = 1;
+        state->editor_camera.ortho_scale = 50.f;
+#endif
         //state->editor_camera._radius     = 8.f;
         //state->editor_camera._pitch      = 0.453010529f;
         //state->editor_camera._yaw        = 2.88975f;
@@ -720,6 +732,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->current_level->lights.pos  [*light_count] = make_v4(normalize({0.3f, 0.9f, -1.0f})); // this is actually direction
         state->current_level->lights.light_count += 1;
 
+#if 0
         state->current_level->lights.type [*light_count].t = PHONG_LIGHT_DIRECTIONAL;
         state->current_level->lights.color[*light_count] = {0.2f,  0.2f, 0.17f};
         state->current_level->lights.pos  [*light_count] = make_v4(normalize({-0.3f, -0.9f, 1.0f})); // this is actually direction
@@ -734,6 +747,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->current_level->lights.color[*light_count] = {0.05f,  0.1f, 0.23f};
         state->current_level->lights.pos  [*light_count] = {15.f, 0.f, 5.f};
         state->current_level->lights.light_count += 1;
+#endif
 
         memory->is_initialized = true;
     } // end initialization
@@ -1033,8 +1047,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     renderer->reload_shader(    state->shadow_shader, "shadow");
     renderer->reload_shader(&renderer-> debug_shader, "debug");
 #endif // WINDY_INTERNAL
-    renderer->set_render_targets();
-
     renderer->clear(CLEAR_COLOR|CLEAR_DEPTH, HEX_COLOR(0x80d5f2), 1.f, 1);
 
     renderer->set_active_texture(&state->tex_white);
@@ -1042,13 +1054,35 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     // 
     // ===========================================================================================================
     // Shadow Pass
-    
-    // render target: shadow buffer
-    // render all meshes
+#if WINDY_INTERNAL
+    renderer->internal_sandbox_call(true);
+
+#if 1
+    { // draw_level for render pass
+        r32 ar = (r32)width/(r32)height;
+
+        v4 *light_dir = &state->current_level->lights.pos[0];
+        v3  light_pos = -15.f * (light_dir->xyz);
+
+        m4    cam_space_transform = camera_m4(light_pos, light_dir->xyz, {0.f, 0.f, 1.f});
+        m4 screen_space_transform = ortho_m4(50.f, 1.f, 0.01f, 1000.f);
+
+        renderer->draw_mesh(0, 0, state->shadow_shader, &cam_space_transform, &screen_space_transform, &state->current_level->lights, &light_pos, 0, 1);
+
+        for (Entity *mesh = state->current_level->objects; 
+             (mesh - state->current_level->objects) < state->current_level->n_objects;
+             mesh += 1)
+        {
+            renderer->draw_mesh(&mesh->buffers, &mesh->movable.transform, 0, 0, 0, 0, 0, 0, 1);
+        }
+    } // end draw_level for render pass
+#endif
+#endif
 
     // 
     // ===========================================================================================================
     // Main Render Pass (Shaded)
+    renderer->set_render_targets();
 
     { // draw_level
         r32 ar = (r32)width/(r32)height;

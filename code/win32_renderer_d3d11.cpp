@@ -133,6 +133,7 @@ PLATFORM_LOAD_RENDERER(win32_load_d3d11)
 
         D3D11_DEPTH_STENCIL_VIEW_DESC depth_view_desc = {DXGI_FORMAT_D32_FLOAT, D3D11_DSV_DIMENSION_TEXTURE2D};
         d11->device->CreateDepthStencilView(shadow_depth_texture, &depth_view_desc, &d11->render_target_lights_depth[0]);
+        shadow_depth_texture->Release();
 
         // shadow "color" buffer
         //d11->device->CreateRenderTargetView(d11->backbuffer, 0, &d11->render_target_rgb);
@@ -151,6 +152,7 @@ PLATFORM_LOAD_RENDERER(win32_load_d3d11)
         ID3D11Texture2D *shadow_color_texture;
         d11->device->CreateTexture2D(&shadow_color_texture_desc, 0, &shadow_color_texture);
         d11->device->CreateRenderTargetView(shadow_color_texture, 0, &d11->render_target_lights[0]);
+        shadow_color_texture->Release();
     } // end shadow buffers
 
     { // Depth states.
@@ -725,5 +727,7 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
 #if WINDY_INTERNAL
 PLATFORM_RENDERER_INTERNAL_SANDBOX_CALL(d3d11_internal_sandbox_call)
 {
+    D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+    d11->context->OMSetRenderTargets(1, &d11->render_target_lights[0], d11->render_target_lights_depth[0]);
 }
 #endif
