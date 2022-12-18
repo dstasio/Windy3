@@ -47,7 +47,7 @@ struct Platform_Light_Buffer
 {
     u32 light_count;
     v3  eye;
-
+ 
     struct {
         u32 t;
         u32 _pad0;

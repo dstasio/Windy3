@@ -302,6 +302,7 @@ raycast(Entity *entity, v3 from, v3 dir, r32 min_distance, r32 max_distance)
     return result;
 }
 
+#if 0
 // @todo: move aspect ratio variable (maybe into Camera/Renderer struct)
 void draw_level(Platform_Renderer *renderer, Level *level, Platform_Shader *shader, Camera *camera, r32 ar)
 {
@@ -321,6 +322,7 @@ void draw_level(Platform_Renderer *renderer, Level *level, Platform_Shader *shad
         renderer->draw_mesh(&mesh->buffers, &mesh->movable.transform, 0, 0, 0, 0, 0, 0, 1);
     }
 }
+#endif
 
 #define gjk_farthest_minkowski(d, _first, _second)   (gjk_get_farthest_along_direction( (dir), (_first)) - gjk_get_farthest_along_direction(-(dir), (_second)))
 
@@ -625,9 +627,6 @@ Screen_To_World_Result screen_space_to_world(Camera *camera, r32 screen_ar, v2 s
     return result;
 }
 
-internal v3  DEBUG_camera_positions[50];
-internal u32 DEBUG_counter;
-
 // @todo: move gamemode to game layer
 GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 {
@@ -712,25 +711,26 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->editor_camera._pivot      = state->player->movable.p;
 
         state->current_level->lights.light_count = 0;
+        auto *light_count = &state->current_level->lights.light_count;
 
-        state->current_level->lights.type [0].t = PHONG_LIGHT_DIRECTIONAL;
-        state->current_level->lights.color[0] = {0.9f,  0.9f, 0.9f};
-        state->current_level->lights.pos  [0] = make_v4(normalize({0.3f, 0.9f, -1.0f})); // this is actually direction
+        state->current_level->lights.type [*light_count].t = PHONG_LIGHT_DIRECTIONAL;
+        state->current_level->lights.color[*light_count] = {0.9f,  0.9f, 0.9f};
+        state->current_level->lights.pos  [*light_count] = make_v4(normalize({0.3f, 0.9f, -1.0f})); // this is actually direction
         state->current_level->lights.light_count += 1;
 
-        state->current_level->lights.type [1].t = PHONG_LIGHT_DIRECTIONAL;
-        state->current_level->lights.color[1] = {0.2f,  0.2f, 0.17f};
-        state->current_level->lights.pos  [1] = make_v4(normalize({-0.3f, -0.9f, 1.0f})); // this is actually direction
+        state->current_level->lights.type [*light_count].t = PHONG_LIGHT_DIRECTIONAL;
+        state->current_level->lights.color[*light_count] = {0.2f,  0.2f, 0.17f};
+        state->current_level->lights.pos  [*light_count] = make_v4(normalize({-0.3f, -0.9f, 1.0f})); // this is actually direction
         state->current_level->lights.light_count += 1;
 
-        state->current_level->lights.type [2].t = PHONG_LIGHT_POINT;
-        state->current_level->lights.color[2] = {0.3f,  0.07f, 0.1f};
-        state->current_level->lights.pos  [2] = {0.f, 5.f, 7.f};
+        state->current_level->lights.type [*light_count].t = PHONG_LIGHT_POINT;
+        state->current_level->lights.color[*light_count] = {0.3f,  0.07f, 0.1f};
+        state->current_level->lights.pos  [*light_count] = {0.f, 5.f, 7.f};
         state->current_level->lights.light_count += 1;
 
-        state->current_level->lights.type [3].t = PHONG_LIGHT_POINT;
-        state->current_level->lights.color[3] = {0.05f,  0.1f, 0.23f};
-        state->current_level->lights.pos  [3] = {15.f, 0.f, 5.f};
+        state->current_level->lights.type [*light_count].t = PHONG_LIGHT_POINT;
+        state->current_level->lights.color[*light_count] = {0.05f,  0.1f, 0.23f};
+        state->current_level->lights.pos  [*light_count] = {15.f, 0.f, 5.f};
         state->current_level->lights.light_count += 1;
 
         memory->is_initialized = true;
@@ -978,10 +978,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                 {
                     do_once((active_camera->pos    = {10.f, 0.f, 10.f}));
 
-                    DEBUG_camera_positions[DEBUG_counter++] = active_camera->pos;
-                    if (DEBUG_counter == 50)
-                        DEBUG_counter = 0;
-
                     r32 camera_yaw   = -input->mouse.dx*PI*dtime;
                     r32 camera_pitch =  input->mouse.dy   *dtime;
 
@@ -1040,21 +1036,33 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
     renderer->set_active_texture(&state->tex_white);
 
-    draw_level(renderer, state->current_level, state->phong_shader, active_camera, (r32)width/(r32)height);
+    // ===========================================================================================================
+    // Main Render Pass (Shaded)
 
-    {
+    { // draw_level
+        r32 ar = (r32)width/(r32)height;
+        m4 cam_space_transform    = camera_m4(active_camera->pos, active_camera->target, active_camera->up);
+        m4 screen_space_transform = perspective_m4(active_camera->fov, ar, active_camera->min_z, active_camera->max_z);
+        if (active_camera->is_ortho)
+        {
+            screen_space_transform = ortho_m4(active_camera->ortho_scale, ar, active_camera->min_z, active_camera->max_z);
+        }
+
+        renderer->draw_mesh(0, 0, state->phong_shader, &cam_space_transform, &screen_space_transform, &state->current_level->lights, &active_camera->pos, 0, 1);
+
+        for (Entity *mesh = state->current_level->objects; 
+             (mesh - state->current_level->objects) < state->current_level->n_objects;
+             mesh += 1)
+        {
+            renderer->draw_mesh(&mesh->buffers, &mesh->movable.transform, 0, 0, 0, 0, 0, 0, 1);
+        }
+    } // end draw_level
+
+#if 1 && WINDY_DEBUG
+    { // draw camera pivot and target
         Platform_Mesh_Buffers buff   = state->player->buffers;
         buff.settings.flags = PHONG_FLAG_SOLIDCOLOR;
         buff.settings.color = {0.3f, 9.f, 0.5f};
-
-        Foru(0, 49)
-        {
-            v3 debpos = DEBUG_camera_positions[it];
-            if (!debpos) continue;
-
-            m4 transf = transform_m4(debpos, {}, make_v3(1.f));
-            renderer->draw_mesh(&buff, &transf, state->phong_shader, 0, 0, 0, 0, 0, true);
-        }
 
         // debug: editor camera pivot
         m4 transf = transform_m4(state->editor_camera._pivot, {}, make_v3(0.3f));
@@ -1062,10 +1070,12 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
         renderer->draw_mesh(&buff, &transf, state->phong_shader, 0, 0, 0, 0, 0, true);
 
+        // debug: editor camera target
         transf = transform_m4(state->editor_camera.target, {}, make_v3(0.3f));
         buff.settings.color = {0.3f, 0.7f, 0.5f};
         renderer->draw_mesh(&buff, &transf, state->phong_shader, 0, 0, 0, 0, 0, true);
     }
+#endif
 
 #if WINDY_INTERNAL
     if (*gamemode == GAMEMODE_EDITOR)
@@ -1085,22 +1095,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             }
         }
 #endif // WINDY_INTERNAL
-
-#if 0
-        { // Debug Light visualization
-            Platform_Phong_Settings prev_settings = state->player->buffers.settings;
-            state->player->buffers.settings.flags = PHONG_FLAG_UNLIT | PHONG_FLAG_SOLIDCOLOR;
-            Foru(0, state->current_level->lights.light_count - 1) {
-                if (state->current_level->lights.type[it].t != PHONG_LIGHT_POINT) continue;
-
-                state->player->buffers.settings.color = make_v3(state->current_level->lights.color[it]);
-                m4 transform = transform_m4(make_v3(state->current_level->lights.pos[it]), {}, {0.5f, 0.5f, 0.5f});
-
-                renderer->draw_mesh(&state->player->buffers, &transform, state->phong_shader, 0, 0, 0, 0, 1, 1);
-            }
-            state->player->buffers.settings = prev_settings;
-        }
-#endif
     }
 
 
