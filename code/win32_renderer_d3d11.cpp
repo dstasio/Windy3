@@ -146,13 +146,14 @@ PLATFORM_LOAD_RENDERER(win32_load_d3d11)
         shadow_color_texture_desc.SampleDesc.Count   = 1;
         shadow_color_texture_desc.SampleDesc.Quality = 0;
         shadow_color_texture_desc.Usage              = D3D11_USAGE_DEFAULT;
-        shadow_color_texture_desc.BindFlags          = D3D11_BIND_RENDER_TARGET;
+        shadow_color_texture_desc.BindFlags          = D3D11_BIND_SHADER_RESOURCE|D3D11_BIND_RENDER_TARGET;
         shadow_color_texture_desc.MiscFlags          = 0;
 
-        ID3D11Texture2D *shadow_color_texture;
-        d11->device->CreateTexture2D(&shadow_color_texture_desc, 0, &shadow_color_texture);
-        d11->device->CreateRenderTargetView(shadow_color_texture, 0, &d11->render_target_lights[0]);
-        shadow_color_texture->Release();
+        ID3D11Texture2D          **shadow_color_texture_handle = (ID3D11Texture2D **)         &renderer->shadow_texture.handle;
+        ID3D11ShaderResourceView **shadow_color_texture_view   = (ID3D11ShaderResourceView **)&renderer->shadow_texture.platform;
+        d11->device->CreateTexture2D         (&shadow_color_texture_desc, 0, shadow_color_texture_handle);
+        d11->device->CreateRenderTargetView  (*shadow_color_texture_handle, 0, &d11->render_target_lights[0]);
+        d11->device->CreateShaderResourceView(*shadow_color_texture_handle, 0, shadow_color_texture_view); // this is needed to bind the texture to a shader
     } // end shadow buffers
 
     { // Depth states.
@@ -413,7 +414,7 @@ inline PLATFORM_SET_ACTIVE_MESH(d3d11_set_active_mesh)
 inline PLATFORM_SET_ACTIVE_TEXTURE(d3d11_set_active_texture)
 {
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
-    d11->context->PSSetShaderResources(0, 1, (ID3D11ShaderResourceView **) &texture->platform); 
+    d11->context->PSSetShaderResources(slot, 1, (ID3D11ShaderResourceView **) &texture->platform); 
 }
 
 inline PLATFORM_SET_ACTIVE_SHADER(d3d11_set_active_shader)
@@ -465,13 +466,20 @@ inline PLATFORM_CLEAR(d3d11_clear)
 
     u32 clear_flags = 0;
     r32 rgba[] = {color.x, color.y, color.z, 1.f};
-    if (what & CLEAR_COLOR)
-        d11->context->ClearRenderTargetView(d11->render_target_rgb, rgba);
-    if (what & CLEAR_DEPTH)
-        clear_flags |= D3D11_CLEAR_DEPTH;
-    if (what & CLEAR_STENCIL)
-        clear_flags |= D3D11_CLEAR_STENCIL;
+    if (what & CLEAR_COLOR)   d11->context->ClearRenderTargetView(d11->render_target_rgb, rgba);
+    if (what & CLEAR_DEPTH)   clear_flags |= D3D11_CLEAR_DEPTH;
+    if (what & CLEAR_STENCIL) clear_flags |= D3D11_CLEAR_STENCIL;
+
     d11->context->ClearDepthStencilView(d11->render_target_depth, clear_flags, depth, stencil);
+
+    if (what & CLEAR_SHADOWS) {
+        rgba[0] = 1.f;
+        rgba[1] = 1.f;
+        rgba[2] = 1.f;
+        rgba[3] = 1.f;
+        d11->context->ClearRenderTargetView(d11->render_target_lights[0], rgba);
+        d11->context->ClearDepthStencilView(d11->render_target_lights_depth[0], clear_flags, depth, stencil);
+    }
 }
 
 
@@ -595,7 +603,7 @@ d3d11_draw_char(Platform_Shader *shader, Platform_Font *font, char character, v2
         d11->device->CreateShaderResourceView((ID3D11Texture2D *)texture->handle, 0, (ID3D11ShaderResourceView **)&texture->platform);
     }
 
-    global_renderer->set_active_texture(texture);
+    global_renderer->set_active_texture(texture, 0);
     v2 size = {(r32)texture->width, (r32)texture->height};
     //size *= 32.f/(r32)texture->height;
     global_renderer->draw_rect(shader, size, pos);
@@ -729,5 +737,28 @@ PLATFORM_RENDERER_INTERNAL_SANDBOX_CALL(d3d11_internal_sandbox_call)
 {
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
     d11->context->OMSetRenderTargets(1, &d11->render_target_lights[0], d11->render_target_lights_depth[0]);
+
+    if (enable)
+    {
+        D3D11_VIEWPORT viewport = {};
+        viewport.TopLeftX = 0;
+        viewport.TopLeftY = 0;
+        viewport.Width  = (r32)SHADOW_RESOLUTION;
+        viewport.Height = (r32)SHADOW_RESOLUTION;
+        viewport.MinDepth = 0.f;
+        viewport.MaxDepth = 1.f;
+        d11->context->RSSetViewports(1, &viewport);
+    }
+    else
+    {
+        D3D11_VIEWPORT viewport = {};
+        viewport.TopLeftX = 0;
+        viewport.TopLeftY = 0;
+        viewport.Width  = (r32)global_width;
+        viewport.Height = (r32)global_height;
+        viewport.MinDepth = 0.f;
+        viewport.MaxDepth = 1.f;
+        d11->context->RSSetViewports(1, &viewport);
+    }
 }
 #endif

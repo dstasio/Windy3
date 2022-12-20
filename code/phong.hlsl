@@ -40,7 +40,7 @@ main(VS_INPUT input)
 #elif PIXEL_HLSL // --------------------------------------------------
 #include "hlsl_defines.h"
 
-SamplerState TextureSamplerState;
+SamplerState texture_sampler_state;
 
 struct PS_OUTPUT
 {
@@ -63,7 +63,8 @@ cbuffer Settings: register(b1)
     float3 solid_color;         // used if FLAG_SOLIDCOLOR is set
 }
 
-Texture2D SampleTexture;
+Texture2D<float4>  model_texture: register(t0);
+Texture2D<float>  shadow_texture: register(t1);
 
 
 float3
@@ -107,7 +108,9 @@ main(VS_OUTPUT input)
     if (flags & PHONG_FLAG_SOLIDCOLOR)
         output.color = float4(final_lighting, 1.f) * float4(solid_color, 1.f);
     else
-        output.color = float4(final_lighting, 1.f) * SampleTexture.Sample(TextureSamplerState, input.txc);
+    {
+        output.color = float4(final_lighting, 1.f) * model_texture.Sample(texture_sampler_state, input.txc);
+    }
 
     return(output);
 }

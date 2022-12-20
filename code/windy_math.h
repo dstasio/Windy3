@@ -472,7 +472,7 @@ perspective_m4(r32 fov, r32 ar, r32 n, r32 f)
         cot/ar, 0.f,       0.f, 0.f,
         0.f,    cot,       0.f, 0.f,
         0.f,    0.f,  -f/(n-f), 1.f,
-        0.f,    0.f, n*f/(n-f), 0.f
+        0.f,    0.f, n*f/(n-f), 0.f,
     };
     return matrix;
 }
@@ -483,10 +483,10 @@ ortho_m4(r32 size, r32 ar, r32 n, r32 f)
     r32 inv = 1.f/size;
     // @todo: test this matrix
     m4 matrix = {
-        inv/ar, 0.f,               0.f, 0.f,
-        0.f,    inv,               0.f, 0.f,
-        0.f,    0.f, 1.f/(f-n), 0.f,
-        0.f,    0.f, (-n)/(f-n), 1.f
+        inv/ar, 0.f,        0.f, 0.f,
+        0.f,    inv,        0.f, 0.f,
+        0.f,    0.f,  1.f/(f-n), 0.f,
+        0.f,    0.f, (-n)/(f-n), 1.f,
     };
     return matrix;
 }

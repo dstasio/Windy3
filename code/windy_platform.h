@@ -109,7 +109,7 @@ struct Platform_Texture
     u32   size;
     void *bytes;
 
-    void *handle; // @note: (ID3D11Texture2D*)
+    void *handle;   // @note:          (ID3D11Texture2D*)
     void *platform; // @note: optional (ID3D11ShaderResourceView*)
 };
 
@@ -141,17 +141,18 @@ typedef PLATFORM_INIT_SQUARE_MESH(Platform_Init_Square_Mesh);
 
 
 #define CLEAR_NONE    0
-#define CLEAR_COLOR   0b001
-#define CLEAR_DEPTH   0b010
-#define CLEAR_STENCIL 0b100
-#define CLEAR_ALL     CLEAR_COLOR|CLEAR_DEPTH|CLEAR_STENCIL
+#define CLEAR_COLOR   0b0001
+#define CLEAR_DEPTH   0b0010
+#define CLEAR_STENCIL 0b0100
+#define CLEAR_SHADOWS 0b1000
+#define CLEAR_ALL     CLEAR_COLOR|CLEAR_DEPTH|CLEAR_STENCIL|CLEAR_SHADOWS
 #define PLATFORM_CLEAR(name) void name(u32 what, v3 color, r32 depth, u8 stencil)
 typedef PLATFORM_CLEAR(Platform_Clear);
 
 #define PLATFORM_SET_ACTIVE_MESH(name) void name(Platform_Mesh_Buffers *buffers)
 typedef PLATFORM_SET_ACTIVE_MESH(Platform_Set_Active_Mesh);
 
-#define PLATFORM_SET_ACTIVE_TEXTURE(name) void name(Platform_Texture *texture)
+#define PLATFORM_SET_ACTIVE_TEXTURE(name) void name(Platform_Texture *texture, u32 slot)
 typedef PLATFORM_SET_ACTIVE_TEXTURE(Platform_Set_Active_Texture);
 
 #define PLATFORM_SET_ACTIVE_SHADER(name) void name(Platform_Shader *shader)
@@ -212,6 +213,7 @@ struct Platform_Renderer
 
     Platform_Mesh_Buffers  square;
     Platform_Shader        debug_shader;
+    Platform_Texture       shadow_texture;
 
     void *platform;
 };

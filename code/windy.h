@@ -103,8 +103,9 @@ struct Game_State
     Platform_Shader  *  font_shader;
     Platform_Shader  *shadow_shader;
 
-    Level *current_level;
-    Level *  gizmo_level;
+    Level *   current_level;
+    Level *     gizmo_level;
+    Level *fulluvquad_level;
 
     Entity *selected;
     b32     is_mouse_dragging; // true if mouse is being held down

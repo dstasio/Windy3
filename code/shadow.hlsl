@@ -39,7 +39,7 @@ SamplerState TextureSamplerState;
 
 struct PS_OUTPUT
 {
-    float dist : SV_TARGET;
+    float4 dist : SV_TARGET;
 };
 
 #if 0
@@ -60,7 +60,7 @@ Texture2D SampleTexture;
 PS_OUTPUT
 main(VS_OUTPUT input)
 {
-    PS_OUTPUT output = {input.proj_pos.z};
+    PS_OUTPUT output = {float4(input.proj_pos.z, 0, 0, 1.f)};
 
     return(output);
 }
