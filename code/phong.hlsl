@@ -90,8 +90,6 @@ light_intensity(float3 color, float3 dir, float3 eyedir, float3 normal)
 PS_OUTPUT
 main(VS_OUTPUT input)
 {
-    input.shadow_space_pos.y *= -1.f;
-
     PS_OUTPUT output; 
     float3 normal = normalize(input.normal);
     float3 eyedir = normalize(eye - input.world_pos);
@@ -109,9 +107,10 @@ main(VS_OUTPUT input)
             float3 light_influence = light_intensity(light_color[light_index], inv_light_dir, eyedir, normal);
 
             if (light_index == 0) {
+                input.shadow_space_pos.y *= -1.f;
                 float shadow_depth   = shadow_texture.Sample(texture_sampler_state, input.shadow_space_pos.xy * 0.5f + 0.5f);
                 float current_shadow = input.shadow_space_pos.z;
-                light_influence *= (float)(current_shadow < shadow_depth);
+                light_influence     *= (float)(!(current_shadow > shadow_depth && (current_shadow - shadow_depth) > 0.01f));
             }
             final_lighting += light_influence;
         }
