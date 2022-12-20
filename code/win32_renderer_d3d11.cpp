@@ -177,29 +177,33 @@ PLATFORM_LOAD_RENDERER(win32_load_d3d11)
 
     ID3D11SamplerState *sampler;
     D3D11_SAMPLER_DESC sampler_desc = {};
-    sampler_desc.Filter = D3D11_FILTER_ANISOTROPIC;//D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    sampler_desc.AddressU = D3D11_TEXTURE_ADDRESS_MIRROR;
-    sampler_desc.AddressV = D3D11_TEXTURE_ADDRESS_MIRROR;
-    sampler_desc.AddressW = D3D11_TEXTURE_ADDRESS_MIRROR;
-    sampler_desc.MipLODBias = -1;
-    sampler_desc.MaxAnisotropy = 16;
+    sampler_desc.Filter         = D3D11_FILTER_ANISOTROPIC;//D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    sampler_desc.AddressU       = D3D11_TEXTURE_ADDRESS_BORDER; //D3D11_TEXTURE_ADDRESS_MIRROR;
+    sampler_desc.AddressV       = D3D11_TEXTURE_ADDRESS_BORDER; //D3D11_TEXTURE_ADDRESS_MIRROR;
+    sampler_desc.AddressW       = D3D11_TEXTURE_ADDRESS_BORDER; //D3D11_TEXTURE_ADDRESS_MIRROR;
+    sampler_desc.MipLODBias     = -1;
+    sampler_desc.MaxAnisotropy  = 16;
     sampler_desc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
-    sampler_desc.MinLOD = 0;
-    sampler_desc.MaxLOD = 100;
+    sampler_desc.BorderColor[0] = 1.f;
+    sampler_desc.BorderColor[1] = 1.f;
+    sampler_desc.BorderColor[2] = 1.f;
+    sampler_desc.BorderColor[3] = 1.f;
+    sampler_desc.MinLOD         = 0;
+    sampler_desc.MaxLOD         = 100;
     d11->device->CreateSamplerState(&sampler_desc, &sampler);
     d11->context->PSSetSamplers(0, 1, &sampler);
 
     //
     // constant buffer setup
     //
-    D3D11_BUFFER_DESC MatrixBufferDesc = {};
-    MatrixBufferDesc.ByteWidth = 3*sizeof(m4);
-    MatrixBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-    MatrixBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    MatrixBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    MatrixBufferDesc.MiscFlags = 0;
-    MatrixBufferDesc.StructureByteStride = sizeof(m4);
-    d11->device->CreateBuffer(&MatrixBufferDesc, 0, &d11->matrix_buff);
+    D3D11_BUFFER_DESC matrix_buffer_desc = {};
+    matrix_buffer_desc.ByteWidth           = 4*sizeof(m4);
+    matrix_buffer_desc.Usage               = D3D11_USAGE_DYNAMIC;
+    matrix_buffer_desc.BindFlags           = D3D11_BIND_CONSTANT_BUFFER;
+    matrix_buffer_desc.CPUAccessFlags      = D3D11_CPU_ACCESS_WRITE;
+    matrix_buffer_desc.MiscFlags           = 0;
+    matrix_buffer_desc.StructureByteStride = sizeof(m4);
+    d11->device->CreateBuffer(&matrix_buffer_desc, 0, &d11->matrix_buff);
 
     D3D11_BUFFER_DESC light_buff_desc = {};
     light_buff_desc.ByteWidth = sizeof(Platform_Light_Buffer);
@@ -703,6 +707,9 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
             matrix_buffer[0] = *model_transform;
             matrix_buffer[1] = camera;
             matrix_buffer[2] = screen;
+
+            if (shadow_space_transform) matrix_buffer[3] = *shadow_space_transform;
+
             d11->context->Unmap(d11->matrix_buff, 0);
         }
 

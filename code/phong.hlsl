@@ -1,9 +1,11 @@
 struct VS_OUTPUT
 {
-    float4 proj_pos  : SV_POSITION;
-    float2 txc       : TEXCOORD0;
-    float3 normal    : NORMAL;
-    float3 world_pos : POSITION;
+    float4 proj_pos         : SV_POSITION;
+    float2 txc              : TEXCOORD0;
+    float3 normal           : NORMAL;
+    float3 world_pos        : POSITION0;
+    float3 shadow_space_pos : POSITION1;
+    float3 testpos : POSITION2;
 };
 
 #if VERTEX_HLSL // ---------------------------------------------------
@@ -21,18 +23,22 @@ cbuffer Matrices: register(b0)
     float4x4 model;
     float4x4 camera;
     float4x4 projection;
+    float4x4 shadow_space;
 }
 
 VS_OUTPUT
 main(VS_INPUT input)
 {
+    float4x4 screen_space   = mul(projection, camera);
+
     VS_OUTPUT output;
-    output.world_pos = (float3)mul(model, float4(input.pos, 1.f));
-    float4x4 screen_space = mul(projection, camera);
-    output.proj_pos = mul(screen_space, float4(output.world_pos, 1.f));
-    output.txc = input.txc;
-    //output.txc = input.pos.xy;
-    output.normal = input.normal;
+    output.world_pos        = (float3)mul(model, float4(input.pos, 1.f));
+    output.proj_pos         = mul(screen_space, float4(output.world_pos, 1.f));
+    output.testpos         = mul(screen_space, float4(output.world_pos, 1.f)).xyz;
+    output.txc              = input.txc;
+    //output.txc            = input.pos.xy;
+    output.normal           = input.normal;
+    output.shadow_space_pos = mul(shadow_space, float4(output.world_pos, 1.f)).xyz;
 
     return(output);
 }
@@ -84,6 +90,8 @@ light_intensity(float3 color, float3 dir, float3 eyedir, float3 normal)
 PS_OUTPUT
 main(VS_OUTPUT input)
 {
+    input.shadow_space_pos.y *= -1.f;
+
     PS_OUTPUT output; 
     float3 normal = normalize(input.normal);
     float3 eyedir = normalize(eye - input.world_pos);
@@ -98,7 +106,14 @@ main(VS_OUTPUT input)
             else // light_type[light_index] == PHONG_LIGHT_DIRECTIONAL
                 inv_light_dir = -lightpos[light_index];
 
-            final_lighting += light_intensity(light_color[light_index], inv_light_dir, eyedir, normal);
+            float3 light_influence = light_intensity(light_color[light_index], inv_light_dir, eyedir, normal);
+
+            if (light_index == 0) {
+                float shadow_depth   = shadow_texture.Sample(texture_sampler_state, input.shadow_space_pos.xy * 0.5f + 0.5f);
+                float current_shadow = input.shadow_space_pos.z;
+                light_influence *= (float)(current_shadow < shadow_depth);
+            }
+            final_lighting += light_influence;
         }
     }
     else {
@@ -110,6 +125,8 @@ main(VS_OUTPUT input)
     else
     {
         output.color = float4(final_lighting, 1.f) * model_texture.Sample(texture_sampler_state, input.txc);
+        //output.color = float4(input.shadow_space_pos.zzz, 1.f);
+        //output.color = shadow_texture.Sample(texture_sampler_state, input.shadow_space_pos.xy * 0.5f + 0.5f);
     }
 
     return(output);

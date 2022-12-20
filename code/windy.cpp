@@ -1058,6 +1058,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     // ===========================================================================================================
     // Shadow Pass
 #if 1
+    m4 shadow_space_transform = {};
     { // draw_level for shadow pass
         renderer->internal_sandbox_call(true);
 
@@ -1066,15 +1067,16 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         v3  light_pos = -15.f * (light_dir->xyz);
 
         m4    cam_space_transform = camera_m4(light_pos, light_dir->xyz, {0.f, 0.f, 1.f});
-        m4 screen_space_transform = ortho_m4(50.f, ar, 0.01f, 1000.f);
+        m4 screen_space_transform = ortho_m4(50.f, ar, 0.01f, 50.f);
+        shadow_space_transform = screen_space_transform * cam_space_transform;
 
-        renderer->draw_mesh(0, 0, state->shadow_shader, &cam_space_transform, &screen_space_transform, &state->current_level->lights, &light_pos, 0, 1);
+        renderer->draw_mesh(0, 0, state->shadow_shader, &cam_space_transform, &screen_space_transform, &state->current_level->lights, &light_pos, 0, 1, 0);
 
         for (Entity *mesh = state->current_level->objects; 
              (mesh - state->current_level->objects) < state->current_level->n_objects;
              mesh += 1)
         {
-            renderer->draw_mesh(&mesh->buffers, &mesh->movable.transform, 0, 0, 0, 0, 0, 0, 1);
+            renderer->draw_mesh(&mesh->buffers, &mesh->movable.transform, 0, 0, 0, 0, 0, 0, 1, 0);
         }
 
         renderer->internal_sandbox_call(false);
@@ -1095,20 +1097,23 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             screen_space_transform = ortho_m4(active_camera->ortho_scale, ar, active_camera->min_z, active_camera->max_z);
         }
 
-        renderer->draw_mesh(0, 0, state->phong_shader, &cam_space_transform, &screen_space_transform, &state->current_level->lights, &active_camera->pos, 0, 1);
+        m4 identity = identity_m4();
+        //renderer->draw_mesh(&state->fulluvquad_level->objects[0].buffers, &identity, 0, &identity, &identity, 0, 0, 0, 1, &shadow_space_transform);
+
+        renderer->draw_mesh(0, 0, state->phong_shader, &cam_space_transform, &screen_space_transform, &state->current_level->lights, &active_camera->pos, 0, 1, 0);
         renderer->set_active_texture(&state->tex_white, 0);
         renderer->set_active_texture(&renderer->shadow_texture, 1);
         //renderer->set_active_texture(&state->tex_white, 1);
 
         //renderer->draw_mesh(0, 0, state->phong_shader, &cam_space_transform, &screen_space_transform, &state->current_level->lights, &active_camera->pos, 0, 1);
 
-        renderer->draw_mesh(&state->fulluvquad_level->objects[0].buffers, &state->fulluvquad_level->objects[0].movable.transform, 0, 0, 0, 0, 0, 0, 1);
+        //renderer->draw_mesh(&state->fulluvquad_level->objects[0].buffers, &state->fulluvquad_level->objects[0].movable.transform, 0, 0, 0, 0, 0, 0, 1, &shadow_space_transform);
 
         for (Entity *mesh = state->current_level->objects; 
              (mesh - state->current_level->objects) < state->current_level->n_objects;
              mesh += 1)
         {
-            renderer->draw_mesh(&mesh->buffers, &mesh->movable.transform, 0, 0, 0, 0, 0, 0, 1);
+            renderer->draw_mesh(&mesh->buffers, &mesh->movable.transform, 0, 0, 0, 0, 0, 0, 1, &shadow_space_transform);
         }
     } // end draw_level
 
@@ -1122,12 +1127,12 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         m4 transf = transform_m4(state->editor_camera._pivot, {}, make_v3(0.3f));
         buff.settings.color = {0.7f, 0.3f, 0.5f};
 
-        renderer->draw_mesh(&buff, &transf, state->phong_shader, 0, 0, 0, 0, 0, true);
+        renderer->draw_mesh(&buff, &transf, state->phong_shader, 0, 0, 0, 0, 0, true, 0);
 
         // debug: editor camera target
         transf = transform_m4(state->editor_camera.target, {}, make_v3(0.3f));
         buff.settings.color = {0.3f, 0.7f, 0.5f};
-        renderer->draw_mesh(&buff, &transf, state->phong_shader, 0, 0, 0, 0, 0, true);
+        renderer->draw_mesh(&buff, &transf, state->phong_shader, 0, 0, 0, 0, 0, true, 0);
     }
 #endif
 
@@ -1136,7 +1141,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     {
         if (state->selected)
         {
-            renderer->draw_mesh(&state->selected->buffers, &state->selected->movable.transform, state->phong_shader, 0, 0, 0, 0, 1, true);
+            renderer->draw_mesh(&state->selected->buffers, &state->selected->movable.transform, state->phong_shader, 0, 0, 0, 0, 1, true, 0);
 
             for (Entity *entity = state->gizmo_level->objects; 
                  (entity - state->gizmo_level->objects) < state->gizmo_level->n_objects;
@@ -1144,7 +1149,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             {
                 entity->movable.transform = state->selected->movable.transform;
 
-                renderer->draw_mesh(&entity->buffers, &entity->movable.transform, state->phong_shader, 0, 0, 0, 0, 0, false);
+                renderer->draw_mesh(&entity->buffers, &entity->movable.transform, state->phong_shader, 0, 0, 0, 0, 0, false, 0);
 
             }
         }
