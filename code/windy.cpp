@@ -737,7 +737,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->current_level->lights.pos  [*light_count] = make_v4(normalize({0.3f, 0.9f, -1.0f})); // this is actually direction
         state->current_level->lights.light_count += 1;
 
-#if 0
+#if 1
         state->current_level->lights.type [*light_count].t = PHONG_LIGHT_DIRECTIONAL;
         state->current_level->lights.color[*light_count] = {0.2f,  0.2f, 0.17f};
         state->current_level->lights.pos  [*light_count] = make_v4(normalize({-0.3f, -0.9f, 1.0f})); // this is actually direction
@@ -1064,10 +1064,10 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
         r32 ar = 1.f;
         v4 *light_dir = &state->current_level->lights.pos[0];
-        v3  light_pos = -15.f * (light_dir->xyz);
+        v3  light_pos = state->player->movable.p -15.f * (light_dir->xyz);
 
-        m4    cam_space_transform = camera_m4(light_pos, light_dir->xyz, {0.f, 0.f, 1.f});
-        m4 screen_space_transform = ortho_m4(50.f, ar, 0.01f, 50.f);
+        m4    cam_space_transform = camera_m4(light_pos, light_pos + light_dir->xyz, {0.f, 0.f, 1.f});
+        m4 screen_space_transform = ortho_m4(20.f, ar, 0.01f, 50.f);
         shadow_space_transform = screen_space_transform * cam_space_transform;
 
         renderer->draw_mesh(0, 0, state->shadow_shader, &cam_space_transform, &screen_space_transform, &state->current_level->lights, &light_pos, 0, 1, 0);
