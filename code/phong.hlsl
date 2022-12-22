@@ -107,10 +107,35 @@ main(VS_OUTPUT input)
             float3 light_influence = light_intensity(light_color[light_index], inv_light_dir, eyedir, normal);
 
             if (light_index == 0) {
+                uint shadow_texture_width;
+                uint shadow_texture_height;
+                shadow_texture.GetDimensions(shadow_texture_width, shadow_texture_height);
+                float shadow_texture_pixel_offset_x = 1.f / (float)shadow_texture_width;
+                float shadow_texture_pixel_offset_y = 1.f / (float)shadow_texture_height;
+
+#define SHADOW_BIAS 0.005f
                 input.shadow_space_pos.y *= -1.f;
-                float shadow_depth   = shadow_texture.Sample(texture_sampler_state, input.shadow_space_pos.xy * 0.5f + 0.5f);
-                float current_shadow = input.shadow_space_pos.z;
-                light_influence     *= (float)(!(current_shadow > shadow_depth && (current_shadow - shadow_depth) > 0.01f));
+
+                float current_depth = input.shadow_space_pos.z;
+
+                float2 start_txc = input.shadow_space_pos.xy * 0.5f + 0.5f;
+
+                float shadow_coeff = 0.f;
+                [unroll(3)] for (int xoffset = -1; xoffset <= 1; xoffset += 1) {
+                [unroll(3)] for (int yoffset = -1; yoffset <= 1; yoffset += 1) {
+                    float2 offset;
+                    offset.x = (float)xoffset * shadow_texture_pixel_offset_x;
+                    offset.y = (float)yoffset * shadow_texture_pixel_offset_y;
+
+                    float shadow_depth = shadow_texture.Sample(texture_sampler_state, start_txc + offset);
+                    float depth_difference = current_depth - shadow_depth;
+                    if ((current_depth - SHADOW_BIAS) < shadow_depth) {
+                        shadow_coeff += 1.f;
+                    }
+                }}
+
+                shadow_coeff    /= 9.f;
+                light_influence *= shadow_coeff;
             }
             final_lighting += light_influence;
         }
