@@ -328,9 +328,9 @@ PLATFORM_RELOAD_SHADER(d3d11_reload_shader)
 
     char vertex_path[MAX_PATH] = {};
     char  pixel_path[MAX_PATH] = {};
-    cat("assets\\", name, vertex_path);
+    cat("assets\\shaders\\", name, vertex_path);
     cat(vertex_path, ".vsh", vertex_path);
-    cat("assets\\", name,  pixel_path);
+    cat("assets\\shaders\\", name,  pixel_path);
     cat( pixel_path, ".psh",  pixel_path);
     shader->vertex_file.path = vertex_path;
     shader->pixel_file.path  =  pixel_path;

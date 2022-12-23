@@ -29,7 +29,7 @@ cl %CommonCompilerFlags% "%proj_root%\code\win32_layer.cpp" -Fmwin32_windy.map /
 
 popd REM .\build
 
-pushd ".\rundata\assets"
+pushd ".\rundata\assets\shaders"
 
 call :compile_shader phong
 call :compile_shader fonts
