@@ -114,7 +114,6 @@ struct Game_State
     Entity *player;
 
     Platform_Texture  tex_white;
-    Platform_Texture  tex_yellow;
     Platform_Texture  tex_sky;
     Platform_Font     inconsolata;
 

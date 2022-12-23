@@ -129,7 +129,8 @@ main(VS_OUTPUT input)
 
                     float shadow_depth = shadow_texture.Sample(texture_sampler_state, start_txc + offset);
                     float depth_difference = current_depth - shadow_depth;
-                    if ((current_depth - SHADOW_BIAS) < shadow_depth) {
+                    if (current_depth > 1.f ||
+                        (current_depth - SHADOW_BIAS) < shadow_depth) {
                         shadow_coeff += 1.f;
                     }
                 }}

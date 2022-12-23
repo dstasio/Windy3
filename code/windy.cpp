@@ -656,8 +656,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         renderer->reload_shader(    state->shadow_shader, "shadow");
         renderer->reload_shader(&renderer-> debug_shader, "debug");
 
-        state->tex_white  = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_white.bmp");
-        state->tex_yellow = load_texture(renderer, &volatile_pool, memory->read_file, "assets/blockout_yellow.bmp");
+        state->tex_white  = load_texture(renderer, &volatile_pool, memory->read_file, "assets/palette.bmp");
         renderer->init_square_mesh(state->font_shader);
 
         { // Editor Gizmo
@@ -1057,17 +1056,25 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     // 
     // ===========================================================================================================
     // Shadow Pass
-#if 1
+#if WINDY_DEBUG // --- TEMPORARY ---
+    local_persist bool __show_shadow_camera = false;
+    if (input->pressed.f) __show_shadow_camera = !__show_shadow_camera;
+    m4 __shadow_screen;
+    m4 __shadow_camera;
+#endif
+
     m4 shadow_space_transform = {};
     { // draw_level for shadow pass
         renderer->internal_sandbox_call(true);
 
         r32 ar = 1.f;
         v4 *light_dir = &state->current_level->lights.pos[0];
-        v3  light_pos = state->player->movable.p -15.f * (light_dir->xyz);
+        v3  light_pos = state->player->movable.p -30.f * (light_dir->xyz);
 
         m4    cam_space_transform = camera_m4(light_pos, light_pos + light_dir->xyz, {0.f, 0.f, 1.f});
-        m4 screen_space_transform = ortho_m4(20.f, ar, 0.01f, 50.f);
+        m4 screen_space_transform = ortho_m4(50.f, ar, 5.f, 100.f);
+        __shadow_screen = screen_space_transform;
+        __shadow_camera = cam_space_transform;
         shadow_space_transform = screen_space_transform * cam_space_transform;
 
         renderer->draw_mesh(0, 0, state->shadow_shader, &cam_space_transform, &screen_space_transform, &state->current_level->lights, &light_pos, 0, 1, 0);
@@ -1081,7 +1088,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
         renderer->internal_sandbox_call(false);
     } // end draw_level for shadow pass
-#endif
 
     // 
     // ===========================================================================================================
@@ -1100,7 +1106,10 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         m4 identity = identity_m4();
         //renderer->draw_mesh(&state->fulluvquad_level->objects[0].buffers, &identity, 0, &identity, &identity, 0, 0, 0, 1, &shadow_space_transform);
 
-        renderer->draw_mesh(0, 0, state->phong_shader, &cam_space_transform, &screen_space_transform, &state->current_level->lights, &active_camera->pos, 0, 1, 0);
+        if (__show_shadow_camera)
+            renderer->draw_mesh(0, 0, state->phong_shader, &__shadow_camera, &__shadow_screen, &state->current_level->lights, &active_camera->pos, 0, 1, 0);
+        else
+            renderer->draw_mesh(0, 0, state->phong_shader, &cam_space_transform, &screen_space_transform, &state->current_level->lights, &active_camera->pos, 0, 1, 0);
         renderer->set_active_texture(&state->tex_white, 0);
         renderer->set_active_texture(&renderer->shadow_texture, 1);
         //renderer->set_active_texture(&state->tex_white, 1);
