@@ -48,6 +48,7 @@
 
 global b32 global_running;
 global b32 global_error;
+global b32 global_window_is_active;
 global Platform_Renderer *global_renderer;
 
 inline u64
@@ -230,11 +231,22 @@ LRESULT CALLBACK WindyProc(
     LRESULT Result = 0;
     switch(Message)
     {
+        case WM_ACTIVATEAPP:
+        {
+            global_window_is_active = w == TRUE;
+            if (w == TRUE) {
+                inform("activate\n");
+            }
+            else {
+                inform("deactivate\n");
+            }
+        } break;
+
         case WM_CLOSE:
         {
             DestroyWindow(WindowHandle);
         } break;
-            
+
         case WM_DESTROY:
         {
             global_running = false;
@@ -256,7 +268,7 @@ LRESULT CALLBACK WindyProc(
 
         default:
         {
-          Result = DefWindowProcA(WindowHandle, Message, w, l);
+            Result = DefWindowProcA(WindowHandle, Message, w, l);
         } break;
     }
     return(Result);
@@ -392,7 +404,6 @@ WinMain(
 
         Input input = {};
         MSG Message = {};
-        u32 Count = 0;
 
         s64 last_performance_counter = 0;
         s64 current_performance_counter = 0;
@@ -403,6 +414,8 @@ WinMain(
             input.pressed = {};
             input.mouse.dp = {};
             input.mouse.wheel = 0;
+
+            if (!global_window_is_active) input.held = {};
 
             Assert(QueryPerformanceCounter((LARGE_INTEGER *)&current_performance_counter));
             r32 dtime = (r32)(current_performance_counter - last_performance_counter) / (r32)performance_counter_frequency;

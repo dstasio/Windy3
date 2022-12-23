@@ -175,23 +175,37 @@ PLATFORM_LOAD_RENDERER(win32_load_d3d11)
         d11->device->CreateDepthStencilState(&depth_stencil_settings, &d11->nodepth_nostencil_state);
     }
 
-    ID3D11SamplerState *sampler;
-    D3D11_SAMPLER_DESC sampler_desc = {};
-    sampler_desc.Filter         = D3D11_FILTER_ANISOTROPIC;//D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    sampler_desc.AddressU       = D3D11_TEXTURE_ADDRESS_BORDER; //D3D11_TEXTURE_ADDRESS_MIRROR;
-    sampler_desc.AddressV       = D3D11_TEXTURE_ADDRESS_BORDER; //D3D11_TEXTURE_ADDRESS_MIRROR;
-    sampler_desc.AddressW       = D3D11_TEXTURE_ADDRESS_BORDER; //D3D11_TEXTURE_ADDRESS_MIRROR;
-    sampler_desc.MipLODBias     = -1;
-    sampler_desc.MaxAnisotropy  = 16;
-    sampler_desc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
-    sampler_desc.BorderColor[0] = 1.f;
-    sampler_desc.BorderColor[1] = 1.f;
-    sampler_desc.BorderColor[2] = 1.f;
-    sampler_desc.BorderColor[3] = 1.f;
-    sampler_desc.MinLOD         = 0;
-    sampler_desc.MaxLOD         = 100;
-    d11->device->CreateSamplerState(&sampler_desc, &sampler);
-    d11->context->PSSetSamplers(0, 1, &sampler);
+    ID3D11SamplerState *pixel_sampler;
+    D3D11_SAMPLER_DESC pixel_sampler_desc = {};
+    pixel_sampler_desc.Filter         = D3D11_FILTER_MIN_MAG_MIP_POINT;
+    pixel_sampler_desc.AddressU       = D3D11_TEXTURE_ADDRESS_WRAP;
+    pixel_sampler_desc.AddressV       = D3D11_TEXTURE_ADDRESS_WRAP;
+    pixel_sampler_desc.AddressW       = D3D11_TEXTURE_ADDRESS_WRAP;
+    pixel_sampler_desc.MipLODBias     = -1;
+    pixel_sampler_desc.MaxAnisotropy  = 16;
+    pixel_sampler_desc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
+    pixel_sampler_desc.MinLOD         = 0;
+    pixel_sampler_desc.MaxLOD         = 100;
+    d11->device->CreateSamplerState(&pixel_sampler_desc, &pixel_sampler);
+    d11->context->PSSetSamplers(0, 1, &pixel_sampler);
+
+    ID3D11SamplerState *shadow_sampler;
+    D3D11_SAMPLER_DESC shadow_sampler_desc = {};
+    shadow_sampler_desc.Filter         = D3D11_FILTER_ANISOTROPIC;
+    shadow_sampler_desc.AddressU       = D3D11_TEXTURE_ADDRESS_BORDER;
+    shadow_sampler_desc.AddressV       = D3D11_TEXTURE_ADDRESS_BORDER;
+    shadow_sampler_desc.AddressW       = D3D11_TEXTURE_ADDRESS_BORDER;
+    shadow_sampler_desc.MipLODBias     = -1;
+    shadow_sampler_desc.MaxAnisotropy  = 16;
+    shadow_sampler_desc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
+    shadow_sampler_desc.BorderColor[0] = 1.f;
+    shadow_sampler_desc.BorderColor[1] = 1.f;
+    shadow_sampler_desc.BorderColor[2] = 1.f;
+    shadow_sampler_desc.BorderColor[3] = 1.f;
+    shadow_sampler_desc.MinLOD         = 0;
+    shadow_sampler_desc.MaxLOD         = 100;
+    d11->device->CreateSamplerState(&shadow_sampler_desc, &shadow_sampler);
+    d11->context->PSSetSamplers(1, 1, &shadow_sampler);
 
     //
     // constant buffer setup
@@ -418,7 +432,13 @@ inline PLATFORM_SET_ACTIVE_MESH(d3d11_set_active_mesh)
 inline PLATFORM_SET_ACTIVE_TEXTURE(d3d11_set_active_texture)
 {
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
-    d11->context->PSSetShaderResources(slot, 1, (ID3D11ShaderResourceView **) &texture->platform); 
+    if (texture)
+        d11->context->PSSetShaderResources(slot, 1, (ID3D11ShaderResourceView **) &texture->platform); 
+    else
+    {
+        ID3D11ShaderResourceView *nullres = 0;
+        d11->context->PSSetShaderResources(slot, 1, &nullres); 
+    }
 }
 
 inline PLATFORM_SET_ACTIVE_SHADER(d3d11_set_active_shader)
@@ -743,6 +763,9 @@ PLATFORM_DRAW_MESH(d3d11_draw_mesh)
 PLATFORM_RENDERER_INTERNAL_SANDBOX_CALL(d3d11_internal_sandbox_call)
 {
     D11_Renderer *d11 = (D11_Renderer *)global_renderer->platform;
+
+    d3d11_set_active_texture(0, 1);
+
     d11->context->OMSetRenderTargets(1, &d11->render_target_lights[0], d11->render_target_lights_depth[0]);
 
     if (enable)

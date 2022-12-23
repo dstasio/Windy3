@@ -47,6 +47,7 @@ main(VS_INPUT input)
 #include "hlsl_defines.h"
 
 SamplerState texture_sampler_state;
+SamplerState  shadow_sampler_state;
 
 struct PS_OUTPUT
 {
@@ -127,7 +128,7 @@ main(VS_OUTPUT input)
                     offset.x = (float)xoffset * shadow_texture_pixel_offset_x;
                     offset.y = (float)yoffset * shadow_texture_pixel_offset_y;
 
-                    float shadow_depth = shadow_texture.Sample(texture_sampler_state, start_txc + offset);
+                    float shadow_depth = shadow_texture.Sample(shadow_sampler_state, start_txc + offset);
                     float depth_difference = current_depth - shadow_depth;
                     if (current_depth > 1.f ||
                         (current_depth - SHADOW_BIAS) < shadow_depth) {
@@ -149,9 +150,8 @@ main(VS_OUTPUT input)
         output.color = float4(final_lighting, 1.f) * float4(solid_color, 1.f);
     else
     {
+        input.txc.y *= -1.f;
         output.color = float4(final_lighting, 1.f) * model_texture.Sample(texture_sampler_state, input.txc);
-        //output.color = float4(input.shadow_space_pos.zzz, 1.f);
-        //output.color = shadow_texture.Sample(texture_sampler_state, input.shadow_space_pos.xy * 0.5f + 0.5f);
     }
 
     return(output);

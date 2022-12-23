@@ -703,7 +703,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->game_camera.max_z       = 1000.f;
         state->game_camera.is_ortho    = 0;
 
-#if 0
         state->editor_camera.pos         = {-6.17f, 2.3f, 7.f};
         state->editor_camera.target      = {-4.f, 2.4f, 6.f};
         state->editor_camera.up          = { 0.f,  0.f, 1.f};
@@ -712,17 +711,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->editor_camera.max_z       = 1000.f;
         state->editor_camera.is_ortho    = 0;
         state->editor_camera.ortho_scale = 20.f;
-#else
-        state->editor_camera.pos         = normalize({0.3f, 0.9f, -1.0f});
-        state->editor_camera.target      = state->editor_camera.pos;
-        state->editor_camera.pos *= -15.f;
-        state->editor_camera.up          = { 0.f,  0.f, 1.f};
-        state->editor_camera.fov         = DegToRad*60.f;
-        state->editor_camera.min_z       = 0.01f;
-        state->editor_camera.max_z       = 1000.f;
-        state->editor_camera.is_ortho    = 1;
-        state->editor_camera.ortho_scale = 50.f;
-#endif
         //state->editor_camera._radius     = 8.f;
         //state->editor_camera._pitch      = 0.453010529f;
         //state->editor_camera._yaw        = 2.88975f;
@@ -736,7 +724,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->current_level->lights.pos  [*light_count] = make_v4(normalize({0.3f, 0.9f, -1.0f})); // this is actually direction
         state->current_level->lights.light_count += 1;
 
-#if 1
         state->current_level->lights.type [*light_count].t = PHONG_LIGHT_DIRECTIONAL;
         state->current_level->lights.color[*light_count] = {0.2f,  0.2f, 0.17f};
         state->current_level->lights.pos  [*light_count] = make_v4(normalize({-0.3f, -0.9f, 1.0f})); // this is actually direction
@@ -751,7 +738,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state->current_level->lights.color[*light_count] = {0.05f,  0.1f, 0.23f};
         state->current_level->lights.pos  [*light_count] = {15.f, 0.f, 5.f};
         state->current_level->lights.light_count += 1;
-#endif
 
         memory->is_initialized = true;
     } // end initialization
@@ -1167,11 +1153,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
 
 
     char debug_text[128] = {};
-    snprintf(debug_text, 128, "FPS: %.2f, X: %.2f\n"
-                              "            Y: %.2f", 1.f/dtime, input->mouse.dx, input->mouse.dy);
+    snprintf(debug_text, 128, "FPS: %.2f, Mouse Left: %s"
+                              "            Alt: %s", 1.f/dtime, input->held.mouse_left ? "Pressed" : "not", input->held.alt ? "Pressed" : "not");
 #if 0
     if (check_mesh_collision(state->player, state->current_level))
-        snprintf(debug_text, 128, "FPS: %.2f INTERSECTION", 1.f/dtime);
+        snprintf(debug_text, 128, "PS: %.2f INTERSECTION", 1.f/dtime);
 #endif
     renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
 
