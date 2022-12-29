@@ -19,8 +19,11 @@ class WexpExport(bpy.types.Operator):
     bl_label  = "Wexp"
 
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
-    settings_triangulate    = True
-    settings_smooth_normals = True
+    settings_smooth_normals: bpy.props.BoolProperty(name="Smooth Normals", default=True, description="Export vertices with smooth normals.")
+    
+    # unused settings
+    settings_triangulate:    bpy.props.BoolProperty(name="Triangulate",    default=True, description="Triangulate ngons before exporting.")
+    settings_selection_only: bpy.props.BoolProperty(name="Selected only",  default=True, description="Only export selected objects.")
 
     @classmethod
     def poll(cls, context):
@@ -199,10 +202,13 @@ class WexpExport(bpy.types.Operator):
                 #file.close()
                 #file = None
         
-        
+        bpy.context.scene.wexp_last_export_path = self.filepath
         return {'FINISHED'}
 
     def invoke(self, context, event):
+        if bpy.context.scene.wexp_last_export_path:
+            self.filepath = bpy.context.scene.wexp_last_export_path
+        
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
@@ -211,15 +217,19 @@ class WexpExport(bpy.types.Operator):
 def menu_func(self, context):
     self.layout.operator_context = 'INVOKE_DEFAULT'
     self.layout.operator(WexpExport.bl_idname, text=".wexp")
+    
 
 def register():
     bpy.utils.register_class(WexpExport)
     bpy.types.TOPBAR_MT_file_export.append(menu_func)
     
+    bpy.types.Scene.wexp_last_export_path = bpy.props.StringProperty(name="wexp_last_export_path")
+    
 def unregister():
     bpy.utils.unregister_class(WexpExport)
     bpy.types.TOPBAR_MT_file_export.remove(menu_func)
 
+    del bpy.types.Scene.wexp_last_export_path
 
 if __name__ == "__main__":
     register()
