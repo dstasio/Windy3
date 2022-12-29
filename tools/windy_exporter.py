@@ -10,17 +10,17 @@ bl_info = {
     "category": "Import-Export",
 }
 
-def float_to_int(f):
+def float_as_int(f):
     return struct.unpack('i', struct.pack('f', f))[0]
 
 class WexpExport(bpy.types.Operator):
     """Test exporter which just writes hello world"""
     bl_idname = "export.wexp"
-    bl_label = "Wexp"
+    bl_label  = "Wexp"
 
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
-    settings_triangulate = True
-    settings_smooth_normals = False
+    settings_triangulate    = True
+    settings_smooth_normals = True
 
     @classmethod
     def poll(cls, context):
@@ -67,37 +67,44 @@ class WexpExport(bpy.types.Operator):
                 vertex_data = []
                 
                 if self.settings_smooth_normals:
-                    pass
                     # @todo: this code doesn't discriminate between tris, quads and n-gons
                     
+                    polygons_loops = [mesh.polygons[x].loop_indices for x in range(len(mesh.polygons))]
                     #loop_indices = [mesh.polygons[x].loop_indices[y] for x in range(len(mesh.polygons)) for y in range(len(mesh.polygons[x].loop_indices))]
-                    #for loop_index in loop_indices:
-                    #    v = mesh.vertices[mesh.loops[loop_index].vertex_index]
-                    #    uv = mesh.uv_layers.active.data[loop_index].uv
-                    #    n = v.normal
-                    #    v_hash  = float_to_int(v.co.x*3) + float_to_int(v.co.y*5) + float_to_int(v.co.z*7)
-                    #    n_hash  = float_to_int(  n.x*11) + float_to_int(  n.y*13) + float_to_int(  n.z*17)
-                    #    uv_hash = float_to_int( uv.x*19) + float_to_int( uv.y*23)
-                    #    hash = v_hash*27 + n_hash*29 + uv_hash*31
-                    #    if (hash in hashes):
-                    #        ngon_indices.append(hashes.index(hash))
-                    #    else:
-                    #        vertex_data.extend([v.co.x, v.co.y, v.co.z, n.x, n.y, n.z, uv.x, uv.y])
-                    #        ngon_indices.append(len(hashes))
-                    #        hashes.append(hash)
-                    #    
-                    #    if (ISDEBUG):
-                    #        print("{:2d}: {: .2f}, {: .2f}, {: .2f},  {: .2f}, {: .2f}, {: .2f},  {:.2f}, {:.2f} -> {: d}".\
-                    #        format(ngon_indices[len(ngon_indices)-1], v.co.x, v.co.y, v.co.z, n.x, n.y, n.z, uv.x, uv.y, hash))
+                    for polygon_indices in polygons_loops:
+                        for loop_index in polygon_indices:
+                            v  = mesh.vertices[mesh.loops[loop_index].vertex_index]
+                            uv = mesh.uv_layers.active.data[loop_index].uv
+                            n  = v.normal
+                            v_hash  = float_as_int(v.co.x*3) + float_as_int(v.co.y*5) + float_as_int(v.co.z*7)
+                            n_hash  = float_as_int(  n.x*11) + float_as_int(  n.y*13) + float_as_int(  n.z*17)
+                            uv_hash = float_as_int( uv.x*19) + float_as_int( uv.y*23)
+                            hash = v_hash*27 + n_hash*29 + uv_hash*31
+                            if (hash in hashes):
+                                if len(polygon_indices) > 3:
+                                    ngon_indices.append(hashes.index(hash))
+                                else:
+                                    trigon_indices.append(hashes.index(hash))
+                            else:
+                                vertex_data.extend([v.co.x, v.co.y, v.co.z, n.x, n.y, n.z, uv.x, uv.y])
+                                if (len(polygon_indices) > 3):
+                                    ngon_indices.append(len(hashes))
+                                else:
+                                    trigon_indices.append(len(hashes))
+                                hashes.append(hash)
+                            
+                            if (ISDEBUG):
+                                print("{:2d}: {: .2f}, {: .2f}, {: .2f},  {: .2f}, {: .2f}, {: .2f},  {:.2f}, {:.2f} -> {: d}".\
+                                format(ngon_indices[len(ngon_indices)-1], v.co.x, v.co.y, v.co.z, n.x, n.y, n.z, uv.x, uv.y, hash))
                 else: # flat normals
                     for polygon in mesh.polygons:
                         for loop_index in polygon.loop_indices:
-                            v = mesh.vertices[mesh.loops[loop_index].vertex_index]
+                            v  = mesh.vertices[mesh.loops[loop_index].vertex_index]
                             uv = mesh.uv_layers.active.data[loop_index].uv
-                            n = polygon.normal
-                            v_hash  = float_to_int(v.co.x*3) + float_to_int(v.co.y*5) + float_to_int(v.co.z*7)
-                            n_hash  = float_to_int(  n.x*11) + float_to_int(  n.y*13) + float_to_int(  n.z*17)
-                            uv_hash = float_to_int( uv.x*19) + float_to_int( uv.y*23)
+                            n  = polygon.normal
+                            v_hash  = float_as_int(v.co.x*3) + float_as_int(v.co.y*5) + float_as_int(v.co.z*7)
+                            n_hash  = float_as_int(  n.x*11) + float_as_int(  n.y*13) + float_as_int(  n.z*17)
+                            uv_hash = float_as_int( uv.x*19) + float_as_int( uv.y*23)
                             hash = v_hash*27 + n_hash*29 + uv_hash*31
                             if (hash in hashes):
                                 if (len(polygon.loop_indices) > 3):
@@ -121,6 +128,7 @@ class WexpExport(bpy.types.Operator):
                 #
                 # Triangulating
                 # @todo: check if this works with ngons
+                # @todo: this probably breaks with >5gons
                 for i in range(0, len(ngon_indices), 4):
                     trigon_indices.append(ngon_indices[i])
                     trigon_indices.append(ngon_indices[i+1])
