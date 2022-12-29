@@ -180,7 +180,8 @@ typedef PLATFORM_DRAW_RECT(Platform_Draw_Rect);
 typedef PLATFORM_DRAW_TEXT(Platform_Draw_Text);
 
 #define PLATFORM_DRAW_MESH(name) void name(Platform_Mesh_Buffers *mesh, m4 *model_transform, Platform_Shader *shader, \
-                                           m4 *in_camera, m4 *in_screen, Platform_Light_Buffer *light, v3 *eye, bool wireframe_overlay, bool depth_enabled, m4 *shadow_space_transform)
+                                           m4 *in_camera, m4 *in_screen, Platform_Light_Buffer *light, v3 *eye,       \
+                                           bool wireframe_overlay, bool depth_enabled, m4 *shadow_space_transform)
 typedef PLATFORM_DRAW_MESH(Platform_Draw_Mesh);
 
 #define PLATFORM_DRAW_LINE(name) void name(v3 a, v3 b, v4 color, bool on_top, m4 *camera_transform, m4 *screen_transform)

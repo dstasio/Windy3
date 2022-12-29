@@ -651,9 +651,11 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
         state-> phong_shader = push_struct(&volatile_pool, Platform_Shader);
         state->  font_shader = push_struct(&volatile_pool, Platform_Shader);
         state->shadow_shader = push_struct(&volatile_pool, Platform_Shader);
+        state->   pbr_shader = push_struct(&volatile_pool, Platform_Shader);
         renderer->reload_shader(    state-> phong_shader, "phong");
         renderer->reload_shader(    state->  font_shader, "fonts");
         renderer->reload_shader(    state->shadow_shader, "shadow");
+        renderer->reload_shader(    state->   pbr_shader, "pbr");
         renderer->reload_shader(&renderer-> debug_shader, "debug");
 
         state->tex_white  = load_texture(renderer, &volatile_pool, memory->read_file, "assets/palette.bmp");
@@ -678,10 +680,17 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             arrow_z->buffers.settings.color = {0.1f, .3f, .9f};
         }
 
+#if WINDY_DEBUG
         { // Full-uv quad
             state->fulluvquad_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/debug/full_uv_quad.wexp", state->phong_shader);
             assert(state->fulluvquad_level->n_objects == 1);
         }
+
+        { // Sphere
+            state->debug_sphere_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/debug/sphere.wexp", state->pbr_shader);
+            assert(state->debug_sphere_level->n_objects == 1);
+        }
+#endif
 
         state->current_level = new_level(&volatile_pool, renderer, memory->read_file, memory->close_file, "assets/level_0.wexp", state->phong_shader);
         state->player        = find_mesh_checked(state->current_level, "Player");
@@ -1035,6 +1044,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     renderer->reload_shader(    state-> phong_shader, "phong");
     renderer->reload_shader(    state->  font_shader, "fonts");
     renderer->reload_shader(    state->shadow_shader, "shadow");
+    renderer->reload_shader(    state->   pbr_shader, "pbr");
     renderer->reload_shader(&renderer-> debug_shader, "debug");
 #endif // WINDY_INTERNAL
     renderer->clear(CLEAR_COLOR|CLEAR_DEPTH|CLEAR_SHADOWS, HEX_COLOR(0x80d5f2), 1.f, 1);
@@ -1079,6 +1089,22 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     // ===========================================================================================================
     // Main Render Pass (Shaded)
     renderer->set_render_targets();
+
+#if WINDY_DEBUG
+    { // debug sphere rendering
+        r32 ar = (r32)width/(r32)height;
+        m4 cam_space_transform    = camera_m4(active_camera->pos, active_camera->target, active_camera->up);
+        m4 screen_space_transform = perspective_m4(active_camera->fov, ar, active_camera->min_z, active_camera->max_z);
+        if (active_camera->is_ortho)
+        {
+            screen_space_transform = ortho_m4(active_camera->ortho_scale, ar, active_camera->min_z, active_camera->max_z);
+        }
+
+        renderer->draw_mesh(&state->debug_sphere_level->objects[0].buffers,
+                            &state->debug_sphere_level->objects[0].movable.transform,
+                            state->pbr_shader, &cam_space_transform, &screen_space_transform, &state->current_level->lights, &active_camera->pos, 0, 1, 0);
+    } // end debug sphere rendering
+#endif
 
     { // draw_level
         r32 ar = (r32)width/(r32)height;
@@ -1155,7 +1181,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     char debug_text[128] = {};
     snprintf(debug_text, 128, "FPS: %.2f, Mouse Left: %s"
                               "            Alt: %s", 1.f/dtime, input->held.mouse_left ? "Pressed" : "not", input->held.alt ? "Pressed" : "not");
-#if 0
+#if 1
     if (check_mesh_collision(state->player, state->current_level))
         snprintf(debug_text, 128, "PS: %.2f INTERSECTION", 1.f/dtime);
 #endif

@@ -34,6 +34,7 @@ pushd ".\rundata\assets\shaders"
 call :compile_shader phong
 call :compile_shader fonts
 call :compile_shader shadow
+call :compile_shader pbr
 call :compile_shader debug
 REM call :compile_shader background
 

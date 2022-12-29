@@ -102,10 +102,15 @@ struct Game_State
     Platform_Shader  * phong_shader;
     Platform_Shader  *  font_shader;
     Platform_Shader  *shadow_shader;
+    Platform_Shader  *   pbr_shader;
 
     Level *   current_level;
     Level *     gizmo_level;
-    Level *fulluvquad_level;
+
+#if WINDY_DEBUG
+    Level *  fulluvquad_level;
+    Level *debug_sphere_level;
+#endif
 
     Entity *selected;
     b32     is_mouse_dragging; // true if mouse is being held down
