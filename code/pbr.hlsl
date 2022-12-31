@@ -87,6 +87,22 @@ phong(float3 color, float3 dir, float3 eyedir, float3 normal)
     return color*(ambient+diffuse+specular*0.2f);
 }
 
+#define PI 3.141592653589793238462643383279502884197169399f
+
+// PBR
+float normal_distribution_ggx(float3 normal, float3 halfway_vector, float roughness)
+{
+    float roughness_squared          = roughness*roughness;
+    float normal_dot_halfway         = max(dot(normal, halfway_vector), 0.0);
+    float normal_dot_halfway_squared = normal_dot_halfway*normal_dot_halfway;
+	
+    float numerator   = roughness_squared;
+    float denominator = (normal_dot_halfway_squared * (roughness_squared - 1.0) + 1.0);
+    denominator       = PI * denominator * denominator;
+	
+    return numerator / denominator;
+}
+
 PS_OUTPUT
 main(VS_OUTPUT input)
 {
@@ -97,7 +113,10 @@ main(VS_OUTPUT input)
     float3 inv_light_dir = -lightpos[0];
     float3 phong_light   = phong(light_color[0], inv_light_dir, eyedir, normal);
 
-    output.color = float4(phong_light, 1.f);
+    float3 halfway_vector = normalize(inv_light_dir + eyedir);
+    float ggx = normal_distribution_ggx(normal, halfway_vector, 1.f);
+
+    output.color = float4(ggx, ggx, ggx, 1.f);
     return output;
 }
 
