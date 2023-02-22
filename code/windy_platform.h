@@ -268,10 +268,37 @@ struct Input_Mouse
     s16 wheel;
 };
 
+struct Input_Gamepad
+{
+    u32 start;
+    u32 select;
+
+    u32 dpad_up;
+    u32 dpad_down;
+    u32 dpad_left;
+    u32 dpad_right;
+
+    u32 action_up;
+    u32 action_down;
+    u32 action_left;
+    u32 action_right;
+
+    r32 trigger_left;
+    v2    stick_left_dir;
+    r32   stick_left_magnitude;
+    u32   thumb_left;
+
+    r32 trigger_right;
+    v2    stick_right_dir;
+    r32   stick_right_magnitude;
+    u32   thumb_right;
+};
+
 struct Input
 {
     Input_Keyboard pressed;
     Input_Keyboard held;
+    Input_Gamepad  gamepad;
 
     Input_Mouse mouse;
 };

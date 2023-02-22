@@ -1090,7 +1090,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     // Main Render Pass (Shaded)
     renderer->set_render_targets();
 
-#if WINDY_DEBUG
+#if 0 && WINDY_DEBUG // PBR sphere
     { // debug sphere rendering
         r32 ar = (r32)width/(r32)height;
         m4 cam_space_transform    = camera_m4(active_camera->pos, active_camera->target, active_camera->up);
@@ -1104,7 +1104,7 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                             &state->debug_sphere_level->objects[0].movable.transform,
                             state->pbr_shader, &cam_space_transform, &screen_space_transform, &state->current_level->lights, &active_camera->pos, 0, 1, 0);
     } // end debug sphere rendering
-#endif
+#endif  // PBR sphere
 
     { // draw_level
         r32 ar = (r32)width/(r32)height;
@@ -1183,8 +1183,13 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
                               "            Alt: %s", 1.f/dtime, input->held.mouse_left ? "Pressed" : "not", input->held.alt ? "Pressed" : "not");
 #if 1
     if (check_mesh_collision(state->player, state->current_level))
-        snprintf(debug_text, 128, "PS: %.2f INTERSECTION", 1.f/dtime);
+        snprintf(debug_text, 128, "FPS: %.2f INTERSECTION", 1.f/dtime);
 #endif
+
+    snprintf(debug_text, 128, "X: %.2f\nY: %.2f\nm: %.2f\nRT: %.2f\nLT: %.2f",
+             input->gamepad.stick_right_dir.x, input->gamepad.stick_right_dir.y, input->gamepad.stick_right_magnitude,
+             input->gamepad.trigger_right, input->gamepad.trigger_left);
+
     renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
 
     {

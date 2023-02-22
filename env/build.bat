@@ -22,10 +22,11 @@ REM user32.lib gdi32.lib winmm.lib
 :: 32-bit build
 REM cl %CommonCompilerFlags% "%proj_root%\code\win32_handmade.cpp" /link -subsystem:windows,5.1 %CommonLinkerFlags%
 
+REM Dynamic load for xinput
 :: 64-bit build
 del *.pdb > NUL 2> NUL
 cl %CommonCompilerFlags% "%proj_root%\code\windy.cpp" -Fmwindy.map -LD /link -incremental:no /PDB:windy_%random%.pdb -EXPORT:WindyUpdateAndRender
-cl %CommonCompilerFlags% "%proj_root%\code\win32_layer.cpp" -Fmwin32_windy.map /link %CommonLinkerFlags% d3d11.lib
+cl %CommonCompilerFlags% "%proj_root%\code\win32_layer.cpp" -Fmwin32_windy.map /link %CommonLinkerFlags% d3d11.lib xinput.lib
 
 popd REM .\build
 

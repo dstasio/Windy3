@@ -71,10 +71,37 @@ v2 operator*(v2 a, r32 b)
     return result;
 }
 
+v2 operator/(v2 a, r32 b)
+{
+    v2 result = {a.x/b, a.y/b};
+    return result;
+}
+
 v2 &operator*=(v2 &a, r32 b)
 {
     a = a * b;
     return a;
+}
+
+v2 &operator/=(v2 &a, r32 b)
+{
+    a = a / b;
+    return a;
+}
+
+inline r32
+length_sq(v2 a)
+{
+    r32 result = a.x*a.x + a.y*a.y;
+    return result;
+}
+
+inline r32
+length(v2 a)
+{
+    r32 result = length_sq(a);
+    result = sqrtf(result);
+    return result;
 }
 
 //

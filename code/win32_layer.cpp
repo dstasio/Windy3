@@ -10,6 +10,7 @@
 #include <d3d11.h>
 #include <dxgidebug.h>
 #include <dxgidebug.h>
+#include <xinput.h>
 
 #include "windy.h"
 #include "windy_platform.h"
@@ -42,7 +43,8 @@
 #define mouse_up(id, key)      
 #define file_time_to_u64(wt) ((wt).dwLowDateTime | ((u64)((wt).dwHighDateTime) << 32))
 
-// @todo, @critical: Use VirtualProtect (handmade_hero day 004) to check for freed-memory access errors
+// @todo, @critical: Use VirtualProtect (handmade_hero day 004) to check for freed-memory access errors.
+// @todo, @qol:      Xinput dynamic loading.
 
 #include "config.h"
 
@@ -542,6 +544,61 @@ WinMain(
                         return 0;
                     }
                 }
+
+                // Getting controller input
+                XINPUT_STATE controller_state = {};
+                if (XInputGetState(0, &controller_state) == ERROR_SUCCESS)
+                {
+                    input.gamepad.start        = 0 != (controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_START);
+                    input.gamepad.select       = 0 != (controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_BACK);
+                    input.gamepad.dpad_up      = 0 != (controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP);
+                    input.gamepad.dpad_down    = 0 != (controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
+                    input.gamepad.dpad_left    = 0 != (controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
+                    input.gamepad.dpad_right   = 0 != (controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
+                    input.gamepad.action_up    = 0 != (controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_Y);
+                    input.gamepad.action_down  = 0 != (controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_A);
+                    input.gamepad.action_left  = 0 != (controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_X);
+                    input.gamepad.action_right = 0 != (controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_B);
+                    input.gamepad.thumb_left   = 0 != (controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB);
+                    input.gamepad.thumb_right  = 0 != (controller_state.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB);
+
+                    input.gamepad.trigger_left   = ((r32)controller_state.Gamepad. bLeftTrigger) / 255.f;
+                    input.gamepad.trigger_right  = ((r32)controller_state.Gamepad.bRightTrigger) / 255.f;
+
+                    input.gamepad.stick_left_dir  = { (r32)controller_state.Gamepad.sThumbLX, (r32)controller_state.Gamepad.sThumbLY };
+                    r32 left_stick_magnitude      = length(input.gamepad.stick_left_dir);
+                    if (left_stick_magnitude > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) {
+                        input.gamepad.stick_left_dir /= left_stick_magnitude;
+
+                        if (left_stick_magnitude > 32767.f) left_stick_magnitude = 32767.f;
+                        left_stick_magnitude -= XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE;
+
+                        input.gamepad.stick_left_magnitude = left_stick_magnitude / (32767.f - (r32)XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+                    }
+                    else {
+                        input.gamepad.stick_left_dir       = {};
+                        input.gamepad.stick_left_magnitude = 0.f;
+                    }
+
+                    input.gamepad.stick_right_dir  = { (r32)controller_state.Gamepad.sThumbRX, (r32)controller_state.Gamepad.sThumbRY };
+                    r32 right_stick_magnitude      = length(input.gamepad.stick_right_dir);
+                    if (right_stick_magnitude > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE) {
+                        input.gamepad.stick_right_dir /= right_stick_magnitude;
+
+                        if (right_stick_magnitude > 32767.f) right_stick_magnitude = 32767.f;
+                        right_stick_magnitude -= XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE;
+
+                        input.gamepad.stick_right_magnitude = right_stick_magnitude / (32767.f - (r32)XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
+                    }
+                    else {
+                        input.gamepad.stick_right_dir       = {};
+                        input.gamepad.stick_right_magnitude = 0.f;
+                    }
+                }
+                else 
+                {
+                }
+
                 Assert(QueryPerformanceCounter((LARGE_INTEGER *)&current_performance_counter));
                 dtime = (r32)(current_performance_counter - last_performance_counter) / (r32)performance_counter_frequency;
             }

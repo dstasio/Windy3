@@ -1,3 +1,7 @@
+Lateral collision detection.
+Proper collision detection.
+
+PBR
 
 Visual debug routines: draw_point, draw_line etc.
 
