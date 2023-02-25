@@ -754,7 +754,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     //
     // ---------------------------------------------------------------
     //
-
     Camera *active_camera = 0;
     { // Input Processing.
         input->mouse.dp *= global_mouse_sensitivity;
@@ -768,16 +767,26 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
             v3 cam_forward = state->game_camera.target - state->game_camera.pos;
             v3 cam_right   = cross(cam_forward, state->game_camera.up);
             player->movable.ddp = {};
-            if (input->held.up)     player->movable.ddp += 150.f * normalize(make_v3(cam_forward.xy));
-            if (input->held.down)   player->movable.ddp -= 150.f * normalize(make_v3(cam_forward.xy));
-            if (input->held.right)  player->movable.ddp += 150.f * normalize(make_v3(cam_right.xy));
-            if (input->held.left)   player->movable.ddp -= 150.f * normalize(make_v3(cam_right.xy));
+
+            v2 movement_input = input->gamepad.stick_left_dir * input->gamepad.stick_left_magnitude;
+
+#define PLAYER_SPEED 150.f
+            movement_input.y += (r32)((bool)input->held.up    || (bool)input->gamepad.dpad_up   ) - (r32)((bool)input->held.down  || (bool)input->gamepad.dpad_down);
+            movement_input.x += (r32)((bool)input->held.right || (bool)input->gamepad.dpad_right) - (r32)((bool)input->held.left  || (bool)input->gamepad.dpad_left);
+
+            if (length_sq(movement_input) > 1.f)
+                movement_input = normalize(movement_input);
+
+            movement_input *= PLAYER_SPEED;
+
+            player->movable.ddp += movement_input.y * normalize(make_v3(cam_forward.xy));
+            player->movable.ddp += movement_input.x * normalize(make_v3(cam_right.xy));
 
 #define GRAVITY       400.f
-#define JUMP_FORCE    900.f
+#define JUMP_FORCE   1000.f
 #define MAX_JUMP_TIME   0.2f
 
-            if (input->held.space) {
+            if (input->held.space || input->gamepad.action_down) {
                 player->movable.ddp += JUMP_FORCE * make_v3(0.f, 0.f, 1.f);
                 jump_time_accumulator += dtime;
             }
@@ -1185,10 +1194,6 @@ GAME_UPDATE_AND_RENDER(WindyUpdateAndRender)
     if (check_mesh_collision(state->player, state->current_level))
         snprintf(debug_text, 128, "FPS: %.2f INTERSECTION", 1.f/dtime);
 #endif
-
-    snprintf(debug_text, 128, "X: %.2f\nY: %.2f\nm: %.2f\nRT: %.2f\nLT: %.2f",
-             input->gamepad.stick_right_dir.x, input->gamepad.stick_right_dir.y, input->gamepad.stick_right_magnitude,
-             input->gamepad.trigger_right, input->gamepad.trigger_left);
 
     renderer->draw_text(state->font_shader, &state->inconsolata, debug_text, make_v2(0, 0));
 

@@ -104,6 +104,13 @@ length(v2 a)
     return result;
 }
 
+inline v2
+normalize(v2 a)
+{
+    v2 result = a / length(a);
+    return result;
+}
+
 //
 // Vector 3 ----------------------------------------------------------
 // 
